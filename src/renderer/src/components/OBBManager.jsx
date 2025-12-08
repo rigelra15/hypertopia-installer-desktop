@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
+import { useLanguage } from '../contexts/LanguageContext'
 
 export function OBBManager({ selectedDevice }) {
+  const { t } = useLanguage()
   const [folders, setFolders] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -24,11 +26,11 @@ export function OBBManager({ selectedDevice }) {
       }
     } catch (err) {
       console.error(err)
-      setError('Failed to list OBB folders.')
+      setError(t('obb_error'))
     } finally {
       setIsLoading(false)
     }
-  }, [selectedDevice])
+  }, [selectedDevice, t])
 
   useEffect(() => {
     fetchOBB()
@@ -65,7 +67,9 @@ export function OBBManager({ selectedDevice }) {
               d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
             />
           </svg>
-          <span className="text-sm font-medium text-white/70 group-hover:text-white">Refresh</span>
+          <span className="text-sm font-medium text-white/70 group-hover:text-white">
+            {t('refresh_btn')}
+          </span>
         </button>
       </div>
 
@@ -83,12 +87,12 @@ export function OBBManager({ selectedDevice }) {
                 />
               </svg>
             </div>
-            <p className="text-sm">Select a device to view OBB folders</p>
+            <p className="text-sm">{t('obb_no_device_msg')}</p>
           </div>
         ) : isLoading ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-white/30">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#0081FB]"></div>
-            <p className="animate-pulse text-sm">Scanning device...</p>
+            <p className="animate-pulse text-sm">{t('obb_scanning')}</p>
           </div>
         ) : error ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-red-500/50">
@@ -104,7 +108,7 @@ export function OBBManager({ selectedDevice }) {
           </div>
         ) : folders.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-white/30">
-            <p className="text-sm">No OBB folders found.</p>
+            <p className="text-sm">{t('obb_empty')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -131,7 +135,7 @@ export function OBBManager({ selectedDevice }) {
                     >
                       {folder}
                     </h3>
-                    <p className="mt-0.5 text-[10px] text-white/40">OBB Folder</p>
+                    <p className="mt-0.5 text-[10px] text-white/40">{t('obb_folder_label')}</p>
                   </div>
                 </div>
               </div>

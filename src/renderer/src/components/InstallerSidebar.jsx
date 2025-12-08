@@ -17,6 +17,7 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
   const [log, setLog] = useState('Waiting...')
   const [isDragOver, setIsDragOver] = useState(false)
   const [isInstalling, setIsInstalling] = useState(false)
+  const [installProgress, setInstallProgress] = useState(null)
   const [errorDetails, setErrorDetails] = useState(null)
   const fileInputRef = useRef(null)
 
@@ -107,6 +108,7 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
       // Pass selectedDevice
       await window.api.installGame(filePath, type, selectedDevice)
       setLog(t('install_success'))
+      setInstallProgress({ step: 'COMPLETED', percent: 100, detail: t('install_success') })
     } catch (err) {
       console.error(err)
       setLog(t('install_failed') + err.message)
@@ -115,6 +117,20 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
       setIsInstalling(false)
     }
   }
+
+  // Progress Listener
+  useEffect(() => {
+    const removeListener =
+      window.api.onInstallProgress &&
+      window.api.onInstallProgress((data) => {
+        setInstallProgress(data)
+        // Also sync log for history/context
+        if (data.detail) setLog(data.detail)
+      })
+    return () => {
+      if (removeListener) removeListener()
+    }
+  }, [])
 
   return (
     <div className="flex h-full w-full flex-col bg-[#0a0a0a] font-['Poppins'] text-white">
@@ -239,10 +255,35 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
           </div>
         )}
 
+        {/* Progress Bar (Visible during installation) */}
+        {(isInstalling || (installProgress && installProgress.step === 'COMPLETED')) &&
+          installProgress && (
+            <div className="mb-6 rounded-xl border border-[#0081FB]/30 bg-[#0081FB]/5 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#0081FB]">
+                  {installProgress.step.replace('_', ' ')}
+                </p>
+                <span className="text-xs font-bold text-white">{installProgress.percent}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-black/40">
+                <div
+                  className="h-full bg-[#0081FB] transition-all duration-300 ease-out"
+                  style={{ width: `${installProgress.percent}%` }}
+                ></div>
+              </div>
+              <p
+                className="mt-2 truncate text-xs font-mono text-white/50"
+                title={installProgress.detail}
+              >
+                {installProgress.detail}
+              </p>
+            </div>
+          )}
+
         {/* Status Log */}
         <div className="mb-6 rounded-xl border border-white/10 bg-[#111] p-4">
           <p className="text-[10px] uppercase tracking-wider text-white/30 font-bold mb-2">
-            Status Log
+            {t('system_log')}
           </p>
           <div className="flex items-center gap-2">
             {isInstalling ? (
@@ -250,7 +291,7 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
             ) : (
               <div className="h-2 w-2 rounded-full bg-white/20"></div>
             )}
-            <p className="text-xs font-mono text-white/70">{log}</p>
+            <p className="text-xs font-mono text-white/70 truncate">{log}</p>
           </div>
         </div>
 

@@ -24,7 +24,7 @@ export function ErrorModal({ isOpen, onClose, error }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm transition-all">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 transition-all">
       <div className="w-full max-w-sm scale-100 transform rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl transition-all">
         <div className="mb-4 flex items-center justify-center rounded-full bg-red-500/10 p-4 text-red-500">
           <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">

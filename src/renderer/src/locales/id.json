@@ -28,5 +28,16 @@
   "select_device": "Pilih Perangkat",
   "error_title": "Oops! Ada Masalah",
   "btn_close": "Tutup",
-  "err_no_device": "Perangkat tidak terdeteksi. Harap sambungkan headset VR via USB dan pastikan ADB aktif."
+  "err_no_device": "Perangkat tidak terdeteksi. Harap sambungkan headset VR via USB dan pastikan ADB aktif.",
+  "storage_label": "Tersedia",
+  "storage_free_of": "dari",
+  "storage_used": "Terpakai",
+  "obb_title": "Manajer OBB",
+  "obb_subtitle": "/sdcard/Android/obb/",
+  "refresh_btn": "Segarkan",
+  "obb_no_device_msg": "Pilih perangkat untuk melihat folder OBB",
+  "obb_scanning": "Memindai perangkat...",
+  "obb_error": "Gagal menampilkan folder OBB.",
+  "obb_empty": "Tidak ada folder OBB ditemukan.",
+  "obb_folder_label": "Folder OBB"
 }

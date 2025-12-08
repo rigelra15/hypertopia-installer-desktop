@@ -88,8 +88,10 @@ app.whenReady().then(() => {
 })
 
 // FUNGSI SCAN ZIP
-const { exec } = require('child_process')
+const { exec, spawn } = require('child_process')
 const path = require('path')
+const fs = require('fs-extra')
+const os = require('os')
 
 // Helper: Get ADB Path
 function getAdbPath() {
@@ -100,111 +102,208 @@ function getAdbPath() {
   return path.join(process.resourcesPath, 'platform-tools/adb')
 }
 
-const fs = require('fs-extra')
-const os = require('os')
-
-// Helper: Extract APK from ZIP
-function extractApkFromZip(zipPath) {
+// Helper: Extract ZIP with Progress
+function extractZipWithProgress(zipPath, targetDir, onProgress) {
   return new Promise((resolve, reject) => {
     yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
       if (err) return reject(err)
 
-      let apkFound = false
+      let totalSize = 0
+      let entriesToExtract = []
 
-      zipfile.readEntry()
+      // Pass 1: Calculate total size and find relevant files
       zipfile.on('entry', (entry) => {
-        const lowerName = entry.fileName.toLowerCase()
-        if (lowerName.endsWith('.apk')) {
-          apkFound = true
-          // Found APK, extract it
-          zipfile.openReadStream(entry, (err, readStream) => {
-            if (err) return reject(err)
-
-            const tempDir = path.join(os.tmpdir(), 'hypertopia-installer')
-            fs.ensureDirSync(tempDir)
-
-            // Generate a safe filename (flattening the path)
-            const safeName = path.basename(entry.fileName)
-            const tempFilePath = path.join(tempDir, safeName)
-            const writeStream = fs.createWriteStream(tempFilePath)
-
-            readStream.pipe(writeStream)
-
-            writeStream.on('finish', () => {
-              zipfile.close()
-              resolve(tempFilePath)
-            })
-
-            writeStream.on('error', (err) => {
-              zipfile.close()
-              reject(err)
-            })
-          })
-        } else {
-          zipfile.readEntry()
-        }
+        totalSize += entry.uncompressedSize
+        entriesToExtract.push(entry)
+        zipfile.readEntry()
       })
 
       zipfile.on('end', () => {
-        if (!apkFound) {
-          reject(new Error('No APK found inside the archive'))
-        }
+        processEntries(entriesToExtract)
       })
 
-      zipfile.on('error', (err) => reject(err))
+      zipfile.readEntry()
+
+      function processEntries(entries) {
+        if (entries.length === 0) {
+          return resolve(true)
+        }
+
+        yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile2) => {
+          if (err) return reject(err)
+
+          let currentExtracted = 0
+
+          zipfile2.readEntry()
+          zipfile2.on('entry', (entry) => {
+            const isApk = entry.fileName.toLowerCase().endsWith('.apk')
+            const isObb = entry.fileName.toLowerCase().endsWith('.obb')
+
+            if (isApk || isObb) {
+              zipfile2.openReadStream(entry, (err, readStream) => {
+                if (err) return reject(err)
+
+                const safePath = path.join(targetDir, entry.fileName)
+
+                // Ensure dir exists
+                if (/\/$/.test(entry.fileName)) {
+                  // Directory
+                  fs.ensureDirSync(safePath)
+                  zipfile2.readEntry()
+                  return
+                }
+
+                fs.ensureDirSync(path.dirname(safePath))
+                const writeStream = fs.createWriteStream(safePath)
+
+                readStream.on('data', (chunk) => {
+                  currentExtracted += chunk.length
+                  if (onProgress) onProgress(currentExtracted, totalSize, entry.fileName)
+                  writeStream.write(chunk)
+                })
+
+                readStream.on('end', () => {
+                  writeStream.end()
+                  zipfile2.readEntry()
+                })
+              })
+            } else {
+              zipfile2.readEntry()
+            }
+          })
+
+          zipfile2.on('end', () => resolve())
+        })
+      }
+    })
+  })
+}
+
+// Helper: Run ADB Command with Spawn
+function runAdbCommand(args, onOutput) {
+  return new Promise((resolve, reject) => {
+    const adb = getAdbPath()
+    const child = spawn(adb, args)
+
+    child.stdout.on('data', (data) => {
+      if (onOutput) onOutput(data.toString())
+    })
+
+    child.stderr.on('data', (data) => {
+      if (onOutput) onOutput(data.toString())
+    })
+
+    child.on('close', (code) => {
+      if (code === 0) resolve()
+      else reject(new Error(`ADB exited with code ${code}`))
     })
   })
 }
 
 // IPC: Install Game
 ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) => {
-  const adb = getAdbPath()
-  const safeAdb = `"${adb}"`
-  const deviceFlag = deviceSerial ? `-s ${deviceSerial}` : ''
+  const deviceFlag = deviceSerial ? ['-s', deviceSerial] : []
+  const tempDir = path.join(os.tmpdir(), 'hypertopia_install_' + Date.now())
 
-  let targetPath = filePath
-  let needsCleanup = false
+  const sendProgress = (step, percent, detail) => {
+    event.sender.send('install-progress', { step, percent, detail })
+  }
 
   try {
-    // Check if it's a ZIP/RAR that needs extraction
-    const lowerPath = filePath.toLowerCase()
-    if (lowerPath.endsWith('.zip') || lowerPath.endsWith('.rar')) {
-      console.log('Detected archive, extracting APK...')
-      targetPath = await extractApkFromZip(filePath)
-      needsCleanup = true
-      console.log('Extracted APK to:', targetPath)
-    }
+    sendProgress('INITIALIZING', 0, 'Preparing...')
+    fs.ensureDirSync(tempDir)
 
-    if (type === 'apk') {
-      const safeFilePath = `"${targetPath}"`
-      const command = `${safeAdb} ${deviceFlag} install -r ${safeFilePath}`
-      console.log('Running:', command)
+    let apkPath = null
+    let obbPath = null
 
-      return new Promise((resolve, reject) => {
-        exec(command, (error, stdout, stderr) => {
-          // Cleanup temp file if needed
-          if (needsCleanup) {
-            fs.unlink(targetPath).catch(console.error)
-          }
+    // 1. EXTRACTION
+    if (filePath.toLowerCase().endsWith('.zip') || filePath.toLowerCase().endsWith('.rar')) {
+      sendProgress('EXTRACTING', 0, 'Scanning archive...')
 
-          if (error) {
-            console.error('ADB Error:', stderr)
-            return reject(new Error(stderr || error.message))
-          }
-          resolve(stdout)
-        })
+      await extractZipWithProgress(filePath, tempDir, (current, total, fileName) => {
+        const percent = total > 0 ? Math.floor((current / total) * 100) : 0
+        sendProgress('EXTRACTING', percent, `Extracting: ${fileName}`)
       })
+
+      const findFileByExt = (dir, ext) => {
+        const ent = fs.readdirSync(dir, { withFileTypes: true })
+        for (const dirent of ent) {
+          const res = path.resolve(dir, dirent.name)
+          if (dirent.isDirectory()) {
+            const found = findFileByExt(res, ext)
+            if (found) return found
+          } else if (res.toLowerCase().endsWith(ext)) {
+            return res
+          }
+        }
+        return null
+      }
+
+      apkPath = findFileByExt(tempDir, '.apk')
+
+      const findObbParent = (dir) => {
+        const ent = fs.readdirSync(dir, { withFileTypes: true })
+        for (const dirent of ent) {
+          const res = path.resolve(dir, dirent.name)
+          if (dirent.isDirectory()) {
+            const children = fs.readdirSync(res)
+            if (children.some((c) => c.toLowerCase().endsWith('.obb'))) {
+              return res
+            }
+            const found = findObbParent(res)
+            if (found) return found
+          }
+        }
+        return null
+      }
+
+      obbPath = findObbParent(tempDir)
     } else {
-      // OBB / Full Install logic here (skipped for now, placeholder)
-      throw new Error(
-        'Full OBB install not yet supported automatically. Please copy OBB manually for now.'
-      )
+      apkPath = filePath
     }
+
+    if (!apkPath) throw new Error('No APK found to install.')
+
+    // 2. INSTALL APK
+    sendProgress('INSTALLING_APK', 0, 'Pushing APK to device...')
+
+    const remoteApk = `/data/local/tmp/base.apk`
+    await runAdbCommand([...deviceFlag, 'push', apkPath, remoteApk], (output) => {
+      const match = output.match(/\[\s*(\d+)%\]/)
+      if (match) {
+        sendProgress('INSTALLING_APK', parseInt(match[1]), 'Pushing APK...')
+      }
+    })
+
+    sendProgress('INSTALLING_APK', 100, 'Installing package...')
+    await runAdbCommand([...deviceFlag, 'shell', 'pm', 'install', '-r', remoteApk])
+
+    runAdbCommand([...deviceFlag, 'shell', 'rm', remoteApk]).catch(console.warn)
+
+    // 3. PUSH OBB
+    if (type === 'full' && obbPath) {
+      sendProgress('PUSHING_OBB', 0, 'Preparing OBB...')
+      // const folderName = path.basename(obbPath)
+      // We push TO obb folder, so we list existing as parent
+
+      await runAdbCommand([...deviceFlag, 'push', obbPath, '/sdcard/Android/obb/'], (output) => {
+        const match = output.match(/\[\s*(\d+)%\]/)
+        const fileMatch = output.match(/: ([^\s]+)/)
+        const detail = fileMatch ? `Copying: ${path.basename(fileMatch[1])}` : `Copying OBB...`
+
+        if (match) {
+          sendProgress('PUSHING_OBB', parseInt(match[1]), detail)
+        }
+      })
+    }
+
+    sendProgress('COMPLETED', 100, 'Installation Finished!')
   } catch (err) {
-    if (needsCleanup) {
-      fs.unlink(targetPath).catch(console.error)
-    }
+    console.error(err)
+    sendProgress('ERROR', 0, err.message)
     throw err
+  } finally {
+    fs.remove(tempDir).catch(console.warn)
   }
 })
 
@@ -304,37 +403,89 @@ ipcMain.handle('list-devices', async () => {
     const safeAdb = `"${adb}"`
     const command = `${safeAdb} devices -l`
 
-    exec(command, (error, stdout, stderr) => {
+    exec(command, async (error, stdout, stderr) => {
       if (error) {
         console.error('ADB List Devices Error:', stderr)
         return resolve([])
       }
 
-      // Parse output
-      // Example:
-      // List of devices attached
-      // 1234567890          device product:quest2 model:Quest_2 device:hollywood_1
-      const devices = []
       const lines = stdout.split('\n')
+      const devices = []
 
       for (const line of lines) {
         if (!line.trim() || line.startsWith('List of devices')) continue
 
-        // Split by whitespace
         const parts = line.split(/\s+/)
         if (parts.length < 2) continue
 
         const serial = parts[0]
-        const state = parts[1] // device, offline, unauthorized
+        const state = parts[1]
 
-        // Capture extra info like model:Quest_2
+        let model = 'Unknown'
         const modelPart = parts.find((p) => p.startsWith('model:'))
-        const model = modelPart ? modelPart.replace('model:', '') : 'Unknown'
+        if (modelPart) {
+          model = modelPart.replace('model:', '').replace(/_/g, ' ')
+          // Add "Meta" prefix if it's a Quest device and doesn't have it
+          if (model.includes('Quest') && !model.includes('Meta')) {
+            model = 'Meta ' + model
+          }
+        }
 
-        const productPart = parts.find((p) => p.startsWith('product:'))
-        const product = productPart ? productPart.replace('product:', '') : 'Android'
+        // Only fetch details if authorized
+        let battery = 'N/A'
+        let storage = { free: '0', total: '0', percent: '0' }
 
-        devices.push({ serial, state, model, product })
+        if (state === 'device') {
+          try {
+            const deviceFlag = `-s ${serial}`
+
+            // Run battery and storage checks in parallel
+            const [batteryResult, storageResult] = await Promise.all([
+              new Promise((res) => {
+                // Remove grep for Windows compatibility
+                exec(`${safeAdb} ${deviceFlag} shell dumpsys battery`, (err, out) => {
+                  if (err) return res('N/A')
+                  const match = out.match(/level:\s*(\d+)/)
+                  res(match ? match[1] + '%' : 'N/A')
+                })
+              }),
+              new Promise((res) => {
+                // df /sdcard outputs: Filesystem 1K-blocks Used Available Use% Mounted on
+                // We want human readable roughly, but df -h is safer on modern android.
+                // If -h fails, we can parse blocks. Let's try simple df first and parse logic.
+                // Actually df -h is standard on most androids now. Use df /sdcard for broader support and calculate?
+                // Let's use df -h /sdcard for simplicity first.
+                exec(`${safeAdb} ${deviceFlag} shell df -h /sdcard`, (err, out) => {
+                  if (err) return res(storage)
+                  // Parse second line
+                  // Filesystem Size Used Avail Use% Mounted on
+                  // /dev/fuse 100G 10G 90G 10% /storage/emulated
+                  const lines = out.trim().split('\n')
+                  if (lines.length >= 2) {
+                    const stats = lines[1].split(/\s+/)
+                    if (stats.length >= 5) {
+                      res({
+                        total: stats[1],
+                        used: stats[2],
+                        free: stats[3],
+                        percent: stats[4]
+                      })
+                      return
+                    }
+                  }
+                  res(storage)
+                })
+              })
+            ])
+
+            battery = batteryResult
+            storage = storageResult
+          } catch (e) {
+            console.warn(`Failed to get details for ${serial}`, e)
+          }
+        }
+
+        devices.push({ serial, state, model, battery, storage })
       }
 
       resolve(devices)

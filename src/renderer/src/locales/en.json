@@ -28,5 +28,16 @@
   "select_device": "Select Device",
   "error_title": "Oops! Something went wrong",
   "btn_close": "Close",
-  "err_no_device": "No device detected. Please connect your VR headset via USB and ensure ADB is enabled."
+  "err_no_device": "No device detected. Please connect your VR headset via USB and ensure ADB is enabled.",
+  "storage_label": "Available",
+  "storage_free_of": "of",
+  "storage_used": "Used",
+  "obb_title": "OBB Manager",
+  "obb_subtitle": "/sdcard/Android/obb/",
+  "refresh_btn": "Refresh",
+  "obb_no_device_msg": "Select a device to view OBB folders",
+  "obb_scanning": "Scanning device...",
+  "obb_error": "Failed to list OBB folders.",
+  "obb_empty": "No OBB folders found.",
+  "obb_folder_label": "OBB Folder"
 }

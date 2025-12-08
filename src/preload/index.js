@@ -10,7 +10,12 @@ const api = {
     ipcRenderer.invoke('install-game', { filePath, type, deviceSerial }),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   listObb: (deviceSerial) => ipcRenderer.invoke('list-obb', deviceSerial),
-  listDevices: () => ipcRenderer.invoke('list-devices')
+  listDevices: () => ipcRenderer.invoke('list-devices'),
+  onInstallProgress: (callback) => {
+    const subscription = (_event, value) => callback(value)
+    ipcRenderer.on('install-progress', subscription)
+    return () => ipcRenderer.removeListener('install-progress', subscription)
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
