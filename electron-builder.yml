@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: hypertopia-installer
+productName: HyperTopia Installer
 directories:
   buildResources: build
 files:

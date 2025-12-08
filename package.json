@@ -1,7 +1,8 @@
 {
   "name": "hypertopia-installer",
+  "productName": "HyperTopia Installer",
   "version": "1.0.0",
-  "description": "An Electron application with React",
+  "description": "HyperTopia Installer - Advanced VR Sideloading Tool",
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",
