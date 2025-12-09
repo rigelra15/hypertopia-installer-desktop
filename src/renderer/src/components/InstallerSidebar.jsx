@@ -165,8 +165,8 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
       {/* ... (rest of render) */}
 
       {/* Header */}
-      <div className="flex-none p-6 pb-2 flex items-start justify-between">
-        <div className="flex-1">
+      <div className="flex-none p-6 pb-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-4">
+        <div className="flex-1 min-w-[140px]">
           <h1 className="text-xl font-bold tracking-tight">
             HyperTopia <span className="text-[#0081FB]">Installer</span>
           </h1>
@@ -175,7 +175,12 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
           </p>
           {extractPath && (
             <div className="mt-2 flex items-center gap-1.5 text-[9px] text-white/30">
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg
+                className="h-3 w-3 flex-none"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -183,13 +188,13 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
                   d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
                 />
               </svg>
-              <span className="truncate max-w-[180px]" title={extractPath}>
+              <span className="truncate flex-1 min-w-0" title={extractPath}>
                 {extractPath}
               </span>
             </div>
           )}
         </div>
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-2 flex-none">
           <button
             onClick={handleOpenSettings}
             className="rounded-lg bg-white/5 border border-white/10 p-1.5 text-white/50 hover:text-white hover:bg-white/10 transition-all"
@@ -214,7 +219,7 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              className="appearance-none bg-white/5 border border-white/10 rounded-lg pl-3 pr-6 py-1 text-[10px] font-bold text-white/70 hover:text-white uppercase cursor-pointer outline-none focus:ring-1 focus:ring-[#0081FB]/50 transition-all"
+              className="appearance-none bg-white/5 border border-white/10 rounded-lg pl-3 pr-6 py-1 text-[10px] font-bold text-white/70 hover:text-white uppercase cursor-pointer outline-none focus:ring-1 focus:ring-[#0081FB]/50 transition-all w-full"
               title="Change Language"
             >
               <option value="en" className="bg-[#0a0a0a] text-white">
