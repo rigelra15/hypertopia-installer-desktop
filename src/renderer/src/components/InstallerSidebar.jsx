@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { DeviceSelector } from './DeviceSelector'
 import { ErrorModal } from './ErrorModal'
+import { SettingsModal } from './SettingsModal'
 import PropTypes from 'prop-types'
 
 export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
@@ -19,9 +20,22 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
   const [isInstalling, setIsInstalling] = useState(false)
   const [installProgress, setInstallProgress] = useState(null)
   const [errorDetails, setErrorDetails] = useState(null)
+  const [extractPath, setExtractPath] = useState(localStorage.getItem('extractPath') || '')
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const fileInputRef = useRef(null)
 
   // ... (keep useEffects and other handlers as is, until handleInstall)
+
+  const handleOpenSettings = () => {
+    setIsSettingsOpen(true)
+  }
+
+  const handleCloseSettings = (newPath) => {
+    setIsSettingsOpen(false)
+    if (newPath) {
+      setExtractPath(newPath)
+    }
+  }
 
   useEffect(() => {
     const fetchVersion = async () => {
@@ -77,15 +91,23 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
         setLog(t('scan_arch'))
         setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
 
-        const result = await window.api.scanZip(filePath)
-        setStatus(result)
+        try {
+          const result = await window.api.scanZip(filePath)
+          setStatus(result)
 
-        if (result.hasApk && result.hasObb) {
-          setLog(t('bundle_found'))
-        } else if (result.hasApk) {
-          setLog(t('apk_found'))
-        } else {
-          setLog(t('no_content'))
+          if (result.hasApk && result.hasObb) {
+            setLog(t('bundle_found'))
+          } else if (result.hasApk) {
+            setLog(t('apk_found'))
+          } else {
+            setLog(t('no_content'))
+          }
+        } catch (scanErr) {
+          // Handle scan errors
+          setLog('Error: ' + scanErr.message)
+          setErrorDetails(scanErr.message)
+          setFile(null)
+          setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
         }
       } else {
         setLog(t('invalid_fmt'))
@@ -94,6 +116,7 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
     } catch (err) {
       console.error(err)
       setLog('Error: ' + (err.message || 'Unknown error'))
+      setErrorDetails(err.message)
       setFile(null)
     }
   }
@@ -143,37 +166,74 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
 
       {/* Header */}
       <div className="flex-none p-6 pb-2 flex items-start justify-between">
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold tracking-tight">
             HyperTopia <span className="text-[#0081FB]">Installer</span>
           </h1>
           <p className="mt-1 text-xs font-light text-white/50">
             v{appVersion.version} <span className="opacity-50">({appVersion.build})</span>
           </p>
+          {extractPath && (
+            <div className="mt-2 flex items-center gap-1.5 text-[9px] text-white/30">
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                />
+              </svg>
+              <span className="truncate max-w-[180px]" title={extractPath}>
+                {extractPath}
+              </span>
+            </div>
+          )}
         </div>
-        <div className="relative group">
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="appearance-none bg-white/5 border border-white/10 rounded-lg pl-3 pr-6 py-1 text-[10px] font-bold text-white/70 hover:text-white uppercase cursor-pointer outline-none focus:ring-1 focus:ring-[#0081FB]/50 transition-all"
-            title="Change Language"
+        <div className="flex items-start gap-2">
+          <button
+            onClick={handleOpenSettings}
+            className="rounded-lg bg-white/5 border border-white/10 p-1.5 text-white/50 hover:text-white hover:bg-white/10 transition-all"
+            title={t('settings_title')}
           >
-            <option value="en" className="bg-[#0a0a0a] text-white">
-              EN
-            </option>
-            <option value="id" className="bg-[#0a0a0a] text-white">
-              ID
-            </option>
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-white/30 group-hover:text-white/70">
-            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M19 9l-7 7-7-7"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
               />
             </svg>
+          </button>
+          <div className="relative group">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="appearance-none bg-white/5 border border-white/10 rounded-lg pl-3 pr-6 py-1 text-[10px] font-bold text-white/70 hover:text-white uppercase cursor-pointer outline-none focus:ring-1 focus:ring-[#0081FB]/50 transition-all"
+              title="Change Language"
+            >
+              <option value="en" className="bg-[#0a0a0a] text-white">
+                EN
+              </option>
+              <option value="id" className="bg-[#0a0a0a] text-white">
+                ID
+              </option>
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-white/30 group-hover:text-white/70">
+              <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
           </div>
         </div>
       </div>
@@ -362,6 +422,13 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
           onSelect={(serial) => onDeviceSelect(serial)}
         />
       </div>
+
+      {/* Modals */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={handleCloseSettings}
+        currentPath={extractPath}
+      />
     </div>
   )
 }
