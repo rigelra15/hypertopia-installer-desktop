@@ -11,7 +11,7 @@ function run(command) {
   if (!DRY_RUN) {
     try {
       return execSync(command, { encoding: 'utf8', stdio: 'inherit' })
-    } catch (error) {
+    } catch {
       console.error(`Command failed: ${command}`)
       process.exit(1)
     }
@@ -21,7 +21,7 @@ function run(command) {
 function runOutput(command) {
   try {
     return execSync(command, { encoding: 'utf8' }).trim()
-  } catch (error) {
+  } catch {
     console.error(`Command failed: ${command}`)
     process.exit(1)
   }
