@@ -1,11 +1,14 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { useLanguage } from '../contexts/LanguageContext'
+import { AuthHelpModal } from './AuthHelpModal'
 
 export function DeviceSelector({ onSelect, selectedSerial }) {
   const { t } = useLanguage()
   const [devices, setDevices] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [showAuthHelp, setShowAuthHelp] = useState(false)
+  const authHelpDismissed = useRef(false)
 
   const fetchDevices = useCallback(async () => {
     setIsLoading(true)
@@ -13,13 +16,22 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
       const result = await window.api.listDevices()
       setDevices(result)
 
+      // Check for unauthorized devices
+      const hasUnauthorized = result.some((d) => d.state === 'unauthorized')
+      if (hasUnauthorized && !authHelpDismissed.current) {
+        setShowAuthHelp(true)
+      }
+
       // Auto-select logic
       if (!selectedSerial && result.length > 0) {
-        // Select first available
-        onSelect(result[0].serial)
+        // Select first available (prefer authorized)
+        const valid = result.find((d) => d.state === 'device') || result[0]
+        onSelect(valid.serial)
       } else if (selectedSerial && !result.find((d) => d.serial === selectedSerial)) {
         // Verify selected still exists, if not, reset or select new
-        onSelect(result.length > 0 ? result[0].serial : null)
+        const valid =
+          result.length > 0 ? result.find((d) => d.state === 'device') || result[0] : null
+        onSelect(valid ? valid.serial : null)
       }
     } catch (err) {
       console.error('Failed to list devices', err)
@@ -34,8 +46,14 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
     return () => clearInterval(interval)
   }, [fetchDevices])
 
+  const handleCloseAuthHelp = () => {
+    setShowAuthHelp(false)
+    authHelpDismissed.current = true
+  }
+
   return (
     <div className="flex flex-col">
+      <AuthHelpModal isOpen={showAuthHelp} onClose={handleCloseAuthHelp} />
       <div className="relative">
         <select
           value={selectedSerial || ''}
@@ -52,7 +70,8 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
           </option>
           {devices.map((dev) => (
             <option key={dev.serial} value={dev.serial} className="bg-[#0a0a0a]">
-              {dev.model} - {dev.battery || 'N/A'}
+              {dev.model} {dev.state === 'unauthorized' ? '(Unauthorized)' : ''} -{' '}
+              {dev.battery || 'N/A'}
             </option>
           ))}
         </select>

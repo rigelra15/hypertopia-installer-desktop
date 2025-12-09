@@ -1,22 +1,40 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { InstallerSidebar } from './components/InstallerSidebar'
 import { OBBManager } from './components/OBBManager'
+import { SetupModal } from './components/SetupModal'
 
 function App() {
   const [selectedDevice, setSelectedDevice] = useState(null)
+  const [showSetupModal, setShowSetupModal] = useState(false)
+
+  useEffect(() => {
+    // Check if extract path is configured
+    const extractPath = localStorage.getItem('extractPath')
+    if (!extractPath) {
+      setShowSetupModal(true)
+    }
+  }, [])
+
+  const handleSetupComplete = (path) => {
+    setShowSetupModal(false)
+    console.log('Extract path set to:', path)
+  }
 
   return (
-    <div className="flex h-screen w-full flex-col overflow-hidden bg-[#0a0a0a] text-white selection:bg-[#0081FB]/30 md:flex-row">
-      {/* Sidebar: 25% on desktop, full on mobile, scrollable on mobile if needed */}
-      <div className="flex w-full flex-none flex-col border-b border-white/10 md:h-full md:w-1/4 md:min-w-[300px] md:border-b-0 md:border-r">
-        <InstallerSidebar selectedDevice={selectedDevice} onDeviceSelect={setSelectedDevice} />
-      </div>
+    <>
+      <SetupModal isOpen={showSetupModal} onComplete={handleSetupComplete} />
+      <div className="flex h-screen w-full flex-col overflow-hidden bg-[#0a0a0a] text-white selection:bg-[#0081FB]/30 md:flex-row">
+        {/* Sidebar: 25% on desktop, full on mobile, scrollable on mobile if needed */}
+        <div className="flex w-full flex-none flex-col border-b border-white/10 md:h-full md:w-1/4 md:min-w-[300px] md:border-b-0 md:border-r">
+          <InstallerSidebar selectedDevice={selectedDevice} onDeviceSelect={setSelectedDevice} />
+        </div>
 
-      {/* Content: 75% on desktop, full on mobile */}
-      <div className="flex w-full flex-1 flex-col md:h-full md:w-3/4">
-        <OBBManager selectedDevice={selectedDevice} />
+        {/* Content: 75% on desktop, full on mobile */}
+        <div className="flex w-full flex-1 flex-col md:h-full md:w-3/4">
+          <OBBManager selectedDevice={selectedDevice} />
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
