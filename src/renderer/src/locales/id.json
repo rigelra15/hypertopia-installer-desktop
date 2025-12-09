@@ -65,5 +65,16 @@
   "settings_whats_new": "What's New",
   "settings_changelog_desc": "Lihat perubahan dan pembaruan terbaru",
   "changelog_title": "Changelog",
-  "changelog_desc": "Riwayat Perubahan Aplikasi"
+  "changelog_desc": "Riwayat Perubahan Aplikasi",
+  "apps_manager_title": "Apps Manager",
+  "apps_manager_subtitle": "Aplikasi Terinstal",
+  "apps_no_device": "Pilih perangkat untuk melihat aplikasi",
+  "apps_scanning": "Memindai aplikasi...",
+  "apps_error": "Gagal menampilkan aplikasi.",
+  "apps_empty": "Tidak ada aplikasi ditemukan.",
+  "apps_uninstall": "Hapus",
+  "apps_confirm_uninstall": "Apakah Anda yakin ingin menghapus aplikasi ini?",
+  "apps_uninstalling": "Menghapus...",
+  "apps_uninstall_success": "Aplikasi berhasil dihapus",
+  "apps_uninstall_failed": "Gagal menghapus aplikasi"
 }

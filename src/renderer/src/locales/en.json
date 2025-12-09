@@ -65,5 +65,16 @@
   "settings_whats_new": "What's New",
   "settings_changelog_desc": "See latest changes and updates",
   "changelog_title": "Changelog",
-  "changelog_desc": "App Version History"
+  "changelog_desc": "App Version History",
+  "apps_manager_title": "Apps Manager",
+  "apps_manager_subtitle": "Installed Applications",
+  "apps_no_device": "Select a device to view apps",
+  "apps_scanning": "Scanning apps...",
+  "apps_error": "Failed to list apps.",
+  "apps_empty": "No apps found.",
+  "apps_uninstall": "Uninstall",
+  "apps_confirm_uninstall": "Are you sure you want to uninstall this app?",
+  "apps_uninstalling": "Uninstalling...",
+  "apps_uninstall_success": "App uninstalled successfully",
+  "apps_uninstall_failed": "Failed to uninstall app"
 }
