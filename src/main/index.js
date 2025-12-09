@@ -1,8 +1,9 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import yauzl from 'yauzl'
+import yauzl from 'yauzl' // For fast ZIP scanning
+import extract from 'extract-zip' // For reliable ZIP extraction
 
 function createWindow() {
   // Create the browser window.
@@ -61,6 +62,144 @@ ipcMain.handle('get-app-version', async () => {
   })
 })
 
+// IPC: Select Extract Folder
+ipcMain.handle('select-extract-folder', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory', 'createDirectory'],
+    title: 'Select Extract Folder',
+    buttonLabel: 'Select Folder'
+  })
+
+  if (result.canceled) {
+    return null
+  }
+
+  // Auto-create HyperTopiaExtraction subfolder
+  const baseFolder = result.filePaths[0]
+  const extractFolder = path.join(baseFolder, 'HyperTopiaExtraction')
+
+  // Create folder if it doesn't exist
+  try {
+    await fs.ensureDir(extractFolder)
+    console.log('[Folder] Created HyperTopiaExtraction folder at:', extractFolder)
+  } catch (err) {
+    console.error('[Folder] Error creating HyperTopiaExtraction folder:', err)
+  }
+
+  return extractFolder
+})
+
+// IPC: Get Disk Space for a path
+ipcMain.handle('get-disk-space', async (event, folderPath) => {
+  return new Promise((resolve) => {
+    if (!folderPath) {
+      return resolve({ total: '0 GB', free: '0 GB', used: '0 GB', percent: 0 })
+    }
+
+    // Cross-platform disk space check
+    let command = ''
+
+    if (process.platform === 'win32') {
+      // Windows: Use PowerShell for better reliability
+      const drive = folderPath.charAt(0)
+      command = `powershell -Command "Get-PSDrive -Name ${drive} | Select-Object @{Name='Size';Expression={$_.Used + $_.Free}}, @{Name='Free';Expression={$_.Free}} | ConvertTo-Json"`
+    } else if (process.platform === 'darwin' || process.platform === 'linux') {
+      // macOS & Linux: Use df
+      command = `df -k "${folderPath}"`
+    }
+
+    exec(command, { maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        console.warn('Failed to get disk space:', error.message)
+        console.warn('stderr:', stderr)
+        return resolve({ total: '0 GB', free: '0 GB', used: '0 GB', percent: 0 })
+      }
+
+      try {
+        let total = 0
+        let free = 0
+
+        if (process.platform === 'win32') {
+          // Parse PowerShell JSON output
+          console.log('PowerShell output:', stdout)
+          const data = JSON.parse(stdout.trim())
+          total = parseInt(data.Size) || 0
+          free = parseInt(data.Free) || 0
+        } else {
+          // Parse Unix output (df -k)
+          const lines = stdout.trim().split('\n')
+          if (lines.length >= 2) {
+            const parts = lines[1].split(/\s+/)
+            // df -k output: Filesystem 1K-blocks Used Available Use% Mounted
+            total = parseInt(parts[1]) * 1024 // Convert KB to bytes
+            free = parseInt(parts[3]) * 1024 // Convert KB to bytes
+          }
+        }
+
+        const used = total - free
+        const percent = total > 0 ? Math.round((used / total) * 100) : 0
+
+        // Convert to human-readable format
+        const formatBytes = (bytes) => {
+          if (bytes === 0) return '0 GB'
+          const gb = bytes / 1024 ** 3
+          return gb.toFixed(1) + ' GB'
+        }
+
+        console.log('Disk space result:', { total, free, used, percent })
+
+        resolve({
+          total: formatBytes(total),
+          free: formatBytes(free),
+          used: formatBytes(used),
+          percent: percent
+        })
+      } catch (parseErr) {
+        console.warn('Failed to parse disk space:', parseErr.message)
+        console.warn('stdout:', stdout)
+        resolve({ total: '0 GB', free: '0 GB', used: '0 GB', percent: 0 })
+      }
+    })
+  })
+})
+
+// IPC: Get Extract Path from localStorage (via webContents)
+ipcMain.handle('get-extract-path', async (event) => {
+  return new Promise((resolve) => {
+    event.sender
+      .executeJavaScript('localStorage.getItem("extractPath")')
+      .then(resolve)
+      .catch(() => resolve(null))
+  })
+})
+
+// IPC: Move temp folders to new extract path
+ipcMain.handle('move-extract-folder', async (event, oldPath) => {
+  try {
+    // Cleanup old temp folders in old path
+    if (oldPath && (await fs.pathExists(oldPath))) {
+      console.log('[Move] Cleaning up old extract path:', oldPath)
+      const folders = await fs.readdir(oldPath)
+      for (const folder of folders) {
+        if (folder.startsWith('hypertopia_install_')) {
+          const tempPath = path.join(oldPath, folder)
+          try {
+            await fs.remove(tempPath)
+            console.log('[Move] Removed old temp folder:', tempPath)
+          } catch (err) {
+            console.warn('[Move] Failed to remove temp folder:', tempPath, err)
+          }
+        }
+      }
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error('[Move] Error moving extract folder:', err)
+    return { success: false, error: err.message }
+  }
+})
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -85,13 +224,99 @@ app.whenReady().then(() => {
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+
+  // Auto Cleanup: Jalankan cleanup saat app start
+  console.log('[Cleanup] Running startup cleanup...')
+  cleanupOldTempFolders()
+
+  // Auto Cleanup: Jalankan cleanup setiap 1 jam
+  setInterval(
+    () => {
+      console.log('[Cleanup] Running scheduled cleanup...')
+      cleanupOldTempFolders()
+    },
+    60 * 60 * 1000
+  ) // 1 hour
 })
 
-// FUNGSI SCAN ZIP
-const { exec, spawn } = require('child_process')
+// FUNGSI SCAN ZIP/RAR
+import { exec, spawn } from 'child_process'
+import { createExtractorFromData } from 'node-unrar-js'
 const path = require('path')
 const fs = require('fs-extra')
 const os = require('os')
+
+// Auto Cleanup: Bersihkan folder temporary lama
+async function cleanupOldTempFolders(customExtractPath = null) {
+  try {
+    // Cleanup from both OS temp and custom extract path
+    const pathsToClean = [os.tmpdir()]
+    if (customExtractPath && customExtractPath !== os.tmpdir()) {
+      pathsToClean.push(customExtractPath)
+    }
+
+    const now = Date.now()
+    const oneDayAgo = now - 24 * 60 * 60 * 1000 // 24 hours
+
+    for (const extractBasePath of pathsToClean) {
+      // Check if directory exists
+      if (!fs.existsSync(extractBasePath)) continue
+
+      const dirs = fs.readdirSync(extractBasePath, { withFileTypes: true })
+
+      for (const dir of dirs) {
+        if (dir.isDirectory() && dir.name.startsWith('hypertopia_install_')) {
+          const fullPath = path.join(extractBasePath, dir.name)
+          try {
+            const stats = fs.statSync(fullPath)
+            // Hapus folder yang lebih dari 24 jam
+            if (stats.mtimeMs < oneDayAgo) {
+              console.log(`[Cleanup] Removing old temp folder: ${dir.name} from ${extractBasePath}`)
+              await fs.remove(fullPath)
+            }
+          } catch (err) {
+            console.warn(`[Cleanup] Failed to check/remove ${dir.name}:`, err.message)
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Cleanup] Failed to cleanup old temp folders:', err.message)
+  }
+}
+
+// Auto Cleanup: Bersihkan semua folder temporary saat app exit
+async function cleanupAllTempFolders(customExtractPath = null) {
+  try {
+    // Cleanup from both OS temp and custom extract path
+    const pathsToClean = [os.tmpdir()]
+    if (customExtractPath && customExtractPath !== os.tmpdir()) {
+      pathsToClean.push(customExtractPath)
+    }
+
+    for (const extractBasePath of pathsToClean) {
+      if (!fs.existsSync(extractBasePath)) continue
+
+      const dirs = fs.readdirSync(extractBasePath, { withFileTypes: true })
+
+      for (const dir of dirs) {
+        if (dir.isDirectory() && dir.name.startsWith('hypertopia_install_')) {
+          const fullPath = path.join(extractBasePath, dir.name)
+          try {
+            console.log(
+              `[Cleanup] Removing temp folder on exit: ${dir.name} from ${extractBasePath}`
+            )
+            await fs.remove(fullPath)
+          } catch (err) {
+            console.warn(`[Cleanup] Failed to remove ${dir.name}:`, err.message)
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Cleanup] Failed to cleanup temp folders on exit:', err.message)
+  }
+}
 
 // Helper: Get ADB Path
 function getAdbPath() {
@@ -102,81 +327,132 @@ function getAdbPath() {
   return path.join(process.resourcesPath, 'platform-tools/adb')
 }
 
-// Helper: Extract ZIP with Progress
-function extractZipWithProgress(zipPath, targetDir, onProgress) {
-  return new Promise((resolve, reject) => {
-    yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
-      if (err) return reject(err)
+// Helper: Scan RAR for APK and OBB
+async function scanRar(rarPath) {
+  const buf = Uint8Array.from(fs.readFileSync(rarPath)).buffer
+  const extractor = await createExtractorFromData({ data: buf })
 
-      let totalSize = 0
-      let entriesToExtract = []
+  const list = extractor.getFileList()
+  const fileHeaders = [...list.fileHeaders]
 
-      // Pass 1: Calculate total size and find relevant files
-      zipfile.on('entry', (entry) => {
-        totalSize += entry.uncompressedSize
-        entriesToExtract.push(entry)
-        zipfile.readEntry()
-      })
+  let result = {
+    hasApk: false,
+    hasObb: false,
+    apkName: null,
+    obbFolder: null
+  }
 
-      zipfile.on('end', () => {
-        processEntries(entriesToExtract)
-      })
+  for (const file of fileHeaders) {
+    const fileName = file.name
+    const lowerName = fileName.toLowerCase()
 
-      zipfile.readEntry()
+    // Cek APK
+    if (lowerName.endsWith('.apk') && !result.hasApk) {
+      result.hasApk = true
+      result.apkName = fileName.split('/').pop().split('\\').pop()
+    }
 
-      function processEntries(entries) {
-        if (entries.length === 0) {
-          return resolve(true)
-        }
-
-        yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile2) => {
-          if (err) return reject(err)
-
-          let currentExtracted = 0
-
-          zipfile2.readEntry()
-          zipfile2.on('entry', (entry) => {
-            const isApk = entry.fileName.toLowerCase().endsWith('.apk')
-            const isObb = entry.fileName.toLowerCase().endsWith('.obb')
-
-            if (isApk || isObb) {
-              zipfile2.openReadStream(entry, (err, readStream) => {
-                if (err) return reject(err)
-
-                const safePath = path.join(targetDir, entry.fileName)
-
-                // Ensure dir exists
-                if (/\/$/.test(entry.fileName)) {
-                  // Directory
-                  fs.ensureDirSync(safePath)
-                  zipfile2.readEntry()
-                  return
-                }
-
-                fs.ensureDirSync(path.dirname(safePath))
-                const writeStream = fs.createWriteStream(safePath)
-
-                readStream.on('data', (chunk) => {
-                  currentExtracted += chunk.length
-                  if (onProgress) onProgress(currentExtracted, totalSize, entry.fileName)
-                  writeStream.write(chunk)
-                })
-
-                readStream.on('end', () => {
-                  writeStream.end()
-                  zipfile2.readEntry()
-                })
-              })
-            } else {
-              zipfile2.readEntry()
-            }
-          })
-
-          zipfile2.on('end', () => resolve())
-        })
+    // Cek OBB
+    if (
+      (lowerName.endsWith('.obb') ||
+        lowerName.includes('/obb/') ||
+        lowerName.includes('\\obb\\')) &&
+      !result.hasObb
+    ) {
+      result.hasObb = true
+      const parts = fileName.replace(/\\/g, '/').split('/')
+      const obbIndex = parts.findIndex((p) => p.toLowerCase() === 'obb')
+      if (obbIndex !== -1 && parts[obbIndex + 1]) {
+        result.obbFolder = parts[obbIndex + 1]
+      } else if (lowerName.endsWith('.obb')) {
+        result.obbFolder = parts.length > 1 ? parts[parts.length - 2] : 'Detected'
       }
-    })
-  })
+    }
+  }
+
+  return result
+}
+
+// Helper: Extract RAR with Progress
+async function extractRarWithProgress(rarPath, targetDir, onProgress) {
+  fs.ensureDirSync(targetDir)
+
+  // Read RAR file into buffer
+  const buf = Uint8Array.from(fs.readFileSync(rarPath)).buffer
+  const extractor = await createExtractorFromData({ data: buf })
+
+  // Get file list first to calculate total
+  const list = extractor.getFileList()
+  const fileHeaders = [...list.fileHeaders]
+  const totalFiles = fileHeaders.filter(
+    (f) => f.name.toLowerCase().endsWith('.apk') || f.name.toLowerCase().endsWith('.obb')
+  ).length
+
+  let extractedFiles = 0
+
+  // Extract all files
+  const extracted = extractor.extract()
+
+  // Process extracted files
+  for (const file of extracted.files) {
+    const fileName = file.fileHeader.name
+    const lowerName = fileName.toLowerCase()
+
+    // Only save APK and OBB files
+    if (lowerName.endsWith('.apk') || lowerName.endsWith('.obb')) {
+      extractedFiles++
+
+      if (onProgress) {
+        onProgress(extractedFiles, totalFiles, fileName)
+      }
+
+      // Skip if it's a directory
+      if (!file.fileHeader.flags.directory && file.extraction) {
+        const outputPath = path.join(targetDir, fileName)
+        fs.ensureDirSync(path.dirname(outputPath))
+        fs.writeFileSync(outputPath, Buffer.from(file.extraction))
+      }
+    }
+  }
+
+  return true
+}
+
+// Helper: Extract ZIP with Progress (using extract-zip)
+async function extractZipWithProgress(zipPath, targetDir, onProgress) {
+  try {
+    // Extract entire ZIP first (extract-zip is simple and fast)
+    await extract(zipPath, { dir: path.resolve(targetDir) })
+
+    // After extraction, find and report APK/OBB files for progress
+    const findFiles = (dir, ext) => {
+      const results = []
+      const items = fs.readdirSync(dir, { withFileTypes: true })
+
+      for (const item of items) {
+        const fullPath = path.join(dir, item.name)
+        if (item.isDirectory()) {
+          results.push(...findFiles(fullPath, ext))
+        } else if (fullPath.toLowerCase().endsWith(ext)) {
+          results.push(fullPath)
+        }
+      }
+      return results
+    }
+
+    // Report completion with file counts
+    const apkFiles = findFiles(targetDir, '.apk')
+    const obbFiles = findFiles(targetDir, '.obb')
+
+    if (onProgress) {
+      const detail = `Extracted ${apkFiles.length} APK, ${obbFiles.length} OBB files`
+      onProgress(100, 100, detail)
+    }
+
+    return true
+  } catch (err) {
+    throw new Error(`Failed to extract ZIP: ${err.message}`)
+  }
 }
 
 // Helper: Run ADB Command with Spawn
@@ -203,7 +479,19 @@ function runAdbCommand(args, onOutput) {
 // IPC: Install Game
 ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) => {
   const deviceFlag = deviceSerial ? ['-s', deviceSerial] : []
-  const tempDir = path.join(os.tmpdir(), 'hypertopia_install_' + Date.now())
+
+  // Get extract path from localStorage or use temp directory
+  let extractBasePath = os.tmpdir()
+  try {
+    const savedPath = await event.sender.executeJavaScript('localStorage.getItem("extractPath")')
+    if (savedPath) {
+      extractBasePath = savedPath
+    }
+  } catch (err) {
+    console.warn('Could not get extract path from localStorage:', err)
+  }
+
+  const tempDir = path.join(extractBasePath, 'hypertopia_install_' + Date.now())
 
   const sendProgress = (step, percent, detail) => {
     event.sender.send('install-progress', { step, percent, detail })
@@ -218,12 +506,20 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 
     // 1. EXTRACTION
     if (filePath.toLowerCase().endsWith('.zip') || filePath.toLowerCase().endsWith('.rar')) {
+      const isRar = filePath.toLowerCase().endsWith('.rar')
       sendProgress('EXTRACTING', 0, 'Scanning archive...')
 
-      await extractZipWithProgress(filePath, tempDir, (current, total, fileName) => {
-        const percent = total > 0 ? Math.floor((current / total) * 100) : 0
-        sendProgress('EXTRACTING', percent, `Extracting: ${fileName}`)
-      })
+      if (isRar) {
+        await extractRarWithProgress(filePath, tempDir, (current, total, fileName) => {
+          const percent = total > 0 ? Math.floor((current / total) * 100) : 0
+          sendProgress('EXTRACTING', percent, `Extracting: ${fileName}`)
+        })
+      } else {
+        await extractZipWithProgress(filePath, tempDir, (current, total, fileName) => {
+          const percent = total > 0 ? Math.floor((current / total) * 100) : 0
+          sendProgress('EXTRACTING', percent, `Extracting: ${fileName}`)
+        })
+      }
 
       const findFileByExt = (dir, ext) => {
         const ent = fs.readdirSync(dir, { withFileTypes: true })
@@ -283,9 +579,17 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
     // 3. PUSH OBB
     if (type === 'full' && obbPath) {
       sendProgress('PUSHING_OBB', 0, 'Preparing OBB...')
-      // const folderName = path.basename(obbPath)
-      // We push TO obb folder, so we list existing as parent
 
+      // Ensure /sdcard/Android/obb/ directory exists
+      try {
+        await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', '/sdcard/Android/obb/'])
+      } catch (mkdirErr) {
+        console.warn('mkdir /sdcard/Android/obb/ failed (might already exist):', mkdirErr.message)
+        // Continue anyway - folder might already exist
+      }
+
+      // Push OBB folder to device
+      sendProgress('PUSHING_OBB', 0, 'Copying OBB files...')
       await runAdbCommand([...deviceFlag, 'push', obbPath, '/sdcard/Android/obb/'], (output) => {
         const match = output.match(/\[\s*(\d+)%\]/)
         const fileMatch = output.match(/: ([^\s]+)/)
@@ -295,6 +599,8 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
           sendProgress('PUSHING_OBB', parseInt(match[1]), detail)
         }
       })
+
+      sendProgress('PUSHING_OBB', 100, 'OBB files copied successfully')
     }
 
     sendProgress('COMPLETED', 100, 'Installation Finished!')
@@ -303,13 +609,43 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
     sendProgress('ERROR', 0, err.message)
     throw err
   } finally {
-    fs.remove(tempDir).catch(console.warn)
+    // Auto Cleanup: Bersihkan folder temporary setelah instalasi selesai
+    console.log(`[Cleanup] Cleaning up temp folder: ${tempDir}`)
+    sendProgress('CLEANUP', 0, 'Cleaning up temporary files...')
+
+    try {
+      await fs.remove(tempDir)
+      console.log(`[Cleanup] Successfully removed: ${tempDir}`)
+    } catch (cleanupErr) {
+      console.warn(`[Cleanup] Failed to remove temp folder: ${cleanupErr.message}`)
+      // Try force cleanup after delay
+      setTimeout(() => {
+        fs.remove(tempDir).catch((err) =>
+          console.warn(`[Cleanup] Delayed cleanup also failed: ${err.message}`)
+        )
+      }, 1000)
+    }
   }
 })
 
-// FUNGSI SCAN ZIP
+// FUNGSI SCAN ZIP/RAR
 ipcMain.handle('scan-zip', async (event, filePath) => {
+  // Handle RAR files
+  if (filePath.toLowerCase().endsWith('.rar')) {
+    try {
+      return await scanRar(filePath)
+    } catch (err) {
+      console.error('Error scanning RAR:', err)
+      throw new Error('Failed to scan RAR file: ' + err.message)
+    }
+  }
+
+  // Handle ZIP files with yauzl (optimized for fast scanning)
   return new Promise((resolve, reject) => {
+    if (!filePath.toLowerCase().endsWith('.zip')) {
+      return reject(new Error('Only ZIP and RAR formats are supported'))
+    }
+
     let result = {
       hasApk: false,
       hasObb: false,
@@ -319,8 +655,8 @@ ipcMain.handle('scan-zip', async (event, filePath) => {
 
     yauzl.open(filePath, { lazyEntries: true }, (err, zipfile) => {
       if (err) {
-        console.error('Error buka zip:', err)
-        return resolve(result) // Return false semua kalau error
+        console.error('Error opening zip:', err)
+        return resolve(result) // Return empty result on error
       }
 
       zipfile.readEntry()
@@ -329,39 +665,34 @@ ipcMain.handle('scan-zip', async (event, filePath) => {
         const fileName = entry.fileName
         const lowerName = fileName.toLowerCase()
 
-        // Cek APK
+        // Check APK
         if (lowerName.endsWith('.apk') && !result.hasApk) {
           result.hasApk = true
-          result.apkName = fileName.split('/').pop() // Get just the filename
+          result.apkName = fileName.split('/').pop().split('\\').pop()
         }
 
-        // Cek OBB (File .obb atau folder Android/obb)
+        // Check OBB
         if ((lowerName.endsWith('.obb') || lowerName.includes('/obb/')) && !result.hasObb) {
           result.hasObb = true
-          // Try to get the folder name that contains the OBB
-          const parts = fileName.split('/')
+          const parts = fileName.replace(/\\/g, '/').split('/')
           const obbIndex = parts.findIndex((p) => p.toLowerCase() === 'obb')
           if (obbIndex !== -1 && parts[obbIndex + 1]) {
-            result.obbFolder = parts[obbIndex + 1] // Usually com.package.name
+            result.obbFolder = parts[obbIndex + 1]
           } else if (lowerName.endsWith('.obb')) {
-            // Fallback if structure is weird, just get the parent folder
             result.obbFolder = parts.length > 1 ? parts[parts.length - 2] : 'Detected'
           }
         }
 
-        // Optimization: Kalau dua-duanya udah ketemu, stop aja biar cepet
+        // Early termination: Close if both found
         if (result.hasApk && result.hasObb) {
           zipfile.close()
           return resolve(result)
         }
 
-        zipfile.readEntry() // Baca file selanjutnya
+        zipfile.readEntry()
       })
 
-      zipfile.on('end', () => {
-        resolve(result) // Selesai baca semua
-      })
-
+      zipfile.on('end', () => resolve(result))
       zipfile.on('error', (err) => reject(err))
     })
   })
@@ -491,6 +822,15 @@ ipcMain.handle('list-devices', async () => {
       resolve(devices)
     })
   })
+})
+
+// Auto Cleanup: Bersihkan semua temp folder saat app akan quit
+app.on('before-quit', async (event) => {
+  event.preventDefault()
+  console.log('[Cleanup] App is quitting, cleaning up temp folders...')
+  await cleanupAllTempFolders()
+  console.log('[Cleanup] Cleanup complete, exiting...')
+  app.exit(0)
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common

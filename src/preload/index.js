@@ -11,6 +11,9 @@ const api = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   listObb: (deviceSerial) => ipcRenderer.invoke('list-obb', deviceSerial),
   listDevices: () => ipcRenderer.invoke('list-devices'),
+  selectExtractFolder: () => ipcRenderer.invoke('select-extract-folder'),
+  getDiskSpace: (folderPath) => ipcRenderer.invoke('get-disk-space', folderPath),
+  moveExtractFolder: (oldPath) => ipcRenderer.invoke('move-extract-folder', oldPath),
   onInstallProgress: (callback) => {
     const subscription = (_event, value) => callback(value)
     ipcRenderer.on('install-progress', subscription)
