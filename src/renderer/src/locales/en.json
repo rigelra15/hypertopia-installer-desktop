@@ -56,5 +56,14 @@
   "settings_default_folder": "Default Folder",
   "settings_change_folder": "Change Folder",
   "settings_changing": "Changing...",
-  "settings_info": "Changing the folder will clean up old temporary files and move to the new location."
+  "settings_info": "Changing the folder will clean up old temporary files and move to the new location.",
+  "settings_theme": "Theme",
+  "settings_theme_dark": "Dark",
+  "settings_theme_light": "Light",
+  "settings_theme_system": "System",
+  "settings_about": "About",
+  "settings_whats_new": "What's New",
+  "settings_changelog_desc": "See latest changes and updates",
+  "changelog_title": "Changelog",
+  "changelog_desc": "App Version History"
 }
