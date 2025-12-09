@@ -1,9 +1,9 @@
-name: Build Electron App
+name: Build HyperTopia Installer App
 
 on:
   push:
     tags:
-      - "v*.*.*"   # workflow jalan kalau kamu push tag versi, misal v1.0.0
+      - 'v*.*.*'
 
 jobs:
   build:
@@ -22,8 +22,18 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Install Linux system deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-0 libnss3 libxss1 libxtst6 libx11-xcb1 libasound2
+
       - name: Install deps
         run: npm ci
+
+      - name: Build (electron-vite)
+        run: npm run build
 
       - name: Build installers
         env:
