@@ -6,8 +6,43 @@
     <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+      content="
+        default-src 'self';
+        script-src 'self';
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: https://api.iconify.design https://*.hypertopia.store;
+        connect-src 'self' https://api.iconify.design https://api.simplesvg.com;
+        frame-src 'self' https://hypertopia.store https://*.hypertopia.store;
+        font-src 'self' data:;
+      "
     />
+    <style>
+      /* Style untuk scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        /* Lebar scrollbar */
+      }
+    
+      /* Track scrollbar */
+      ::-webkit-scrollbar-track {
+        border-radius: 10px;
+        /* Border radius untuk track */
+      }
+    
+      /* Handle scrollbar */
+      ::-webkit-scrollbar-thumb {
+        background-color: #888;
+        /* Warna handle */
+        border-radius: 10px;
+        /* Border radius untuk handle */
+      }
+    
+      /* Ketika hover pada handle */
+      ::-webkit-scrollbar-thumb:hover {
+        background-color: #555;
+        /* Warna handle saat hover */
+      }
+    </style>
   </head>
 
   <body>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
+import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { AuthHelpModal } from './AuthHelpModal'
 
@@ -81,14 +82,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
           {isLoading && devices.length === 0 ? (
             <div className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white"></div>
           ) : (
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
+            <Icon icon="line-md:chevron-down" className="h-3 w-3" />
           )}
         </div>
 
