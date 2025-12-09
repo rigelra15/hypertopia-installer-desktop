@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { Icon } from '@iconify/react'
+import { useLanguage } from './contexts/LanguageContext'
 import { InstallerSidebar } from './components/InstallerSidebar'
 import { OBBManager } from './components/OBBManager'
 import { AppsManager } from './components/AppsManager'
+import { HypertopiaStore } from './components/HypertopiaStore'
 import { SetupModal } from './components/SetupModal'
 
 function App() {
+  const { t } = useLanguage()
   const [selectedDevice, setSelectedDevice] = useState(null)
-  const [activeTab, setActiveTab] = useState('obb') // 'obb' | 'apps'
+  const [activeTab, setActiveTab] = useState('obb') // 'obb' | 'apps' | 'store'
   const [showSetupModal, setShowSetupModal] = useState(() => {
     // Check if extract path is configured
     const extractPath = localStorage.getItem('extractPath')
@@ -41,7 +44,7 @@ function App() {
               }`}
             >
               <Icon icon="line-md:folder-filled" className="h-4 w-4" />
-              <span>OBB Manager</span>
+              <span>{t('tab_obb')}</span>
             </button>
             <button
               onClick={() => setActiveTab('apps')}
@@ -52,15 +55,28 @@ function App() {
               }`}
             >
               <Icon icon="mdi:application" className="h-4 w-4" />
-              <span>Apps Manager</span>
+              <span>{t('tab_apps')}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('store')}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+                activeTab === 'store'
+                  ? 'bg-[#0081FB]/10 text-[#0081FB]'
+                  : 'text-white/50 hover:bg-white/5 hover:text-white/70'
+              }`}
+            >
+              <Icon icon="mdi:store" className="h-4 w-4" />
+              <span>{t('tab_store')}</span>
             </button>
           </div>
 
           {/* Tab Content */}
           {activeTab === 'obb' ? (
             <OBBManager selectedDevice={selectedDevice} />
-          ) : (
+          ) : activeTab === 'apps' ? (
             <AppsManager selectedDevice={selectedDevice} />
+          ) : (
+            <HypertopiaStore />
           )}
         </div>
       </div>
