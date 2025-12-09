@@ -392,7 +392,7 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
             className={`group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl py-3 text-sm font-semibold transition-all ${
               !file || !status.hasApk || !status.hasObb || isInstalling
                 ? 'cursor-not-allowed bg-white/5 text-white/20'
-                : 'bg-linear-to-r from-[#0081FB] to-[#00C2FF] text-white shadow-lg shadow-[#0081FB]/25 hover:shadow-[#0081FB]/40 hover:scale-[1.02] active:scale-[0.98]'
+                : 'bg-linear-to-r from-purple-600 to-purple-400 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98]'
             }`}
           >
             {isInstalling && status.hasObb ? (

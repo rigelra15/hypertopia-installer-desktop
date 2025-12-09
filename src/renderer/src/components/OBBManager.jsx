@@ -68,7 +68,7 @@ export function OBBManager({ selectedDevice }) {
       {/* Content Area */}
       <div className="custom-scrollbar flex-1 overflow-y-auto pr-2 pb-4">
         {!selectedDevice ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-white/30">
+          <div className="flex h-full flex-col items-center justify-center gap-4 text-white/30">
             <div className="rounded-full bg-white/5 p-4">
               <Icon icon="bi:headset-vr" className="h-8 w-8" />
             </div>
