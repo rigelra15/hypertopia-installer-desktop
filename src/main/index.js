@@ -3,7 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import yauzl from 'yauzl' // For fast ZIP scanning
-import extract from 'extract-zip' // For reliable ZIP extraction
+import unzipper from 'unzipper' // For ZIP extraction with progress
 
 function createWindow() {
   // Create the browser window.
@@ -418,41 +418,80 @@ async function extractRarWithProgress(rarPath, targetDir, onProgress) {
   return true
 }
 
-// Helper: Extract ZIP with Progress (using extract-zip)
-async function extractZipWithProgress(zipPath, targetDir, onProgress) {
-  try {
-    // Extract entire ZIP first (extract-zip is simple and fast)
-    await extract(zipPath, { dir: path.resolve(targetDir) })
+// Helper: Extract ZIP with Progress (using unzipper)
+function extractZipWithProgress(zipPath, targetDir, onProgress) {
+  return new Promise((resolve, reject) => {
+    const fileStream = require('fs').createReadStream(zipPath)
+    let totalSize = 0
+    let extractedSize = 0
+    const relevantFiles = []
 
-    // After extraction, find and report APK/OBB files for progress
-    const findFiles = (dir, ext) => {
-      const results = []
-      const items = fs.readdirSync(dir, { withFileTypes: true })
+    // First pass: Calculate total size of APK and OBB files only
+    fileStream
+      .pipe(unzipper.Parse())
+      .on('entry', (entry) => {
+        const fileName = entry.path
+        const lowerName = fileName.toLowerCase()
+        const isApk = lowerName.endsWith('.apk')
+        const isObb = lowerName.endsWith('.obb')
 
-      for (const item of items) {
-        const fullPath = path.join(dir, item.name)
-        if (item.isDirectory()) {
-          results.push(...findFiles(fullPath, ext))
-        } else if (fullPath.toLowerCase().endsWith(ext)) {
-          results.push(fullPath)
+        if (isApk || isObb) {
+          totalSize += entry.vars.uncompressedSize
+          relevantFiles.push({
+            path: fileName,
+            size: entry.vars.uncompressedSize
+          })
         }
-      }
-      return results
-    }
+        entry.autodrain()
+      })
+      .on('close', () => {
+        // Second pass: Extract files with progress tracking
+        if (relevantFiles.length === 0) {
+          return resolve(true)
+        }
 
-    // Report completion with file counts
-    const apkFiles = findFiles(targetDir, '.apk')
-    const obbFiles = findFiles(targetDir, '.obb')
+        const extractStream = require('fs').createReadStream(zipPath)
+        extractStream
+          .pipe(unzipper.Parse())
+          .on('entry', (entry) => {
+            const fileName = entry.path
+            const lowerName = fileName.toLowerCase()
+            const isApk = lowerName.endsWith('.apk')
+            const isObb = lowerName.endsWith('.obb')
 
-    if (onProgress) {
-      const detail = `Extracted ${apkFiles.length} APK, ${obbFiles.length} OBB files`
-      onProgress(100, 100, detail)
-    }
+            if (isApk || isObb) {
+              const safePath = path.join(targetDir, fileName)
 
-    return true
-  } catch (err) {
-    throw new Error(`Failed to extract ZIP: ${err.message}`)
-  }
+              // Handle directories
+              if (entry.type === 'Directory') {
+                fs.ensureDirSync(safePath)
+                entry.autodrain()
+                return
+              }
+
+              // Extract file
+              fs.ensureDirSync(path.dirname(safePath))
+              const writeStream = fs.createWriteStream(safePath)
+
+              entry.on('data', (chunk) => {
+                extractedSize += chunk.length
+                if (onProgress && totalSize > 0) {
+                  onProgress(extractedSize, totalSize, fileName)
+                }
+              })
+
+              entry.pipe(writeStream).on('finish', () => {
+                writeStream.close()
+              })
+            } else {
+              entry.autodrain()
+            }
+          })
+          .on('close', () => resolve(true))
+          .on('error', (err) => reject(err))
+      })
+      .on('error', (err) => reject(err))
+  })
 }
 
 // Helper: Run ADB Command with Spawn
