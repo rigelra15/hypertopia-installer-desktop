@@ -1,0 +1,31 @@
+{
+  "categories": [
+    {
+      "title": "✨ New Features",
+      "labels": ["feat", "feature"]
+    },
+    {
+      "title": "🐛 Bug Fixes",
+      "labels": ["fix", "bug"]
+    },
+    {
+      "title": "🚀 Improvements",
+      "labels": ["perf", "refactor", "style"]
+    },
+    {
+      "title": "📦 Maintenance",
+      "labels": ["chore", "build", "ci"]
+    }
+  ],
+  "ignore_labels": ["ignore"],
+  "sort": "date",
+  "template": "#{{TITLE}}\n\n#{{CHANGELOG}}",
+  "pr_template": "- #{{TITLE}}\n",
+  "empty_template": "- No changes",
+  "label_extractor": [
+    {
+      "pattern": "^(feat|fix|chore|perf|refactor|style|build|ci)(\\(.+\\))?:",
+      "target": "$1"
+    }
+  ]
+}
