@@ -39,5 +39,22 @@
   "obb_scanning": "Memindai perangkat...",
   "obb_error": "Gagal menampilkan folder OBB.",
   "obb_empty": "Tidak ada folder OBB ditemukan.",
-  "obb_folder_label": "Folder OBB"
+  "obb_folder_label": "Folder OBB",
+  "auth_help_title": "Izinkan Debugging USB",
+  "auth_help_desc": "Perangkat terdeteksi tetapi belum diizinkan. Silakan cek headset VR Anda dan klik 'Allow' pada dialog yang muncul. Centang 'Always allow...' agar tidak perlu mengulanginya.",
+  "auth_help_btn": "Mengerti",
+  "setup_title": "Selamat Datang di HyperTopia Installer",
+  "setup_desc": "Sebelum memulai, silakan pilih folder tempat file sementara akan diekstrak selama instalasi.",
+  "setup_extract_folder": "Folder Ekstrak",
+  "setup_no_folder": "Belum ada folder dipilih",
+  "setup_browse": "Pilih",
+  "setup_folder_hint": "Folder ini akan digunakan untuk menyimpan file yang diekstrak sementara selama instalasi.",
+  "setup_folder_auto_create": "Aplikasi akan otomatis membuat subfolder 'HyperTopiaExtraction' di lokasi yang Anda pilih untuk menyimpan file sementara.",
+  "setup_continue": "Lanjutkan",
+  "settings_title": "Pengaturan",
+  "settings_desc": "Kelola folder ekstraksi dan lihat informasi penyimpanan.",
+  "settings_default_folder": "Folder Default",
+  "settings_change_folder": "Ganti Folder",
+  "settings_changing": "Mengganti...",
+  "settings_info": "Mengganti folder akan membersihkan file sementara lama dan pindah ke lokasi baru."
 }

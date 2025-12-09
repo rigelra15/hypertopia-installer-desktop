@@ -39,5 +39,22 @@
   "obb_scanning": "Scanning device...",
   "obb_error": "Failed to list OBB folders.",
   "obb_empty": "No OBB folders found.",
-  "obb_folder_label": "OBB Folder"
+  "obb_folder_label": "OBB Folder",
+  "auth_help_title": "Allow USB Debugging",
+  "auth_help_desc": "Device detected but unauthorized. Please check your VR headset and click 'Allow' on the dialog. Check 'Always allow...' to skip this next time.",
+  "auth_help_btn": "I Understand",
+  "setup_title": "Welcome to HyperTopia Installer",
+  "setup_desc": "Before we start, please select a folder where temporary files will be extracted during installation.",
+  "setup_extract_folder": "Extract Folder",
+  "setup_no_folder": "No folder selected",
+  "setup_browse": "Browse",
+  "setup_folder_hint": "This folder will be used to temporarily store extracted files during installation.",
+  "setup_folder_auto_create": "The app will automatically create a 'HyperTopiaExtraction' subfolder in your selected location to store temporary files.",
+  "setup_continue": "Continue",
+  "settings_title": "Settings",
+  "settings_desc": "Manage your extraction folder and view storage information.",
+  "settings_default_folder": "Default Folder",
+  "settings_change_folder": "Change Folder",
+  "settings_changing": "Changing...",
+  "settings_info": "Changing the folder will clean up old temporary files and move to the new location."
 }
