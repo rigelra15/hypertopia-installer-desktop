@@ -38,7 +38,7 @@ export function OBBManager({ selectedDevice }) {
   }, [fetchOBB])
 
   return (
-    <div className="flex h-full w-full flex-col bg-[#111] p-6 font-['Poppins'] text-white">
+    <div className="flex flex-1 flex-col bg-[#111] p-6 font-['Poppins'] text-white overflow-hidden">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -66,9 +66,9 @@ export function OBBManager({ selectedDevice }) {
       </div>
 
       {/* Content Area */}
-      <div className="custom-scrollbar flex-1 overflow-y-auto pr-2">
+      <div className="custom-scrollbar flex-1 overflow-y-auto pr-2 pb-4">
         {!selectedDevice ? (
-          <div className="flex h-full flex-col items-center justify-center gap-4 text-white/30">
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-white/30">
             <div className="rounded-full bg-white/5 p-4">
               <Icon icon="bi:headset-vr" className="h-8 w-8" />
             </div>
