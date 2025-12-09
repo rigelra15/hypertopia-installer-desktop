@@ -76,5 +76,9 @@
   "apps_confirm_uninstall": "Apakah Anda yakin ingin menghapus aplikasi ini?",
   "apps_uninstalling": "Menghapus...",
   "apps_uninstall_success": "Aplikasi berhasil dihapus",
-  "apps_uninstall_failed": "Gagal menghapus aplikasi"
+  "apps_uninstall_failed": "Gagal menghapus aplikasi",
+  "open_in_browser": "Buka di Browser",
+  "tab_obb": "Manajer OBB",
+  "tab_apps": "Manajer Aplikasi",
+  "tab_store": "Jelajahi Game"
 }

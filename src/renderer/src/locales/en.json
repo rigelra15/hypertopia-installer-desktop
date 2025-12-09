@@ -76,5 +76,9 @@
   "apps_confirm_uninstall": "Are you sure you want to uninstall this app?",
   "apps_uninstalling": "Uninstalling...",
   "apps_uninstall_success": "App uninstalled successfully",
-  "apps_uninstall_failed": "Failed to uninstall app"
+  "apps_uninstall_failed": "Failed to uninstall app",
+  "open_in_browser": "Open in Browser",
+  "tab_obb": "OBB Manager",
+  "tab_apps": "Apps Manager",
+  "tab_store": "Browse Games"
 }
