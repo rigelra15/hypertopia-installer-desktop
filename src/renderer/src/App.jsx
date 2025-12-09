@@ -1,19 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { InstallerSidebar } from './components/InstallerSidebar'
 import { OBBManager } from './components/OBBManager'
 import { SetupModal } from './components/SetupModal'
 
 function App() {
   const [selectedDevice, setSelectedDevice] = useState(null)
-  const [showSetupModal, setShowSetupModal] = useState(false)
-
-  useEffect(() => {
+  const [showSetupModal, setShowSetupModal] = useState(() => {
     // Check if extract path is configured
     const extractPath = localStorage.getItem('extractPath')
-    if (!extractPath) {
-      setShowSetupModal(true)
-    }
-  }, [])
+    return !extractPath
+  })
 
   const handleSetupComplete = (path) => {
     setShowSetupModal(false)
