@@ -7,7 +7,7 @@ import ChangelogModal from './ChangelogModal'
 import PropTypes from 'prop-types'
 
 export function SettingsModal({ isOpen, onClose, currentPath }) {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const [extractPath, setExtractPath] = useState(currentPath || '')
   const [diskSpace, setDiskSpace] = useState(null)
   const [isLoadingSpace, setIsLoadingSpace] = useState(false)
@@ -15,13 +15,30 @@ export function SettingsModal({ isOpen, onClose, currentPath }) {
   const { theme, setTheme } = useTheme()
   const [showChangelog, setShowChangelog] = useState(false)
 
-  // Load current path disk space when modal opens
+  // Load disk space immediately on component mount (not just when modal opens)
   useEffect(() => {
-    if (isOpen && currentPath) {
-      setExtractPath(currentPath)
-      loadDiskSpace(currentPath)
+    const loadDiskSpace = async () => {
+      if (currentPath) {
+        setIsLoadingSpace(true)
+        try {
+          const space = await window.api.getDiskSpace(currentPath)
+          setDiskSpace(space)
+        } catch (error) {
+          console.error('Failed to get disk space:', error)
+        } finally {
+          setIsLoadingSpace(false)
+        }
+      }
     }
-  }, [isOpen, currentPath])
+    loadDiskSpace()
+  }, [currentPath])
+
+  // Update disk space when path changes
+  useEffect(() => {
+    if (extractPath && extractPath !== currentPath) {
+      setExtractPath(currentPath)
+    }
+  }, [currentPath, extractPath])
 
   const loadDiskSpace = async (path) => {
     if (!path) return
@@ -171,17 +188,23 @@ export function SettingsModal({ isOpen, onClose, currentPath }) {
 
               {/* Theme Selector */}
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
-                  {t('settings_theme')}
-                </label>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-white/50">
+                    {t('settings_theme')}
+                  </label>
+                  <span className="rounded-full bg-yellow-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-yellow-500">
+                    {language === 'id' ? 'Segera Hadir' : 'Coming Soon'}
+                  </span>
+                </div>
                 <div className="grid grid-cols-3 gap-2">
                   {/* Dark Mode */}
                   <button
                     onClick={() => setTheme('dark')}
-                    className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition-all ${
+                    disabled
+                    className={`flex flex-1 cursor-not-allowed flex-col items-center gap-2 rounded-lg border p-3 transition-all opacity-50 ${
                       theme === 'dark'
-                        ? 'border-[#0081FB] bg-[#0081FB]/10'
-                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                        ? 'border-[#0081FB]/50 bg-[#0081FB]/10'
+                        : 'border-white/10 bg-white/5'
                     }`}
                   >
                     <Icon icon="line-md:moon-filled-alt-loop" className="h-5 w-5 text-white/70" />
@@ -191,10 +214,11 @@ export function SettingsModal({ isOpen, onClose, currentPath }) {
                   {/* Light Mode */}
                   <button
                     onClick={() => setTheme('light')}
-                    className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition-all ${
+                    disabled
+                    className={`flex flex-1 cursor-not-allowed flex-col items-center gap-2 rounded-lg border p-3 transition-all opacity-50 ${
                       theme === 'light'
-                        ? 'border-[#0081FB] bg-[#0081FB]/10'
-                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                        ? 'border-[#0081FB]/50 bg-[#0081FB]/10'
+                        : 'border-white/10 bg-white/5'
                     }`}
                   >
                     <Icon icon="line-md:sunny-loop" className="h-5 w-5 text-white/70" />
@@ -204,10 +228,11 @@ export function SettingsModal({ isOpen, onClose, currentPath }) {
                   {/* System Mode */}
                   <button
                     onClick={() => setTheme('system')}
-                    className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition-all ${
+                    disabled
+                    className={`flex flex-1 cursor-not-allowed flex-col items-center gap-2 rounded-lg border p-3 transition-all opacity-50 ${
                       theme === 'system'
-                        ? 'border-[#0081FB] bg-[#0081FB]/10'
-                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                        ? 'border-[#0081FB]/50 bg-[#0081FB]/10'
+                        : 'border-white/10 bg-white/5'
                     }`}
                   >
                     <Icon icon="line-md:monitor-twotone" className="h-5 w-5 text-white/70" />
