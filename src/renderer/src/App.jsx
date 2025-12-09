@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Icon } from '@iconify/react'
 import { useLanguage } from './contexts/LanguageContext'
 import { InstallerSidebar } from './components/InstallerSidebar'
@@ -11,11 +11,43 @@ function App() {
   const { t } = useLanguage()
   const [selectedDevice, setSelectedDevice] = useState(null)
   const [activeTab, setActiveTab] = useState('obb') // 'obb' | 'apps' | 'store'
+  const [sidebarWidth, setSidebarWidth] = useState(300)
+  const [isResizing, setIsResizing] = useState(false)
   const [showSetupModal, setShowSetupModal] = useState(() => {
     // Check if extract path is configured
     const extractPath = localStorage.getItem('extractPath')
     return !extractPath
   })
+
+  // Resize Handlers
+  const startResizing = (e) => {
+    e.preventDefault()
+    setIsResizing(true)
+  }
+
+  // Add global event listeners for resize
+  useEffect(() => {
+    if (!isResizing) return
+
+    const resize = (e) => {
+      let newWidth = e.clientX
+      if (newWidth < 250) newWidth = 250
+      if (newWidth > 600) newWidth = 600
+      setSidebarWidth(newWidth)
+    }
+
+    const stopResizing = () => {
+      setIsResizing(false)
+    }
+
+    window.addEventListener('mousemove', resize)
+    window.addEventListener('mouseup', stopResizing)
+
+    return () => {
+      window.removeEventListener('mousemove', resize)
+      window.removeEventListener('mouseup', stopResizing)
+    }
+  }, [isResizing])
 
   const handleSetupComplete = (path) => {
     setShowSetupModal(false)
@@ -26,13 +58,25 @@ function App() {
     <>
       <SetupModal isOpen={showSetupModal} onComplete={handleSetupComplete} />
       <div className="flex h-screen w-full flex-col overflow-hidden bg-[#0a0a0a] text-white selection:bg-[#0081FB]/30 md:flex-row">
-        {/* Sidebar: 25% on desktop, full on mobile, scrollable on mobile if needed */}
-        <div className="flex w-full flex-none flex-col border-b border-white/10 md:h-full md:w-1/4 md:min-w-[300px] md:border-b-0 md:border-r">
+        {/* Sidebar */}
+        <div
+          className="flex flex-none flex-col border-b border-white/10 md:h-full md:border-b-0 md:border-r relative"
+          style={{ width: window.innerWidth >= 768 ? sidebarWidth : '100%' }}
+        >
           <InstallerSidebar selectedDevice={selectedDevice} onDeviceSelect={setSelectedDevice} />
+
+          {/* Resize Handle (Desktop Only) */}
+          <div
+            className={`absolute right-0 top-0 hidden h-full w-1 cursor-col-resize hover:bg-[#0081FB] md:block ${
+              isResizing ? 'bg-[#0081FB]' : 'bg-transparent'
+            }`}
+            style={{ right: '-2px', zIndex: 10 }}
+            onMouseDown={startResizing}
+          />
         </div>
 
-        {/* Content: 75% on desktop, full on mobile */}
-        <div className="flex w-full flex-1 flex-col md:h-full md:w-3/4">
+        {/* Content */}
+        <div className="flex w-full flex-1 flex-col md:h-full min-w-0">
           {/* Tab Switcher */}
           <div className="flex border-b border-white/10 bg-[#111] p-2">
             <button
