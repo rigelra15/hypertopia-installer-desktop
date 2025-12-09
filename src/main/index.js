@@ -43,17 +43,31 @@ function createWindow() {
 }
 
 // IPC: Get App Version (Git Commit Count & Date)
+// IPC: Get App Version (Git Commit Count & Date)
 ipcMain.handle('get-app-version', async () => {
+  // Production: Use the version from package.json (injected by builder)
+  if (app.isPackaged) {
+    return {
+      version: app.getVersion(),
+      build: 'PROD'
+    }
+  }
+
+  // Development: Calculate dynamic version based on git
   return new Promise((resolve) => {
     // 1. Get Commit Count for Version (1.0.X)
     exec('git rev-list --count HEAD', (errCount, stdoutCount) => {
       if (errCount) {
         console.warn('Git version check failed:', errCount)
-        return resolve({ version: '1.0.0', build: 'DEV' })
+        return resolve({ version: app.getVersion(), build: 'DEV' })
       }
 
       const commitCount = stdoutCount.trim()
-      const dynamicVersion = `1.0.${commitCount}`
+
+      // Get major.minor from package.json
+      const currentVersion = app.getVersion() // 1.0.0
+      const [major, minor] = currentVersion.split('.')
+      const dynamicVersion = `${major}.${minor}.${commitCount}`
 
       // 2. Get Commit Date for Build Number (YYYYMMDD)
       exec('git log -1 --format=%cd --date=format:%Y%m%d', (errDate, stdoutDate) => {
