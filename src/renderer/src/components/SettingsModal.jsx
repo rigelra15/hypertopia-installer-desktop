@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useTheme } from '../contexts/ThemeContext'
+import ChangelogModal from './ChangelogModal'
 import PropTypes from 'prop-types'
 
 export function SettingsModal({ isOpen, onClose, currentPath }) {
@@ -9,6 +12,8 @@ export function SettingsModal({ isOpen, onClose, currentPath }) {
   const [diskSpace, setDiskSpace] = useState(null)
   const [isLoadingSpace, setIsLoadingSpace] = useState(false)
   const [isChanging, setIsChanging] = useState(false)
+  const { theme, setTheme } = useTheme()
+  const [showChangelog, setShowChangelog] = useState(false)
 
   // Load current path disk space when modal opens
   useEffect(() => {
@@ -108,25 +113,7 @@ export function SettingsModal({ isOpen, onClose, currentPath }) {
             {/* Icon */}
             <div className="mb-4 flex justify-center">
               <div className="rounded-full bg-[#0081FB]/20 p-4">
-                <svg
-                  className="h-12 w-12 text-[#0081FB]"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
+                <Icon icon="line-md:cog-filled" className="h-10 w-10 text-[#0081FB]" />
               </div>
             </div>
 
@@ -181,6 +168,76 @@ export function SettingsModal({ isOpen, onClose, currentPath }) {
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
                 </div>
               )}
+
+              {/* Theme Selector */}
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
+                  {t('settings_theme')}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Dark Mode */}
+                  <button
+                    onClick={() => setTheme('dark')}
+                    className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition-all ${
+                      theme === 'dark'
+                        ? 'border-[#0081FB] bg-[#0081FB]/10'
+                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    <Icon icon="line-md:moon-filled-alt-loop" className="h-5 w-5 text-white/70" />
+                    <span className="text-xs text-white/70">{t('settings_theme_dark')}</span>
+                  </button>
+
+                  {/* Light Mode */}
+                  <button
+                    onClick={() => setTheme('light')}
+                    className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition-all ${
+                      theme === 'light'
+                        ? 'border-[#0081FB] bg-[#0081FB]/10'
+                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    <Icon icon="line-md:sunny-loop" className="h-5 w-5 text-white/70" />
+                    <span className="text-xs text-white/70">{t('settings_theme_light')}</span>
+                  </button>
+
+                  {/* System Mode */}
+                  <button
+                    onClick={() => setTheme('system')}
+                    className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition-all ${
+                      theme === 'system'
+                        ? 'border-[#0081FB] bg-[#0081FB]/10'
+                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    <Icon icon="line-md:monitor-twotone" className="h-5 w-5 text-white/70" />
+                    <span className="text-xs text-white/70">{t('settings_theme_system')}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* About Section */}
+              <div className="border-t border-white/10 pt-4">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
+                  {t('settings_about')}
+                </label>
+                <button
+                  onClick={() => setShowChangelog(true)}
+                  className="w-full flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-3 transition-all hover:bg-white/10 hover:border-[#0081FB]/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon icon="line-md:clipboard-list" className="h-5 w-5 text-[#0081FB]" />
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-white">{t('settings_whats_new')}</p>
+                      <p className="text-xs text-white/50">{t('settings_changelog_desc')}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-white/40">v1.0.0</span>
+                    <Icon icon="line-md:chevron-right" className="h-4 w-4 text-white/30" />
+                  </div>
+                </button>
+              </div>
             </div>
 
             {/* Change Folder Button */}
@@ -204,6 +261,9 @@ export function SettingsModal({ isOpen, onClose, currentPath }) {
           </motion.div>
         </motion.div>
       )}
+
+      {/* Changelog Modal */}
+      <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} />
     </AnimatePresence>
   )
 }
