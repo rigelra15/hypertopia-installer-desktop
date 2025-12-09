@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { exec, spawn, execFile } from 'child_process'
 import yauzl from 'yauzl' // For fast ZIP scanning
 import unzipper from 'unzipper' // For ZIP extraction with progress
 
@@ -200,6 +201,132 @@ ipcMain.handle('move-extract-folder', async (event, oldPath) => {
   }
 })
 
+// Helper function to run ADB commands asynchronously
+async function runAdbCommandAsync(args, serial = null) {
+  return new Promise((resolve, reject) => {
+    const adbPath = getAdbPath()
+    const fullArgs = serial ? ['-s', serial, ...args] : args
+
+    execFile(adbPath, fullArgs, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`ADB command failed: ${adbPath} ${fullArgs.join(' ')}`)
+        console.error('stderr:', stderr)
+        return reject(new Error(stderr || error.message))
+      }
+      resolve(stdout.trim())
+    })
+  })
+}
+
+// IPC: List Installed Apps
+ipcMain.handle('list-apps', async (event, serial) => {
+  try {
+    // List third-party packages only
+    const result = await runAdbCommandAsync(['shell', 'pm', 'list', 'packages', '-3'], serial)
+
+    if (!result || result.trim() === '') {
+      return []
+    }
+
+    const packages = result
+      .split('\n')
+      .filter((line) => line.startsWith('package:'))
+      .map((line) => line.replace('package:', '').trim())
+      .filter(Boolean)
+
+    // Popular app package to name mapping
+    const APP_NAME_MAP = {
+      'com.beatgames.beatsaber': 'Beat Saber',
+      'com.beatgames.beatpaber': 'Beat Saber (Modded)',
+      'com.cloudheadgames.pistolwhip': 'Pistol Whip',
+      'com.owlchemylabs.jobsimulator': 'Job Simulator',
+      'com.polyarc.Moss2': 'Moss: Book II',
+      'com.roblox.client': 'Roblox',
+      'com.spotify.horizon': 'Spotify',
+      'com.whatsapp': 'WhatsApp',
+      'com.facebook.orca': 'Messenger',
+      'com.oculus.facebook': 'Facebook',
+      'com.google.android.apps.youtube.vr.oculus': 'YouTube VR',
+      'com.enhanceexperience.tetriseffect': 'Tetris Effect',
+      'com.valvesoftware.steamlinkvr': 'Steam Link',
+      'com.mgatelabs.mobilevrstationthree': 'Mobile VR Station',
+      'com.amazon.avod.thirdpartyclient': 'Prime Video',
+      'com.titangamez.UBoatVR': 'UBoat VR',
+      'com.rrrgames.ThiefSimVRQuest': 'Thief Simulator VR',
+      'quest.eleven.forfunlabs': 'Eleven Table Tennis'
+    }
+
+    // Helper: Parse package name to readable format
+    function packageToName(pkg) {
+      // Check manual mapping first
+      if (APP_NAME_MAP[pkg]) {
+        return APP_NAME_MAP[pkg]
+      }
+
+      // Get last segment after final dot
+      const parts = pkg.split('.')
+      let name = parts[parts.length - 1]
+
+      // Handle camelCase: insert space before capitals
+      name = name.replace(/([a-z])([A-Z])/g, '$1 $2')
+
+      // Capitalize first letter of each word
+      name = name
+        .split(/[\s_-]+/)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+
+      return name
+    }
+
+    // Get app labels for each package
+    const apps = []
+    for (const pkg of packages) {
+      try {
+        let name = packageToName(pkg)
+        let version = 'Unknown'
+
+        // Get version from dumpsys (fast and reliable)
+        try {
+          const dumpResult = await runAdbCommandAsync(['shell', 'dumpsys', 'package', pkg], serial)
+          const versionMatch = dumpResult.match(/versionName=([^\s]+)/)
+          if (versionMatch) {
+            version = versionMatch[1]
+          }
+        } catch {
+          // Version extraction failed, keep 'Unknown'
+        }
+
+        apps.push({ package: pkg, name, version })
+      } catch {
+        apps.push({ package: pkg, name: packageToName(pkg), version: 'Unknown' })
+      }
+    }
+
+    return apps.sort((a, b) => a.name.localeCompare(b.name))
+  } catch (error) {
+    console.error('Error listing apps:', error)
+    throw new Error(`Failed to list apps: ${error.message}`)
+  }
+})
+
+// IPC: Uninstall App
+ipcMain.handle('uninstall-app', async (event, serial, packageName) => {
+  try {
+    const result = await runAdbCommandAsync(['uninstall', packageName], serial)
+
+    // ADB returns 'Success' if uninstall worked
+    if (result.includes('Success')) {
+      return { success: true, message: 'App uninstalled successfully' }
+    } else {
+      return { success: false, message: result || 'Uninstall failed' }
+    }
+  } catch (error) {
+    console.error('Error uninstalling app:', error)
+    return { success: false, message: error.message }
+  }
+})
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -240,7 +367,6 @@ app.whenReady().then(() => {
 })
 
 // FUNGSI SCAN ZIP/RAR
-import { exec, spawn } from 'child_process'
 import { createExtractorFromData } from 'node-unrar-js'
 const path = require('path')
 const fs = require('fs-extra')

@@ -14,6 +14,9 @@ const api = {
   selectExtractFolder: () => ipcRenderer.invoke('select-extract-folder'),
   getDiskSpace: (folderPath) => ipcRenderer.invoke('get-disk-space', folderPath),
   moveExtractFolder: (oldPath) => ipcRenderer.invoke('move-extract-folder', oldPath),
+  listApps: (deviceSerial) => ipcRenderer.invoke('list-apps', deviceSerial),
+  uninstallApp: (deviceSerial, packageName) =>
+    ipcRenderer.invoke('uninstall-app', deviceSerial, packageName),
   onInstallProgress: (callback) => {
     const subscription = (_event, value) => callback(value)
     ipcRenderer.on('install-progress', subscription)
