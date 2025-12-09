@@ -433,6 +433,7 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
         isOpen={isSettingsOpen}
         onClose={handleCloseSettings}
         currentPath={extractPath}
+        appVersion={appVersion}
       />
     </div>
   )

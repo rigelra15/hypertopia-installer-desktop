@@ -6,7 +6,7 @@ import { useTheme } from '../contexts/ThemeContext'
 import ChangelogModal from './ChangelogModal'
 import PropTypes from 'prop-types'
 
-export function SettingsModal({ isOpen, onClose, currentPath }) {
+export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
   const { t, language } = useLanguage()
   const [extractPath, setExtractPath] = useState(currentPath || '')
   const [diskSpace, setDiskSpace] = useState(null)
@@ -258,7 +258,9 @@ export function SettingsModal({ isOpen, onClose, currentPath }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-white/40">v1.0.0</span>
+                    <span className="text-xs font-mono text-white/40">
+                      v{appVersion ? appVersion.version : '...'}
+                    </span>
                     <Icon icon="line-md:chevron-right" className="h-4 w-4 text-white/30" />
                   </div>
                 </button>
@@ -296,5 +298,9 @@ export function SettingsModal({ isOpen, onClose, currentPath }) {
 SettingsModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  currentPath: PropTypes.string
+  currentPath: PropTypes.string,
+  appVersion: PropTypes.shape({
+    version: PropTypes.string,
+    build: PropTypes.string
+  })
 }
