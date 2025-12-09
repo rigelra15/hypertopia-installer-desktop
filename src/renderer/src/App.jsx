@@ -5,19 +5,27 @@ import { InstallerSidebar } from './components/InstallerSidebar'
 import { OBBManager } from './components/OBBManager'
 import { AppsManager } from './components/AppsManager'
 import { HypertopiaStore } from './components/HypertopiaStore'
+import { Tutorials } from './components/Tutorials'
 import { SetupModal } from './components/SetupModal'
 
 function App() {
   const { t } = useLanguage()
   const [selectedDevice, setSelectedDevice] = useState(null)
-  const [activeTab, setActiveTab] = useState('obb') // 'obb' | 'apps' | 'store'
-  const [sidebarWidth, setSidebarWidth] = useState(300)
+  const [activeTab, setActiveTab] = useState('tutorials') // 'obb' | 'apps' | 'store' | 'tutorials'
+  const [sidebarWidth, setSidebarWidth] = useState(400)
+  const [storeUrl, setStoreUrl] = useState(null)
   const [isResizing, setIsResizing] = useState(false)
   const [showSetupModal, setShowSetupModal] = useState(() => {
     // Check if extract path is configured
     const extractPath = localStorage.getItem('extractPath')
     return !extractPath
   })
+
+  // Deep Link Handler (from Tutorials)
+  const handleNavigate = (url) => {
+    setStoreUrl(url)
+    setActiveTab('store')
+  }
 
   // Resize Handlers
   const startResizing = (e) => {
@@ -31,7 +39,7 @@ function App() {
 
     const resize = (e) => {
       let newWidth = e.clientX
-      if (newWidth < 250) newWidth = 250
+      if (newWidth < 400) newWidth = 400
       if (newWidth > 600) newWidth = 600
       setSidebarWidth(newWidth)
     }
@@ -72,6 +80,8 @@ function App() {
             }`}
             style={{ right: '-2px', zIndex: 10 }}
             onMouseDown={startResizing}
+            onDoubleClick={() => setSidebarWidth(400)} // Reset width
+            title="Double-click to reset width"
           />
         </div>
 
@@ -79,6 +89,17 @@ function App() {
         <div className="flex w-full flex-1 flex-col md:h-full min-w-0">
           {/* Tab Switcher */}
           <div className="flex border-b border-white/10 bg-[#111] p-2">
+            <button
+              onClick={() => setActiveTab('tutorials')}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+                activeTab === 'tutorials'
+                  ? 'bg-[#0081FB]/10 text-[#0081FB]'
+                  : 'text-white/50 hover:bg-white/5 hover:text-white/70'
+              }`}
+            >
+              <Icon icon="mdi:book-open-page-variant" className="h-4 w-4" />
+              <span>{t('tab_tutorials')}</span>
+            </button>
             <button
               onClick={() => setActiveTab('obb')}
               className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
@@ -119,8 +140,10 @@ function App() {
             <OBBManager selectedDevice={selectedDevice} />
           ) : activeTab === 'apps' ? (
             <AppsManager selectedDevice={selectedDevice} />
+          ) : activeTab === 'store' ? (
+            <HypertopiaStore initialUrl={storeUrl} />
           ) : (
-            <HypertopiaStore />
+            <Tutorials onNavigate={handleNavigate} />
           )}
         </div>
       </div>
