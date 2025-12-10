@@ -35,13 +35,9 @@ dmg:
 linux:
   target:
     - AppImage
-    - snap
     - deb
   maintainer: electronjs.org
   category: Utility
-  # Disable automatic snap publishing to store
-snap:
-  publish: null
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
