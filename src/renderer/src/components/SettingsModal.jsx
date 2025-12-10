@@ -133,7 +133,7 @@ export function SettingsModal({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl"
+            className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl custom-scrollbar"
           >
             {/* Close Button */}
             <button
@@ -173,6 +173,25 @@ export function SettingsModal({
                     {extractPath || t('setup_no_folder')}
                   </p>
                 </div>
+
+                {/* Change Folder Button */}
+                <button
+                  onClick={handleChangeFolder}
+                  disabled={isChanging}
+                  className="mt-3 w-full rounded-lg bg-[#0081FB] px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-[#0081FB]/90 disabled:opacity-50"
+                >
+                  {isChanging ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
+                      {t('settings_changing')}
+                    </div>
+                  ) : (
+                    t('settings_change_folder')
+                  )}
+                </button>
+
+                {/* Info Text */}
+                <p className="mt-2 text-center text-xs text-white/40">{t('settings_info')}</p>
               </div>
 
               {/* Storage Info */}
@@ -346,25 +365,6 @@ export function SettingsModal({
                 </button>
               </div>
             </div>
-
-            {/* Change Folder Button */}
-            <button
-              onClick={handleChangeFolder}
-              disabled={isChanging}
-              className="w-full rounded-lg bg-[#0081FB] px-4 py-3 text-sm font-medium text-white transition-all hover:bg-[#0081FB]/90 disabled:opacity-50"
-            >
-              {isChanging ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
-                  {t('settings_changing')}
-                </div>
-              ) : (
-                t('settings_change_folder')
-              )}
-            </button>
-
-            {/* Info Text */}
-            <p className="mt-3 text-center text-xs text-white/40">{t('settings_info')}</p>
           </motion.div>
         </motion.div>
       )}
