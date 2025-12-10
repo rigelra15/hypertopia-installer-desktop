@@ -1,17 +1,8 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
 import PropTypes from 'prop-types'
-
-const ToastContext = createContext(null)
-
-export function useToast() {
-  const context = useContext(ToastContext)
-  if (!context) {
-    throw new Error('useToast must be used within a ToastProvider')
-  }
-  return context
-}
+import { ToastContext } from '../contexts/ToastContext'
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
@@ -80,7 +71,7 @@ function ToastContainer({ toasts, onRemove }) {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 max-w-sm pointer-events-none">
+    <div className="fixed bottom-4 right-4 z-9999 flex flex-col gap-2 max-w-sm pointer-events-none">
       <AnimatePresence>
         {toasts.map((toast) => (
           <motion.div
