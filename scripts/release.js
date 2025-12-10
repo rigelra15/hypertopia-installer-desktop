@@ -27,6 +27,15 @@ function runOutput(command) {
   }
 }
 
+// Check for uncommitted changes
+console.log('Checking for uncommitted changes...')
+const status = runOutput('git status --porcelain')
+if (status && !status.includes('package.json')) {
+  console.error('ERROR: You have uncommitted changes. Please commit your work first!')
+  console.error(status)
+  process.exit(1)
+}
+
 // 1. Get current commit count
 console.log('Calculating new version...')
 const commitCount = runOutput('git rev-list --count HEAD')
@@ -52,21 +61,21 @@ console.log('Updating package.json...')
 packageJson.version = newVersion
 fs.writeFileSync(PACKAGE_JSON_PATH, JSON.stringify(packageJson, null, 2) + '\n')
 
-// 4. Commit and Tag
-console.log('Committing and Tagging...')
+// 4. Amend the last commit to include version bump (no new commit message polluting changelog)
+console.log('Amending last commit with version bump...')
 try {
   run(`git add package.json`)
-  run(`git commit -m "chore: bump version to ${newVersion}"`)
+  run(`git commit --amend --no-edit`)
   run(`git tag ${tagName}`)
 
-  // 5. Push
+  // 5. Push (force-with-lease because we amended)
   console.log('Pushing changes...')
-  run(`git push origin HEAD`)
+  run(`git push origin HEAD --force-with-lease`)
   run(`git push origin ${tagName}`)
 
-  console.log(`\nSUCCESS! Released version ${newVersion}`)
+  console.log(`\n✅ SUCCESS! Released version ${newVersion}`)
+  console.log(`\n📝 Your last commit now includes the version bump.`)
+  console.log(`   The changelog will show your actual commit message, not "chore: bump version"!`)
 } catch (e) {
   console.error('Failed versioning process:', e)
-  // Optional: revert package.json change if git fails?
-  // For now we assume user can handle git errors.
 }
