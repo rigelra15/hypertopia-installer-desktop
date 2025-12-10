@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Icon } from '@iconify/react'
 import { useLanguage } from './contexts/LanguageContext'
+import { useToast } from './components/Toast'
 import { InstallerSidebar } from './components/InstallerSidebar'
 import { OBBManager } from './components/OBBManager'
 import { AppsManager } from './components/AppsManager'
@@ -10,6 +11,8 @@ import { SetupModal } from './components/SetupModal'
 
 function App() {
   const { t } = useLanguage()
+  const toast = useToast()
+  const hasCheckedUpdates = useRef(false)
   const [selectedDevice, setSelectedDevice] = useState(null)
   const [activeTab, setActiveTab] = useState('tutorials') // 'obb' | 'apps' | 'store' | 'tutorials'
   const [sidebarWidth, setSidebarWidth] = useState(400)
@@ -61,6 +64,31 @@ function App() {
     setShowSetupModal(false)
     console.log('Extract path set to:', path)
   }
+
+  useEffect(() => {
+    const removeListener = window.api.onUpdateNotAvailable(() => {
+      toast.success(t('update_not_available') || 'App is up to date')
+    })
+
+    // Check on launch
+    const checkOnLaunch = async () => {
+      toast.info(t('update_checking') || 'Checking for updates...')
+      try {
+        await window.api.checkForUpdates()
+      } catch (err) {
+        console.error('Failed to check for updates:', err)
+      }
+    }
+
+    if (!hasCheckedUpdates.current) {
+        hasCheckedUpdates.current = true
+        checkOnLaunch()
+    }
+
+    return () => {
+      removeListener()
+    }
+  }, [])
 
   return (
     <>
