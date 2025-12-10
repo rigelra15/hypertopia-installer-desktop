@@ -43,6 +43,8 @@
   "auth_help_title": "Allow USB Debugging",
   "auth_help_desc": "Device detected but unauthorized. Please check your VR headset and click 'Allow' on the dialog. Check 'Always allow...' to skip this next time.",
   "auth_help_btn": "I Understand",
+  "auth_help_waiting": "Waiting for Authorization...",
+  "auth_help_waiting_desc": "Press \"Allow\" on your Quest headset",
   "setup_title": "Welcome to HyperTopia Installer",
   "setup_desc": "Before we start, please select a folder where temporary files will be extracted during installation.",
   "setup_extract_folder": "Extract Folder",
@@ -135,5 +137,7 @@
   "update_ready_title": "Update Ready to Install",
   "update_restart_now": "Restart App",
   "update_not_available": "App is up to date",
-  "update_checking": "Checking for updates..."
+  "update_checking": "Checking for updates...",
+  "search_placeholder": "Search...",
+  "search_no_results": "No results found"
 }

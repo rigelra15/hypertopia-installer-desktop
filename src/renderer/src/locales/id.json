@@ -43,6 +43,8 @@
   "auth_help_title": "Izinkan Debugging USB",
   "auth_help_desc": "Perangkat terdeteksi tetapi belum diizinkan. Silakan cek headset VR Anda dan klik 'Allow' pada dialog yang muncul. Centang 'Always allow...' agar tidak perlu mengulanginya.",
   "auth_help_btn": "Mengerti",
+  "auth_help_waiting": "Menunggu Otorisasi...",
+  "auth_help_waiting_desc": "Tekan \"Allow\" pada headset Quest Anda",
   "setup_title": "Selamat Datang di HyperTopia Installer",
   "setup_desc": "Sebelum memulai, silakan pilih folder tempat file sementara akan diekstrak selama instalasi.",
   "setup_extract_folder": "Folder Ekstrak",
@@ -135,5 +137,7 @@
   "update_ready_title": "Pembaruan Siap Diinstal",
   "update_restart_now": "Mulai Ulang Aplikasi",
   "update_not_available": "Aplikasi sudah versi terbaru",
-  "update_checking": "Memeriksa pembaruan..."
+  "update_checking": "Memeriksa pembaruan...",
+  "search_placeholder": "Cari...",
+  "search_no_results": "Tidak ada hasil ditemukan"
 }
