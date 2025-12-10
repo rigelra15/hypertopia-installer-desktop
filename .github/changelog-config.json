@@ -15,29 +15,66 @@
     {
       "title": "## 📦 Maintenance",
       "labels": ["chore", "build", "ci"]
+    },
+    {
+      "title": "## 📝 Documentation",
+      "labels": ["docs"]
+    },
+    {
+      "title": "## 🧪 Tests",
+      "labels": ["test"]
+    },
+    {
+      "title": "## 🔄 Other Changes",
+      "labels": []
     }
   ],
   "ignore_labels": ["ignore"],
   "sort": "date",
   "template": "${{CHANGELOG}}\n\n${{UNCATEGORIZED}}",
   "pr_template": "- ${{TITLE}}\n${{BODY}}",
-  "commit_template": "### ${{TITLE}}\n${{BODY}}\n",
+  "commit_template": "**${{TITLE}}**\n${{BODY}}\n",
   "empty_template": "No notable changes in this release.",
   "label_extractor": [
     {
-      "pattern": "^(feat|fix|chore|perf|refactor|style|build|ci)(\\(.+\\))?:",
-      "target": "$1",
+      "pattern": "^(feat|feature)(\\(.+\\))?:",
+      "target": "feat",
+      "method": "match",
+      "on_property": "title"
+    },
+    {
+      "pattern": "^(fix|bug)(\\(.+\\))?:",
+      "target": "fix",
+      "method": "match",
+      "on_property": "title"
+    },
+    {
+      "pattern": "^(perf|refactor|style)(\\(.+\\))?:",
+      "target": "perf",
+      "method": "match",
+      "on_property": "title"
+    },
+    {
+      "pattern": "^(chore|build|ci)(\\(.+\\))?:",
+      "target": "chore",
+      "method": "match",
+      "on_property": "title"
+    },
+    {
+      "pattern": "^(docs)(\\(.+\\))?:",
+      "target": "docs",
+      "method": "match",
+      "on_property": "title"
+    },
+    {
+      "pattern": "^(test)(\\(.+\\))?:",
+      "target": "test",
       "method": "match",
       "on_property": "title"
     }
   ],
-  "transformers": [
-    {
-      "pattern": "^(feat|fix|chore|perf|refactor|style|build|ci)(\\(.+\\))?:\\s*",
-      "target": ""
-    }
-  ],
   "max_tags_to_fetch": 200,
   "max_pull_requests": 200,
-  "max_back_track_time_days": 365
+  "max_back_track_time_days": 365,
+  "duplicate_filter": true
 }
