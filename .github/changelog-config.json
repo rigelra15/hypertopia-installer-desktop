@@ -19,13 +19,15 @@
   ],
   "ignore_labels": ["ignore"],
   "sort": "date",
-  "template": "${{CHANGELOG}}",
-  "commit_template": "- ${{COMMIT_MESSAGE}} (${{COMMIT_AUTHOR}})",
+  "template": "${{CHANGELOG}}\n\n${{UNCATEGORIZED}}",
+  "pr_template": "- ${{TITLE}}",
+  "commit_template": "- ${{TITLE}}",
   "empty_template": "No notable changes in this release.",
   "label_extractor": [
     {
       "pattern": "^(feat|fix|chore|perf|refactor|style|build|ci)(\\(.+\\))?:",
       "target": "$1",
+      "method": "match",
       "on_property": "title"
     }
   ],
@@ -34,5 +36,8 @@
       "pattern": "^(feat|fix|chore|perf|refactor|style|build|ci)(\\(.+\\))?:\\s*",
       "target": ""
     }
-  ]
+  ],
+  "max_tags_to_fetch": 200,
+  "max_pull_requests": 200,
+  "max_back_track_time_days": 365
 }

@@ -2,84 +2,77 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import PropTypes from 'prop-types'
+import { useState, useEffect } from 'react'
 
-/* global __APP_CHANGELOG__, __COMMIT_COUNT__ */
+// GitHub repo info
+const GITHUB_OWNER = 'rigelra15'
+const GITHUB_REPO = 'hypertopia-installer-desktop'
 
 export default function ChangelogModal({ isOpen, onClose }) {
-  const { language, t } = useLanguage()
-  const changelog =
-    typeof __APP_CHANGELOG__ !== 'undefined' && __APP_CHANGELOG__.length > 0
-      ? __APP_CHANGELOG__
-      : []
-  const totalCommits = typeof __COMMIT_COUNT__ !== 'undefined' ? parseInt(__COMMIT_COUNT__, 10) : 0
+  const { t } = useLanguage()
+  const [releases, setReleases] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const commitTypeTranslations = {
-    id: {
-      feat: 'FITUR',
-      fix: 'PERBAIKAN',
-      chore: 'TUGAS',
-      docs: 'DOK',
-      refactor: 'REFAKTOR',
-      style: 'GAYA',
-      test: 'TES',
-      perf: 'PERFORMA',
-      build: 'BUILD',
-      ci: 'CI',
-      revert: 'REVERT'
-    },
-    en: {
-      feat: 'FEAT',
-      fix: 'FIX',
-      chore: 'CHORE',
-      docs: 'DOCS',
-      refactor: 'REFACTOR',
-      style: 'STYLE',
-      test: 'TEST',
-      perf: 'PERF',
-      build: 'BUILD',
-      ci: 'CI',
-      revert: 'REVERT'
+  useEffect(() => {
+    if (isOpen) {
+      fetchReleases()
+    }
+  }, [isOpen])
+
+  const fetchReleases = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await fetch(
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases?per_page=20`
+      )
+      if (!response.ok) {
+        throw new Error('Failed to fetch releases')
+      }
+      const data = await response.json()
+      setReleases(data)
+    } catch (err) {
+      console.error('Failed to fetch releases:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const getCommitTypeStyle = (type) => {
-    switch (type?.toLowerCase()) {
-      case 'feat':
-        return 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-      case 'fix':
-        return 'bg-red-500/10 text-red-400 border-red-500/20'
-      case 'chore':
-        return 'bg-gray-500/10 text-gray-400 border-gray-500/20'
-      case 'docs':
-        return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-      case 'refactor':
-        return 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-      case 'style':
-        return 'bg-pink-500/10 text-pink-400 border-pink-500/20'
-      case 'test':
-        return 'bg-green-500/10 text-green-400 border-green-500/20'
-      default:
-        return 'bg-gray-500/10 text-gray-400 border-gray-500/20'
-    }
+  const formatDate = (dateString) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
   }
 
-  const parseCommit = (message) => {
-    const match = message.match(/^(\w+)(?:\(([^)]+)\))?: (.+)$/)
-    if (match) {
-      return {
-        type: match[1],
-        scope: match[2],
-        subject: match[3],
-        original: message,
-        isConventional: true
+  // Parse release body to extract categories
+  const parseReleaseBody = (body) => {
+    if (!body) return []
+
+    const lines = body.split('\n').filter((line) => line.trim())
+    const items = []
+    let currentCategory = null
+
+    for (const line of lines) {
+      // Check for category header (## or ### with emoji)
+      if (line.startsWith('##')) {
+        currentCategory = line.replace(/^#+\s*/, '').trim()
+      } else if (line.startsWith('-') || line.startsWith('*')) {
+        const text = line.replace(/^[-*]\s*/, '').trim()
+        if (text) {
+          items.push({
+            text,
+            category: currentCategory
+          })
+        }
       }
     }
-    return {
-      type: 'other',
-      subject: message,
-      original: message,
-      isConventional: false
-    }
+
+    return items
   }
 
   return (
@@ -121,49 +114,110 @@ export default function ChangelogModal({ isOpen, onClose }) {
             {/* Divider */}
             <div className="mb-4 h-px bg-white/10"></div>
 
-            {/* List */}
+            {/* Content */}
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-              <div className="space-y-4">
-                {changelog.map((commit, index) => {
-                  const parsed = parseCommit(commit.message)
-                  const versionCode = `v1.0.${totalCommits - index}`
+              {loading && (
+                <div className="flex items-center justify-center py-10">
+                  <Icon icon="line-md:loading-loop" className="h-8 w-8 text-[#0081FB]" />
+                </div>
+              )}
 
-                  return (
-                    <div key={commit.hash} className="flex gap-4 group">
-                      <div className="flex flex-col items-center">
-                        <div className="w-2 h-2 rounded-full bg-[#0081FB] mt-2 ring-4 ring-[#111] z-10"></div>
-                        {index !== changelog.length - 1 && (
-                          <div className="w-0.5 flex-1 bg-white/10 my-1"></div>
-                        )}
-                      </div>
-                      <div className="flex-1 pb-4">
-                        <div className="flex items-baseline justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono text-[#0081FB] bg-[#0081FB]/10 px-2 py-0.5 rounded">
-                              {versionCode}
-                            </span>
-                            {parsed.isConventional && (
-                              <span
-                                className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${getCommitTypeStyle(
-                                  parsed.type
-                                )}`}
-                              >
-                                {commitTypeTranslations[language]?.[parsed.type.toLowerCase()] ||
-                                  parsed.type}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-xs text-gray-500">{commit.date}</span>
+              {error && (
+                <div className="text-center py-10">
+                  <Icon
+                    icon="mdi:alert-circle-outline"
+                    className="h-12 w-12 text-red-400 mx-auto mb-2"
+                  />
+                  <p className="text-red-400">{error}</p>
+                  <button
+                    onClick={fetchReleases}
+                    className="mt-4 px-4 py-2 bg-white/10 rounded-lg text-white/70 hover:bg-white/20 transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              )}
+
+              {!loading && !error && releases.length === 0 && (
+                <div className="text-center py-10 text-gray-500">No releases available.</div>
+              )}
+
+              {!loading && !error && releases.length > 0 && (
+                <div className="space-y-6">
+                  {releases.map((release, index) => {
+                    const items = parseReleaseBody(release.body)
+
+                    return (
+                      <div key={release.id} className="flex gap-4 group">
+                        <div className="flex flex-col items-center">
+                          <div className="w-2 h-2 rounded-full bg-[#0081FB] mt-2 ring-4 ring-[#111] z-10"></div>
+                          {index !== releases.length - 1 && (
+                            <div className="w-0.5 flex-1 bg-white/10 my-1"></div>
+                          )}
                         </div>
-                        <p className="text-gray-300 text-sm leading-relaxed">{parsed.subject}</p>
+                        <div className="flex-1 pb-4">
+                          <div className="flex items-baseline justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-mono text-[#0081FB] bg-[#0081FB]/10 px-2 py-0.5 rounded font-semibold">
+                                {release.tag_name}
+                              </span>
+                              {release.prerelease && (
+                                <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border bg-yellow-500/10 text-yellow-400 border-yellow-500/20">
+                                  Pre-release
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-500">
+                              {formatDate(release.published_at)}
+                            </span>
+                          </div>
+
+                          {/* Release name if different from tag */}
+                          {release.name && release.name !== release.tag_name && (
+                            <h3 className="text-white font-medium mb-2">{release.name}</h3>
+                          )}
+
+                          {/* Release body items */}
+                          {items.length > 0 ? (
+                            <ul className="space-y-1">
+                              {items.map((item, idx) => (
+                                <li
+                                  key={idx}
+                                  className="flex items-start gap-2 text-sm text-gray-300"
+                                >
+                                  <span className="text-[#0081FB] mt-1">•</span>
+                                  <span>{item.text}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : release.body ? (
+                            <p className="text-sm text-gray-400 whitespace-pre-wrap">
+                              {release.body.slice(0, 300)}
+                              {release.body.length > 300 ? '...' : ''}
+                            </p>
+                          ) : release.name && release.name !== release.tag_name ? (
+                            // If no body, show release name (usually contains commit message)
+                            <p className="text-sm text-gray-300">{release.name}</p>
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">No release notes</p>
+                          )}
+
+                          {/* View on GitHub link */}
+                          <a
+                            href={release.html_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 mt-2 text-xs text-white/40 hover:text-[#0081FB] transition-colors"
+                          >
+                            <Icon icon="mdi:open-in-new" className="h-3 w-3" />
+                            View on GitHub
+                          </a>
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
-                {changelog.length === 0 && (
-                  <div className="text-center py-10 text-gray-500">No changelog available.</div>
-                )}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>

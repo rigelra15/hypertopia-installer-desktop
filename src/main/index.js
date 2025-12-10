@@ -5,10 +5,17 @@ import icon from '../../resources/icon.png?asset'
 import { exec, spawn, execFile } from 'child_process'
 import yauzl from 'yauzl' // For fast ZIP scanning
 import unzipper from 'unzipper' // For ZIP extraction with progress
+import { autoUpdater } from 'electron-updater'
+
+// Configure auto-updater
+autoUpdater.autoDownload = true
+autoUpdater.autoInstallOnAppQuit = true
+
+let mainWindow = null
 
 function createWindow() {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
@@ -45,11 +52,16 @@ function createWindow() {
 // IPC: Get App Version (Git Commit Count & Date)
 // IPC: Get App Version (Git Commit Count & Date)
 ipcMain.handle('get-app-version', async () => {
-  // Production: Use the version from package.json (injected by builder)
+  // Production: Use the version from package.json and injected build date
   if (app.isPackaged) {
+    // Build date is injected at build time via electron.vite.config.mjs
+    // We need to read it from a file or environment, but since main process
+    // doesn't have access to renderer's define, we'll use the build timestamp
+    const buildDate =
+      process.env.BUILD_DATE || new Date().toISOString().slice(0, 10).replace(/-/g, '')
     return {
       version: app.getVersion(),
-      build: 'PROD'
+      build: buildDate
     }
   }
 
@@ -360,6 +372,58 @@ app.whenReady().then(() => {
   ipcMain.on('ping', () => console.log('pong'))
 
   createWindow()
+
+  // Auto-updater events (only in production)
+  if (app.isPackaged) {
+    // Check for updates after window is ready
+    autoUpdater.checkForUpdatesAndNotify()
+
+    autoUpdater.on('checking-for-update', () => {
+      console.log('[AutoUpdater] Checking for updates...')
+    })
+
+    autoUpdater.on('update-available', (info) => {
+      console.log('[AutoUpdater] Update available:', info.version)
+      if (mainWindow) {
+        mainWindow.webContents.send('update-available', info)
+      }
+    })
+
+    autoUpdater.on('update-not-available', () => {
+      console.log('[AutoUpdater] No updates available')
+    })
+
+    autoUpdater.on('download-progress', (progress) => {
+      console.log('[AutoUpdater] Download progress:', progress.percent.toFixed(1) + '%')
+      if (mainWindow) {
+        mainWindow.webContents.send('update-download-progress', progress)
+      }
+    })
+
+    autoUpdater.on('update-downloaded', (info) => {
+      console.log('[AutoUpdater] Update downloaded:', info.version)
+      if (mainWindow) {
+        mainWindow.webContents.send('update-downloaded', info)
+      }
+    })
+
+    autoUpdater.on('error', (err) => {
+      console.error('[AutoUpdater] Error:', err.message)
+    })
+  }
+
+  // IPC: Check for updates manually
+  ipcMain.handle('check-for-updates', async () => {
+    if (app.isPackaged) {
+      return autoUpdater.checkForUpdatesAndNotify()
+    }
+    return null
+  })
+
+  // IPC: Install update and restart
+  ipcMain.handle('install-update', () => {
+    autoUpdater.quitAndInstall()
+  })
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

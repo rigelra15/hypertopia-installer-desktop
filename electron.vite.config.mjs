@@ -7,6 +7,7 @@ import { execSync } from 'child_process'
 // Get git commit count and changelog
 let commitCount = '0'
 let changelog = []
+let buildDate = new Date().toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
 try {
   commitCount = execSync('git rev-list --count HEAD').toString().trim()
   const logOutput = execSync('git log --pretty=format:"%h|%s|%cd" --date=format:"%Y-%m-%d" -n 20')
@@ -41,7 +42,8 @@ export default defineConfig({
     define: {
       __APP_VERSION__: JSON.stringify(appVersion),
       __APP_CHANGELOG__: JSON.stringify(changelog),
-      __COMMIT_COUNT__: JSON.stringify(commitCount)
+      __COMMIT_COUNT__: JSON.stringify(commitCount),
+      __BUILD_DATE__: JSON.stringify(buildDate)
     },
     plugins: [react(), tailwindcss()]
   }

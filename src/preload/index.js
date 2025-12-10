@@ -21,6 +21,24 @@ const api = {
     const subscription = (_event, value) => callback(value)
     ipcRenderer.on('install-progress', subscription)
     return () => ipcRenderer.removeListener('install-progress', subscription)
+  },
+  // Auto-update APIs
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  onUpdateAvailable: (callback) => {
+    const subscription = (_event, info) => callback(info)
+    ipcRenderer.on('update-available', subscription)
+    return () => ipcRenderer.removeListener('update-available', subscription)
+  },
+  onUpdateDownloadProgress: (callback) => {
+    const subscription = (_event, progress) => callback(progress)
+    ipcRenderer.on('update-download-progress', subscription)
+    return () => ipcRenderer.removeListener('update-download-progress', subscription)
+  },
+  onUpdateDownloaded: (callback) => {
+    const subscription = (_event, info) => callback(info)
+    ipcRenderer.on('update-downloaded', subscription)
+    return () => ipcRenderer.removeListener('update-downloaded', subscription)
   }
 }
 
