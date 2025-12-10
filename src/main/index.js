@@ -392,6 +392,9 @@ app.whenReady().then(() => {
 
     autoUpdater.on('update-not-available', () => {
       console.log('[AutoUpdater] No updates available')
+      if (mainWindow) {
+        mainWindow.webContents.send('update-not-available')
+      }
     })
 
     autoUpdater.on('download-progress', (progress) => {
@@ -417,6 +420,14 @@ app.whenReady().then(() => {
   ipcMain.handle('check-for-updates', async () => {
     if (app.isPackaged) {
       return autoUpdater.checkForUpdates()
+    } else {
+      // Direct dev simulation for UI testing
+      console.log('[AutoUpdater] Dev mode: Simulating check...')
+      setTimeout(() => {
+        if (mainWindow) {
+          mainWindow.webContents.send('update-not-available')
+        }
+      }, 1000)
     }
     return null
   })
