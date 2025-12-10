@@ -139,5 +139,6 @@
   "update_not_available": "App is up to date",
   "update_checking": "Checking for updates...",
   "search_placeholder": "Search...",
-  "search_no_results": "No results found"
+  "search_no_results": "No results found",
+  "update_remaining": "remaining"
 }

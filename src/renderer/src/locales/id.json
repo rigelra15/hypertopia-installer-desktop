@@ -139,5 +139,6 @@
   "update_not_available": "Aplikasi sudah versi terbaru",
   "update_checking": "Memeriksa pembaruan...",
   "search_placeholder": "Cari...",
-  "search_no_results": "Tidak ada hasil ditemukan"
+  "search_no_results": "Tidak ada hasil ditemukan",
+  "update_remaining": "tersisa"
 }
