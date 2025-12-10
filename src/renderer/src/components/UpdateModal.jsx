@@ -13,7 +13,9 @@ export default function UpdateModal({
   updateInfo,
   onDownload,
   isDownloading,
-  downloadProgress
+  downloadProgress,
+  onInstall,
+  isReady
 }) {
   const { t } = useLanguage()
 
@@ -48,12 +50,18 @@ export default function UpdateModal({
           >
             {/* Header */}
             <div className="mb-4 flex items-center gap-3">
-              <div className="rounded-full bg-[#0081FB]/20 p-3">
-                <Icon icon="line-md:arrow-up-circle" className="h-6 w-6 text-[#0081FB]" />
+              <div className={`rounded-full p-3 ${isReady ? 'bg-green-500/20' : 'bg-[#0081FB]/20'}`}>
+                {isReady ? (
+                  <Icon icon="line-md:confirm-circle" className="h-6 w-6 text-green-500" />
+                ) : (
+                  <Icon icon="line-md:arrow-up-circle" className="h-6 w-6 text-[#0081FB]" />
+                )}
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white">
-                  {t('update_new_version') || 'New Version Available!'}
+                  {isReady
+                    ? t('update_ready_title') || 'Update Ready to Install'
+                    : t('update_new_version') || 'New Version Available!'}
                 </h2>
                 <p className="text-sm text-white/50">
                   {t('update_current') || 'Current'}: v{window.__APP_VERSION__ || '1.0.0'}
@@ -108,28 +116,39 @@ export default function UpdateModal({
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                disabled={isDownloading}
+                disabled={isDownloading && !isReady}
                 className="flex-1 py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('update_later') || 'Later'}
               </button>
-              <button
-                onClick={onDownload}
-                disabled={isDownloading}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-[#0081FB] hover:bg-[#0081FB]/80 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isDownloading ? (
-                  <>
-                    <Icon icon="line-md:loading-loop" className="h-4 w-4" />
-                    {t('update_downloading') || 'Downloading...'}
-                  </>
-                ) : (
-                  <>
-                    <Icon icon="line-md:download-loop" className="h-4 w-4" />
-                    {t('update_download_now') || 'Download Now'}
-                  </>
-                )}
-              </button>
+              
+              {isReady ? (
+                 <button
+                   onClick={onInstall}
+                   className="flex-1 py-2.5 px-4 rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-green-500/20"
+                 >
+                   <Icon icon="line-md:rotate-270" className="h-4 w-4" />
+                   {t('update_restart_now') || 'Restart App'}
+                 </button>
+              ) : (
+                <button
+                  onClick={onDownload}
+                  disabled={isDownloading}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#0081FB] hover:bg-[#0081FB]/80 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#0081FB]/20"
+                >
+                  {isDownloading ? (
+                    <>
+                      <Icon icon="line-md:loading-loop" className="h-4 w-4" />
+                      {t('update_downloading') || 'Downloading...'}
+                    </>
+                  ) : (
+                    <>
+                      <Icon icon="line-md:download-loop" className="h-4 w-4" />
+                      {t('update_download_now') || 'Download Now'}
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </motion.div>
         </motion.div>
@@ -144,5 +163,7 @@ UpdateModal.propTypes = {
   updateInfo: PropTypes.object,
   onDownload: PropTypes.func.isRequired,
   isDownloading: PropTypes.bool,
-  downloadProgress: PropTypes.number
+  downloadProgress: PropTypes.number,
+  onInstall: PropTypes.func,
+  isReady: PropTypes.bool
 }

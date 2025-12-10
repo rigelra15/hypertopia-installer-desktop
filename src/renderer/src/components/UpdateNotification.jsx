@@ -54,7 +54,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
       setUpdateInfo(info)
       setUpdateState('ready')
       setDownloadProgress(100)
-      setShowModal(false)
+      setShowModal(true)
     })
 
     return () => {
@@ -96,6 +96,8 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
         onDownload={handleDownload}
         isDownloading={updateState === 'downloading'}
         downloadProgress={downloadProgress}
+        onInstall={handleInstall}
+        isReady={updateState === 'ready'}
       />
 
       {/* Inline Notification */}
