@@ -181,7 +181,7 @@ export default function ChangelogModal({ isOpen, onClose }) {
                     const parsed = parseReleaseBody(release.body)
 
                     return (
-                      <div key={release.id} className="flex gap-4 group">
+                      <div key={release.id || `release-${index}`} className="flex gap-4 group">
                         <div className="flex flex-col items-center">
                           <div className="w-2 h-2 rounded-full bg-[#0081FB] mt-2 ring-4 ring-[#111] z-10"></div>
                           {index !== releases.length - 1 && (
