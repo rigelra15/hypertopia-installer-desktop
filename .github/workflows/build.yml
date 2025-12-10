@@ -32,8 +32,15 @@ jobs:
           sudo apt-get install -y \
             libgtk-3-0 libnss3 libxss1 libxtst6 libx11-xcb1 libasound2t64 libfuse2
 
+      - name: Clean npm cache (Windows)
+        if: matrix.os == 'windows-latest'
+        run: npm cache clean --force
+        continue-on-error: true
+
       - name: Install deps
         run: npm ci
+        env:
+          npm_config_cache: ${{ github.workspace }}/.npm
 
       - name: Build (electron-vite)
         run: npm run build
