@@ -19,8 +19,8 @@
   ],
   "ignore_labels": ["ignore"],
   "sort": "date",
-  "template": "#{{TITLE}}\n\n#{{CHANGELOG}}",
-  "pr_template": "- #{{TITLE}}\n",
+  "template": "${{TITLE}}\n\n${{CHANGELOG}}",
+  "pr_template": "- ${{TITLE}}\n",
   "empty_template": "- No changes",
   "label_extractor": [
     {
