@@ -8,6 +8,7 @@ export function OBBManager({ selectedDevice }) {
   const [folders, setFolders] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const fetchOBB = useCallback(async () => {
     // If no device selected, clear list (or show waiting)
@@ -37,10 +38,15 @@ export function OBBManager({ selectedDevice }) {
     fetchOBB()
   }, [fetchOBB])
 
+  // Filter folders based on search query
+  const filteredFolders = folders.filter((folder) =>
+    folder.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   return (
     <div className="flex flex-1 flex-col bg-[#111] p-6 font-['Poppins'] text-white overflow-hidden">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">
             OBB <span className="text-[#0081FB]">Manager</span>
@@ -65,6 +71,31 @@ export function OBBManager({ selectedDevice }) {
         </button>
       </div>
 
+      {/* Search Box */}
+      {selectedDevice && folders.length > 0 && (
+        <div className="mb-4 relative">
+          <Icon
+            icon="mdi:magnify"
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40"
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t('search_placeholder') || 'Cari folder...'}
+            className="w-full rounded-lg border border-white/10 bg-white/5 pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-[#0081FB]/50 focus:outline-none focus:ring-1 focus:ring-[#0081FB]/50 transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
+            >
+              <Icon icon="mdi:close" className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Content Area */}
       <div className="custom-scrollbar flex-1 overflow-y-auto pr-2 pb-4">
         {!selectedDevice ? (
@@ -88,9 +119,14 @@ export function OBBManager({ selectedDevice }) {
           <div className="flex h-full flex-col items-center justify-center text-white/30">
             <p className="text-sm">{t('obb_empty')}</p>
           </div>
+        ) : filteredFolders.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center text-white/30">
+            <Icon icon="mdi:folder-search" className="h-8 w-8 mb-2" />
+            <p className="text-sm">{t('search_no_results') || 'Tidak ada hasil ditemukan'}</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {folders.map((folder, index) => (
+            {filteredFolders.map((folder, index) => (
               <div
                 key={index}
                 className="group relative cursor-default rounded-xl border border-white/5 bg-white/5 p-4 transition-all hover:border-[#0081FB]/50 hover:bg-[#0081FB]/5"
