@@ -126,5 +126,19 @@
   "update_size": "Size",
   "update_now": "Update Now",
   "settings_auto_update": "Auto-update",
-  "settings_auto_update_desc": "Automatically download updates in background"
+  "settings_auto_update_desc": "Automatically download updates in background",
+  "tutorials_title": "Tutorials",
+  "tutorials_subtitle": "Guides and help for using the installer",
+  "storage_app_title": "App Storage",
+  "storage_space_used": "Space used",
+  "storage_app": "App",
+  "storage_data": "Data",
+  "storage_cache": "Cache",
+  "storage_total": "Total",
+  "storage_clear_data": "Clear Data",
+  "storage_clear_cache": "Clear Cache",
+  "storage_clear_data_confirm": "This will clear all app data and restart the application. You will need to set up the app again. Continue?",
+  "storage_clear_cache_confirm": "This will clear cached files. Continue?",
+  "storage_cleared": "Cleared successfully",
+  "storage_note": "Note: Clearing data/cache may not reduce size to 0 MB as system files are preserved."
 }
