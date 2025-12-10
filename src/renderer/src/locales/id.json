@@ -113,5 +113,9 @@
   "tutorial_connect_device_step4": "4. Aplikasi HyperTopia Installer akan secara otomatis mendeteksi Meta Quest yang terhubung.",
   "tutorial_link_dev_mode": "Tutorial: Cara Mengaktifkan Mode Developer",
   "note": "Catatan",
-  "warning": "Peringatan"
+  "warning": "Peringatan",
+  "update_available": "Pembaruan Tersedia",
+  "update_downloading": "Mengunduh Pembaruan...",
+  "update_ready": "Pembaruan Siap!",
+  "update_restart": "Mulai Ulang untuk Update"
 }

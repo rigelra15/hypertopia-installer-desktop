@@ -3,6 +3,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { DeviceSelector } from './DeviceSelector'
 import { ErrorModal } from './ErrorModal'
 import { SettingsModal } from './SettingsModal'
+import UpdateNotification from './UpdateNotification'
 import PropTypes from 'prop-types'
 
 export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
@@ -245,6 +246,9 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
 
       {/* Main Content (Scrollable) */}
       <div className="custom-scrollbar flex-1 overflow-y-auto px-6 py-4">
+        {/* Update Notification */}
+        <UpdateNotification className="mb-4" />
+
         {/* Drop Zone */}
         <div
           className={`relative mb-6 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition-all ${

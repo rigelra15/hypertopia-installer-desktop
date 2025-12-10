@@ -113,5 +113,9 @@
   "tutorial_connect_device_step4": "4. The HyperTopia Installer app will automatically detect your connected Meta Quest.",
   "tutorial_link_dev_mode": "Tutorial: How to Enable Developer Mode",
   "note": "Note",
-  "warning": "Warning"
+  "warning": "Warning",
+  "update_available": "Update Available",
+  "update_downloading": "Downloading Update...",
+  "update_ready": "Update Ready!",
+  "update_restart": "Restart to Update"
 }
