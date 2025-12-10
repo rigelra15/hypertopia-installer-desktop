@@ -10,6 +10,7 @@ export function SetupModal({ isOpen, onComplete }) {
   const [isSelecting, setIsSelecting] = useState(false)
   const [diskSpace, setDiskSpace] = useState(null)
   const [isLoadingSpace, setIsLoadingSpace] = useState(false)
+  const [autoUpdate, setAutoUpdate] = useState(true) // Default to true for new users
 
   const handleSelectFolder = async () => {
     setIsSelecting(true)
@@ -54,6 +55,9 @@ export function SetupModal({ isOpen, onComplete }) {
   const handleComplete = () => {
     if (extractPath) {
       localStorage.setItem('extractPath', extractPath)
+      // Save auto-update preference
+      localStorage.setItem('autoUpdate', autoUpdate.toString())
+      window.api.setAutoDownload?.(autoUpdate)
       onComplete(extractPath)
     }
   }
@@ -175,6 +179,50 @@ export function SetupModal({ isOpen, onComplete }) {
                 </div>
               </div>
             )}
+
+            {/* Auto-Update Preference */}
+            <div className="mb-6">
+              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
+                {t('settings_auto_update') || 'Auto-update'}
+              </label>
+              <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-3">
+                <div className="flex items-center gap-3">
+                  <svg
+                    className="h-5 w-5 text-[#0081FB]"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-white">
+                      {t('settings_auto_update') || 'Auto-update'}
+                    </p>
+                    <p className="text-xs text-white/50">
+                      {t('settings_auto_update_desc') || 'Automatically download updates'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setAutoUpdate(!autoUpdate)}
+                  className={`relative h-6 w-11 rounded-full transition-colors ${
+                    autoUpdate ? 'bg-[#0081FB]' : 'bg-white/20'
+                  }`}
+                >
+                  <div
+                    className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${
+                      autoUpdate ? 'left-6' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
 
             {/* Actions */}
             <button
