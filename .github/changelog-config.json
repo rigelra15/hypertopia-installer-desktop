@@ -20,8 +20,8 @@
   "ignore_labels": ["ignore"],
   "sort": "date",
   "template": "${{CHANGELOG}}\n\n${{UNCATEGORIZED}}",
-  "pr_template": "- ${{TITLE}}",
-  "commit_template": "- ${{TITLE}}",
+  "pr_template": "- ${{TITLE}}\n${{BODY}}",
+  "commit_template": "### ${{TITLE}}\n${{BODY}}\n",
   "empty_template": "No notable changes in this release.",
   "label_extractor": [
     {
