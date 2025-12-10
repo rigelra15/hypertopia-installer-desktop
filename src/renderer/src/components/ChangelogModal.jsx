@@ -49,30 +49,63 @@ export default function ChangelogModal({ isOpen, onClose }) {
     })
   }
 
-  // Parse release body to extract categories
-  const parseReleaseBody = (body) => {
-    if (!body) return []
+  // Clean commit title: remove conventional commit prefix and capitalize
+  const cleanTitle = (title) => {
+    // Remove conventional commit prefix (feat:, fix:, etc.)
+    const cleaned = title.replace(
+      /^(feat|fix|chore|perf|refactor|style|build|ci|docs|test)(\(.+?\))?:\s*/i,
+      ''
+    )
+    // Capitalize first letter
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+  }
 
-    const lines = body.split('\n').filter((line) => line.trim())
-    const items = []
+  // Parse release body to extract structured content
+  const parseReleaseBody = (body) => {
+    if (!body) return { categories: [], hasStructure: false }
+
+    const lines = body.split('\n')
+    const categories = []
     let currentCategory = null
 
     for (const line of lines) {
-      // Check for category header (## or ### with emoji)
-      if (line.startsWith('##')) {
-        currentCategory = line.replace(/^#+\s*/, '').trim()
-      } else if (line.startsWith('-') || line.startsWith('*')) {
-        const text = line.replace(/^[-*]\s*/, '').trim()
+      const trimmed = line.trim()
+      if (!trimmed) continue
+
+      // Check for category header (## with emoji)
+      if (trimmed.startsWith('##')) {
+        const categoryName = trimmed.replace(/^#+\s*/, '').trim()
+        currentCategory = {
+          name: categoryName,
+          commits: []
+        }
+        categories.push(currentCategory)
+      }
+      // Check for bold text (commit title) - **text**
+      else if (trimmed.startsWith('**') && trimmed.endsWith('**') && currentCategory) {
+        const rawTitle = trimmed.replace(/\*\*/g, '').trim()
+        const title = cleanTitle(rawTitle)
+        // Start a new commit entry
+        currentCategory.commits.push({
+          title,
+          details: []
+        })
+      }
+      // Check for list items (only lines starting with -)
+      else if (trimmed.startsWith('-') && currentCategory && currentCategory.commits.length > 0) {
+        const text = trimmed.replace(/^-\s*/, '').trim()
         if (text) {
-          items.push({
-            text,
-            category: currentCategory
-          })
+          // Add to the last commit's details
+          const lastCommit = currentCategory.commits[currentCategory.commits.length - 1]
+          lastCommit.details.push(text)
         }
       }
     }
 
-    return items
+    return {
+      categories,
+      hasStructure: categories.length > 0
+    }
   }
 
   return (
@@ -145,7 +178,7 @@ export default function ChangelogModal({ isOpen, onClose }) {
               {!loading && !error && releases.length > 0 && (
                 <div className="space-y-6">
                   {releases.map((release, index) => {
-                    const items = parseReleaseBody(release.body)
+                    const parsed = parseReleaseBody(release.body)
 
                     return (
                       <div key={release.id} className="flex gap-4 group">
@@ -177,26 +210,49 @@ export default function ChangelogModal({ isOpen, onClose }) {
                             <h3 className="text-white font-medium mb-2">{release.name}</h3>
                           )}
 
-                          {/* Release body items */}
-                          {items.length > 0 ? (
-                            <ul className="space-y-1">
-                              {items.map((item, idx) => (
-                                <li
-                                  key={idx}
-                                  className="flex items-start gap-2 text-sm text-gray-300"
-                                >
-                                  <span className="text-[#0081FB] mt-1">•</span>
-                                  <span>{item.text}</span>
-                                </li>
+                          {/* Release body - structured with categories */}
+                          {parsed.hasStructure ? (
+                            <div className="space-y-3">
+                              {parsed.categories.map((category, catIdx) => (
+                                <div key={catIdx}>
+                                  {/* Category header */}
+                                  <h4 className="text-sm font-semibold text-white/80 mb-1.5">
+                                    {category.name}
+                                  </h4>
+                                  {/* Category commits */}
+                                  <div className="space-y-2">
+                                    {category.commits.map((commit, commitIdx) => (
+                                      <div key={commitIdx}>
+                                        {/* Commit title (bold, no bullet) */}
+                                        <p className="text-sm font-semibold text-white mb-1">
+                                          {commit.title}
+                                        </p>
+                                        {/* Commit details (with bullets) */}
+                                        {commit.details.length > 0 && (
+                                          <ul className="space-y-0.5 ml-2">
+                                            {commit.details.map((detail, detailIdx) => (
+                                              <li
+                                                key={detailIdx}
+                                                className="flex items-start gap-2 text-sm text-gray-300"
+                                              >
+                                                <span className="text-[#0081FB] mt-1">•</span>
+                                                <span>{detail}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               ))}
-                            </ul>
+                            </div>
                           ) : release.body ? (
                             <p className="text-sm text-gray-400 whitespace-pre-wrap">
                               {release.body.slice(0, 300)}
                               {release.body.length > 300 ? '...' : ''}
                             </p>
                           ) : release.name && release.name !== release.tag_name ? (
-                            // If no body, show release name (usually contains commit message)
                             <p className="text-sm text-gray-300">{release.name}</p>
                           ) : (
                             <p className="text-sm text-gray-500 italic">No release notes</p>
