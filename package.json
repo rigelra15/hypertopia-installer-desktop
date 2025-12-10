@@ -1,7 +1,7 @@
 {
   "name": "hypertopia-installer",
   "productName": "HyperTopia Installer",
-  "version": "1.0.69",
+  "version": "1.0.70",
   "description": "HyperTopia Installer - Advanced VR Sideloading Tool",
   "main": "./out/main/index.js",
   "author": "example.com",

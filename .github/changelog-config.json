@@ -23,58 +23,47 @@
     {
       "title": "## 🧪 Tests",
       "labels": ["test"]
-    },
-    {
-      "title": "## 🔄 Other Changes",
-      "labels": []
     }
   ],
   "ignore_labels": ["ignore"],
   "sort": "date",
-  "template": "${{CHANGELOG}}\n\n${{UNCATEGORIZED}}",
-  "pr_template": "- ${{TITLE}}\n${{BODY}}",
-  "commit_template": "**${{TITLE}}**\n${{BODY}}\n",
+  "template": "${{CHANGELOG}}",
+  "pr_template": "- ${{TITLE}}",
+  "commit_template": "- ${{TITLE}}",
   "empty_template": "No notable changes in this release.",
   "label_extractor": [
     {
-      "pattern": "^(feat|feature)(\\(.+\\))?:",
+      "pattern": "^feat",
       "target": "feat",
-      "method": "match",
       "on_property": "title"
     },
     {
-      "pattern": "^(fix|bug)(\\(.+\\))?:",
+      "pattern": "^fix",
       "target": "fix",
-      "method": "match",
       "on_property": "title"
     },
     {
-      "pattern": "^(perf|refactor|style)(\\(.+\\))?:",
+      "pattern": "^perf|^refactor|^style",
       "target": "perf",
-      "method": "match",
       "on_property": "title"
     },
     {
-      "pattern": "^(chore|build|ci)(\\(.+\\))?:",
+      "pattern": "^chore|^build|^ci",
       "target": "chore",
-      "method": "match",
       "on_property": "title"
     },
     {
-      "pattern": "^(docs)(\\(.+\\))?:",
+      "pattern": "^docs",
       "target": "docs",
-      "method": "match",
       "on_property": "title"
     },
     {
-      "pattern": "^(test)(\\(.+\\))?:",
+      "pattern": "^test",
       "target": "test",
-      "method": "match",
       "on_property": "title"
     }
   ],
   "max_tags_to_fetch": 200,
   "max_pull_requests": 200,
-  "max_back_track_time_days": 365,
-  "duplicate_filter": true
+  "max_back_track_time_days": 365
 }

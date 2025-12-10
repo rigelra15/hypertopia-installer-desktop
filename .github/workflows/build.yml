@@ -94,21 +94,27 @@ jobs:
           git log --oneline ${{ steps.previoustag.outputs.tag }}..${{ github.ref_name }} || echo "No previous tag found, showing recent commits:"
           git log --oneline -10
 
+      - name: Setup Node for changelog
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Generate Changelog
         id: changelog
-        uses: mikepenz/release-changelog-builder-action@v4
-        with:
-          configuration: '.github/changelog-config.json'
-          commitMode: true
-          fromTag: ${{ steps.previoustag.outputs.tag }}
-          toTag: ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Debug Changelog Output
         run: |
-          echo "Changelog output:"
-          echo "${{ steps.changelog.outputs.changelog }}"
+          PREV_TAG="${{ steps.previoustag.outputs.tag }}"
+          CURR_TAG="${{ github.ref_name }}"
+          echo "Generating changelog from $PREV_TAG to $CURR_TAG"
+
+          CHANGELOG=$(node scripts/generate-changelog.js "$PREV_TAG" "$CURR_TAG")
+
+          # Use GitHub's multiline output format
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "=== Changelog Preview ==="
+          echo "$CHANGELOG"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
