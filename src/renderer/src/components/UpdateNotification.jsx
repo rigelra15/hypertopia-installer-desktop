@@ -14,6 +14,9 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
   const [updateState, setUpdateState] = useState('idle') // idle, available, downloading, ready
   const [updateInfo, setUpdateInfo] = useState(null)
   const [downloadProgress, setDownloadProgress] = useState(0)
+  const [downloadSpeed, setDownloadSpeed] = useState(0)
+  const [downloadedBytes, setDownloadedBytes] = useState(0)
+  const [totalBytes, setTotalBytes] = useState(0)
   const [showModal, setShowModal] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [autoUpdate] = useState(() => {
@@ -44,8 +47,11 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
     })
 
     const unsubProgress = window.api.onUpdateDownloadProgress((progress) => {
-      console.log('[Update] Progress:', progress.percent?.toFixed(1) + '%')
+      console.log('[Update] Progress:', progress.percent?.toFixed(1) + '%', 'Speed:', progress.bytesPerSecond)
       setDownloadProgress(progress.percent || 0)
+      setDownloadSpeed(progress.bytesPerSecond || 0)
+      setDownloadedBytes(progress.transferred || 0)
+      setTotalBytes(progress.total || 0)
       setUpdateState('downloading')
     })
 
@@ -96,6 +102,9 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
         onDownload={handleDownload}
         isDownloading={updateState === 'downloading'}
         downloadProgress={downloadProgress}
+        downloadSpeed={downloadSpeed}
+        downloadedBytes={downloadedBytes}
+        totalBytes={totalBytes}
         onInstall={handleInstall}
         isReady={updateState === 'ready'}
       />

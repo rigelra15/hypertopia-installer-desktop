@@ -14,6 +14,9 @@ export default function UpdateModal({
   onDownload,
   isDownloading,
   downloadProgress,
+  downloadSpeed,
+  downloadedBytes,
+  totalBytes,
   onInstall,
   isReady
 }) {
@@ -28,7 +31,36 @@ export default function UpdateModal({
     return mb.toFixed(1) + ' MB'
   }
 
+  // Format download speed
+  const formatSpeed = (bytesPerSecond) => {
+    if (!bytesPerSecond) return null
+    const mbps = bytesPerSecond / (1024 * 1024)
+    if (mbps >= 1) {
+      return mbps.toFixed(1) + ' MB/s'
+    }
+    const kbps = bytesPerSecond / 1024
+    return kbps.toFixed(0) + ' KB/s'
+  }
+
+  // Calculate ETA
+  const calculateETA = (speed, downloaded, total) => {
+    if (!speed || !total || speed <= 0) return null
+    const remaining = total - (downloaded || 0)
+    if (remaining <= 0) return null
+    const seconds = remaining / speed
+    if (seconds < 60) {
+      return `${Math.ceil(seconds)}s`
+    } else if (seconds < 3600) {
+      const mins = Math.floor(seconds / 60)
+      const secs = Math.ceil(seconds % 60)
+      return `${mins}m ${secs}s`
+    }
+    return null
+  }
+
   const fileSize = updateInfo.files?.[0]?.size ? formatSize(updateInfo.files[0].size) : null
+  const speedDisplay = formatSpeed(downloadSpeed)
+  const etaDisplay = calculateETA(downloadSpeed, downloadedBytes, totalBytes)
 
   return (
     <AnimatePresence>
@@ -50,11 +82,13 @@ export default function UpdateModal({
           >
             {/* Header */}
             <div className="mb-4 flex items-center gap-3">
-              <div className={`rounded-full p-3 ${isReady ? 'bg-green-500/20' : 'bg-[#0081FB]/20'}`}>
+              <div
+                className={`flex-shrink-0 rounded-full p-3 ${isReady ? 'bg-green-500/20' : 'bg-[#0081FB]/20'}`}
+              >
                 {isReady ? (
-                  <Icon icon="line-md:confirm-circle" className="h-6 w-6 text-green-500" />
+                  <Icon icon="line-md:confirm-circle" className="h-6 w-6 flex-shrink-0 text-green-500" />
                 ) : (
-                  <Icon icon="line-md:arrow-up-circle" className="h-6 w-6 text-[#0081FB]" />
+                  <Icon icon="line-md:arrow-up-circle" className="h-6 w-6 flex-shrink-0 text-[#0081FB]" />
                 )}
               </div>
               <div>
@@ -109,6 +143,21 @@ export default function UpdateModal({
                     transition={{ duration: 0.3 }}
                   />
                 </div>
+                {/* Speed and ETA info */}
+                {(speedDisplay || etaDisplay) && (
+                  <div className="flex items-center justify-between text-xs text-white/40 mt-1.5">
+                    <span className="flex items-center gap-1.5">
+                      <Icon icon="mdi:speedometer" className="h-3 w-3 flex-shrink-0" />
+                      {speedDisplay || '-'}
+                    </span>
+                    {etaDisplay && (
+                      <span className="flex items-center gap-1.5">
+                        <Icon icon="mdi:clock-outline" className="h-3 w-3 flex-shrink-0" />
+                        {etaDisplay} {t('update_remaining') || 'remaining'}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -121,15 +170,15 @@ export default function UpdateModal({
               >
                 {t('update_later') || 'Later'}
               </button>
-              
+
               {isReady ? (
-                 <button
-                   onClick={onInstall}
-                   className="flex-1 py-2.5 px-4 rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-green-500/20"
-                 >
-                   <Icon icon="line-md:rotate-270" className="h-4 w-4" />
-                   {t('update_restart_now') || 'Restart App'}
-                 </button>
+                <button
+                  onClick={onInstall}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-green-500/20"
+                >
+                  <Icon icon="line-md:rotate-270" className="h-4 w-4 flex-shrink-0" />
+                  {t('update_restart_now') || 'Restart App'}
+                </button>
               ) : (
                 <button
                   onClick={onDownload}
@@ -138,12 +187,12 @@ export default function UpdateModal({
                 >
                   {isDownloading ? (
                     <>
-                      <Icon icon="line-md:loading-loop" className="h-4 w-4" />
+                      <Icon icon="line-md:loading-loop" className="h-4 w-4 flex-shrink-0" />
                       {t('update_downloading') || 'Downloading...'}
                     </>
                   ) : (
                     <>
-                      <Icon icon="line-md:download-loop" className="h-4 w-4" />
+                      <Icon icon="line-md:download-loop" className="h-4 w-4 flex-shrink-0" />
                       {t('update_download_now') || 'Download Now'}
                     </>
                   )}
@@ -164,6 +213,9 @@ UpdateModal.propTypes = {
   onDownload: PropTypes.func.isRequired,
   isDownloading: PropTypes.bool,
   downloadProgress: PropTypes.number,
+  downloadSpeed: PropTypes.number,
+  downloadedBytes: PropTypes.number,
+  totalBytes: PropTypes.number,
   onInstall: PropTypes.func,
   isReady: PropTypes.bool
 }
