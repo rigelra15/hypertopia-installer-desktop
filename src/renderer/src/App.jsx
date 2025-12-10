@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Icon } from '@iconify/react'
 import { useLanguage } from './contexts/LanguageContext'
-import { useToast } from './components/Toast'
+import { useToast } from './hooks/useToast'
 import { InstallerSidebar } from './components/InstallerSidebar'
 import { OBBManager } from './components/OBBManager'
 import { AppsManager } from './components/AppsManager'
@@ -81,14 +81,14 @@ function App() {
     }
 
     if (!hasCheckedUpdates.current) {
-        hasCheckedUpdates.current = true
-        checkOnLaunch()
+      hasCheckedUpdates.current = true
+      checkOnLaunch()
     }
 
     return () => {
       removeListener()
     }
-  }, [])
+  }, [t, toast])
 
   return (
     <>
