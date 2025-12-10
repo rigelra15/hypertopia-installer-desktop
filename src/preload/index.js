@@ -43,7 +43,7 @@ const api = {
     return () => ipcRenderer.removeListener('update-downloaded', subscription)
   },
   onUpdateNotAvailable: (callback) => {
-    const subscription = (_event) => callback()
+    const subscription = () => callback()
     ipcRenderer.on('update-not-available', subscription)
     return () => ipcRenderer.removeListener('update-not-available', subscription)
   }
