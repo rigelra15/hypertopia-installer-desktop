@@ -192,6 +192,112 @@ ipcMain.handle('get-disk-space', async (event, folderPath) => {
   })
 })
 
+// IPC: Get App Storage Info (app size, data size, cache size)
+ipcMain.handle('get-app-storage', async () => {
+  const formatBytes = (bytes) => {
+    if (bytes === 0) return '0 MB'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB'
+  }
+
+  const getDirSize = async (dirPath) => {
+    try {
+      const stats = await fs.stat(dirPath)
+      if (!stats.isDirectory()) return stats.size
+
+      let size = 0
+      const files = await fs.readdir(dirPath)
+      for (const file of files) {
+        const filePath = path.join(dirPath, file)
+        try {
+          const fileStats = await fs.stat(filePath)
+          if (fileStats.isDirectory()) {
+            size += await getDirSize(filePath)
+          } else {
+            size += fileStats.size
+          }
+        } catch {
+          // Skip files we can't access
+        }
+      }
+      return size
+    } catch {
+      return 0
+    }
+  }
+
+  try {
+    // App size (installation directory)
+    const appPath = app.isPackaged ? app.getAppPath() : process.cwd()
+    const appSize = await getDirSize(appPath)
+
+    // Data size (user data directory)
+    const userDataPath = app.getPath('userData')
+    const dataSize = await getDirSize(userDataPath)
+
+    // Cache size
+    const cachePath = app.getPath('cache')
+    let cacheSize = 0
+    try {
+      cacheSize = await getDirSize(cachePath)
+    } catch {
+      // Cache path might not exist
+    }
+
+    const totalSize = appSize + dataSize + cacheSize
+
+    return {
+      app: formatBytes(appSize),
+      appBytes: appSize,
+      data: formatBytes(dataSize),
+      dataBytes: dataSize,
+      cache: formatBytes(cacheSize),
+      cacheBytes: cacheSize,
+      total: formatBytes(totalSize),
+      totalBytes: totalSize
+    }
+  } catch (err) {
+    console.error('[Storage] Error getting app storage:', err)
+    return {
+      app: '0 MB',
+      data: '0 MB',
+      cache: '0 MB',
+      total: '0 MB'
+    }
+  }
+})
+
+// IPC: Clear Cache
+ipcMain.handle('clear-cache', async () => {
+  try {
+    const cachePath = app.getPath('cache')
+    await fs.emptyDir(cachePath)
+    return { success: true }
+  } catch (err) {
+    console.error('[Storage] Error clearing cache:', err)
+    return { success: false, error: err.message }
+  }
+})
+
+// IPC: Clear Data (factory reset - clears userData and restarts app)
+ipcMain.handle('clear-data', async (event) => {
+  try {
+    const userDataPath = app.getPath('userData')
+    // Clear localStorage via renderer
+    await event.sender.executeJavaScript('localStorage.clear()')
+    // Clear user data folder
+    await fs.emptyDir(userDataPath)
+    // Restart app
+    app.relaunch()
+    app.exit(0)
+    return { success: true }
+  } catch (err) {
+    console.error('[Storage] Error clearing data:', err)
+    return { success: false, error: err.message }
+  }
+})
+
 // IPC: Get Extract Path from localStorage (via webContents)
 ipcMain.handle('get-extract-path', async (event) => {
   return new Promise((resolve) => {
