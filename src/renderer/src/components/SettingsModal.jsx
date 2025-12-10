@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useTheme } from '../contexts/ThemeContext'
 import ChangelogModal from './ChangelogModal'
+import { useToast } from './Toast'
 import PropTypes from 'prop-types'
 
 export function SettingsModal({
@@ -22,6 +23,7 @@ export function SettingsModal({
   const [isChanging, setIsChanging] = useState(false)
   const { theme, setTheme } = useTheme()
   const [showChangelog, setShowChangelog] = useState(false)
+  const toast = useToast()
   const [autoUpdate, setAutoUpdate] = useState(() => {
     return localStorage.getItem('autoUpdate') !== 'false'
   })
@@ -75,6 +77,16 @@ export function SettingsModal({
       setDiskSpace(null)
     } finally {
       setIsLoadingSpace(false)
+    }
+  }
+
+  const handleCheckForUpdates = async () => {
+    toast.info(t('settings_checking_update') || 'Checking for updates...')
+    try {
+      await window.api.checkForUpdates()
+    } catch (error) {
+      console.error('Error checking for updates:', error)
+      toast.error('Error checking for updates')
     }
   }
 
@@ -186,7 +198,10 @@ export function SettingsModal({
                       {t('settings_changing')}
                     </div>
                   ) : (
-                    t('settings_change_folder')
+                    <div className="flex items-center justify-center gap-2">
+                       <Icon icon="mdi:folder-edit-outline" className="h-4 w-4" />
+                       {t('settings_change_folder')}
+                    </div>
                   )}
                 </button>
 
@@ -345,24 +360,34 @@ export function SettingsModal({
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
                   {t('settings_about')}
                 </label>
-                <button
-                  onClick={() => setShowChangelog(true)}
-                  className="w-full flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-3 transition-all hover:bg-white/10 hover:border-[#0081FB]/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon icon="line-md:clipboard-list" className="h-5 w-5 text-[#0081FB]" />
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-white">{t('settings_whats_new')}</p>
-                      <p className="text-xs text-white/50">{t('settings_changelog_desc')}</p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setShowChangelog(true)}
+                    className="w-full flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-3 transition-all hover:bg-white/10 hover:border-[#0081FB]/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon icon="line-md:clipboard-list" className="h-5 w-5 text-[#0081FB]" />
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-white">{t('settings_whats_new')}</p>
+                        <p className="text-xs text-white/50">{t('settings_changelog_desc')}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-white/40">
-                      v{appVersion ? appVersion.version : '...'}
-                    </span>
-                    <Icon icon="line-md:chevron-right" className="h-4 w-4 text-white/30" />
-                  </div>
-                </button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-white/40">
+                        v{appVersion ? appVersion.version : '...'}
+                      </span>
+                      <Icon icon="line-md:chevron-right" className="h-4 w-4 text-white/30" />
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={handleCheckForUpdates}
+                    className="w-full rounded-lg bg-[#0081FB] px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-[#0081FB]/90 flex items-center justify-center gap-2"
+                  >
+                    <Icon icon="line-md:rotate-right" className="h-4 w-4" />
+                    {t('settings_check_update') || 'Check for Updates'}
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>
