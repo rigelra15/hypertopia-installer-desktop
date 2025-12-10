@@ -6,7 +6,15 @@ import { useTheme } from '../contexts/ThemeContext'
 import ChangelogModal from './ChangelogModal'
 import PropTypes from 'prop-types'
 
-export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
+export function SettingsModal({
+  isOpen,
+  onClose,
+  currentPath,
+  appVersion,
+  updateAvailable,
+  updateInfo,
+  onUpdateNow
+}) {
   const { t, language } = useLanguage()
   const [extractPath, setExtractPath] = useState(currentPath || '')
   const [diskSpace, setDiskSpace] = useState(null)
@@ -14,6 +22,21 @@ export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
   const [isChanging, setIsChanging] = useState(false)
   const { theme, setTheme } = useTheme()
   const [showChangelog, setShowChangelog] = useState(false)
+  const [autoUpdate, setAutoUpdate] = useState(() => {
+    return localStorage.getItem('autoUpdate') !== 'false'
+  })
+
+  // Sync auto-update setting with main process
+  useEffect(() => {
+    window.api.setAutoDownload?.(autoUpdate)
+  }, [autoUpdate])
+
+  const handleAutoUpdateToggle = () => {
+    const newValue = !autoUpdate
+    setAutoUpdate(newValue)
+    localStorage.setItem('autoUpdate', newValue.toString())
+    window.api.setAutoDownload?.(newValue)
+  }
 
   // Load disk space immediately on component mount (not just when modal opens)
   useEffect(() => {
@@ -241,6 +264,63 @@ export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
                 </div>
               </div>
 
+              {/* Auto-Update Section */}
+              <div className="border-t border-white/10 pt-4">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
+                  {t('settings_auto_update') || 'Auto-update'}
+                </label>
+                <div className="space-y-3">
+                  {/* Toggle */}
+                  <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="flex items-center gap-3">
+                      <Icon icon="line-md:download-loop" className="h-5 w-5 text-[#0081FB]" />
+                      <div>
+                        <p className="text-sm font-medium text-white">
+                          {t('settings_auto_update') || 'Auto-update'}
+                        </p>
+                        <p className="text-xs text-white/50">
+                          {t('settings_auto_update_desc') || 'Automatically download updates'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleAutoUpdateToggle}
+                      className={`relative h-6 w-11 rounded-full transition-colors ${
+                        autoUpdate ? 'bg-[#0081FB]' : 'bg-white/20'
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${
+                          autoUpdate ? 'left-6' : 'left-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Update Now button (when update available) */}
+                  {updateAvailable && updateInfo && (
+                    <button
+                      onClick={onUpdateNow}
+                      className="w-full flex items-center justify-between rounded-lg border border-green-500/30 bg-green-500/10 p-3 transition-all hover:bg-green-500/20"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon icon="line-md:arrow-up-circle" className="h-5 w-5 text-green-400" />
+                        <div className="text-left">
+                          <p className="text-sm font-medium text-white">
+                            {t('update_new_version') || 'New Version Available!'}
+                          </p>
+                          <p className="text-xs text-green-400">v{updateInfo.version}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-green-400 text-sm font-medium">
+                        {t('update_now') || 'Update Now'}
+                        <Icon icon="line-md:chevron-right" className="h-4 w-4" />
+                      </div>
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* About Section */}
               <div className="border-t border-white/10 pt-4">
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
@@ -302,5 +382,10 @@ SettingsModal.propTypes = {
   appVersion: PropTypes.shape({
     version: PropTypes.string,
     build: PropTypes.string
-  })
+  }),
+  updateAvailable: PropTypes.bool,
+  updateInfo: PropTypes.shape({
+    version: PropTypes.string
+  }),
+  onUpdateNow: PropTypes.func
 }

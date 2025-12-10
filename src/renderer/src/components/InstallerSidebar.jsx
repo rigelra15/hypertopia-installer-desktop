@@ -23,6 +23,8 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
   const [errorDetails, setErrorDetails] = useState(null)
   const [extractPath, setExtractPath] = useState(localStorage.getItem('extractPath') || '')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [updateInfo, setUpdateInfo] = useState(null)
   const fileInputRef = useRef(null)
 
   // ... (keep useEffects and other handlers as is, until handleInstall)
@@ -198,9 +200,13 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
         <div className="flex items-start gap-2 flex-none">
           <button
             onClick={handleOpenSettings}
-            className="rounded-lg bg-white/5 border border-white/10 p-1.5 text-white/50 hover:text-white hover:bg-white/10 transition-all"
+            className="relative rounded-lg bg-white/5 border border-white/10 p-1.5 text-white/50 hover:text-white hover:bg-white/10 transition-all"
             title={t('settings_title')}
           >
+            {/* Update available badge */}
+            {updateAvailable && (
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-[#0a0a0a] animate-pulse" />
+            )}
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
@@ -247,7 +253,13 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
       {/* Main Content (Scrollable) */}
       <div className="custom-scrollbar flex-1 overflow-y-auto px-6 py-4">
         {/* Update Notification */}
-        <UpdateNotification className="mb-4" />
+        <UpdateNotification
+          className="mb-4"
+          onUpdateAvailable={(hasUpdate, info) => {
+            setUpdateAvailable(hasUpdate)
+            if (info) setUpdateInfo(info)
+          }}
+        />
 
         {/* Drop Zone */}
         <div
@@ -438,6 +450,11 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
         onClose={handleCloseSettings}
         currentPath={extractPath}
         appVersion={appVersion}
+        updateAvailable={updateAvailable}
+        updateInfo={updateInfo}
+        onUpdateNow={() => {
+          window.api.downloadUpdate()
+        }}
       />
     </div>
   )

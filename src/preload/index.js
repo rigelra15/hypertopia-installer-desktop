@@ -24,7 +24,9 @@ const api = {
   },
   // Auto-update APIs
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
+  setAutoDownload: (enabled) => ipcRenderer.invoke('set-auto-download', enabled),
   onUpdateAvailable: (callback) => {
     const subscription = (_event, info) => callback(info)
     ipcRenderer.on('update-available', subscription)

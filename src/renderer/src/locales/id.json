@@ -115,7 +115,16 @@
   "note": "Catatan",
   "warning": "Peringatan",
   "update_available": "Pembaruan Tersedia",
-  "update_downloading": "Mengunduh Pembaruan...",
+  "update_downloading": "Mengunduh...",
   "update_ready": "Pembaruan Siap!",
-  "update_restart": "Mulai Ulang untuk Update"
+  "update_restart": "Mulai Ulang untuk Update",
+  "update_new_version": "Versi Baru Tersedia!",
+  "update_new_version_label": "Versi Baru",
+  "update_current": "Saat ini",
+  "update_download_now": "Unduh Sekarang",
+  "update_later": "Nanti",
+  "update_size": "Ukuran",
+  "update_now": "Perbarui Sekarang",
+  "settings_auto_update": "Pembaruan Otomatis",
+  "settings_auto_update_desc": "Unduh pembaruan secara otomatis di latar belakang"
 }

@@ -8,7 +8,8 @@ import unzipper from 'unzipper' // For ZIP extraction with progress
 import { autoUpdater } from 'electron-updater'
 
 // Configure auto-updater
-autoUpdater.autoDownload = true
+// autoDownload is false by default - user can control via settings
+autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = true
 
 let mainWindow = null
@@ -415,9 +416,26 @@ app.whenReady().then(() => {
   // IPC: Check for updates manually
   ipcMain.handle('check-for-updates', async () => {
     if (app.isPackaged) {
-      return autoUpdater.checkForUpdatesAndNotify()
+      return autoUpdater.checkForUpdates()
     }
     return null
+  })
+
+  // IPC: Start downloading update manually
+  ipcMain.handle('download-update', async () => {
+    if (app.isPackaged) {
+      console.log('[AutoUpdater] Starting manual download...')
+      autoUpdater.downloadUpdate()
+      return true
+    }
+    return false
+  })
+
+  // IPC: Set auto-download setting
+  ipcMain.handle('set-auto-download', (_, enabled) => {
+    autoUpdater.autoDownload = enabled
+    console.log('[AutoUpdater] Auto-download set to:', enabled)
+    return enabled
   })
 
   // IPC: Install update and restart

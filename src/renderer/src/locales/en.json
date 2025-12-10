@@ -115,7 +115,16 @@
   "note": "Note",
   "warning": "Warning",
   "update_available": "Update Available",
-  "update_downloading": "Downloading Update...",
+  "update_downloading": "Downloading...",
   "update_ready": "Update Ready!",
-  "update_restart": "Restart to Update"
+  "update_restart": "Restart to Update",
+  "update_new_version": "New Version Available!",
+  "update_new_version_label": "New Version",
+  "update_current": "Current",
+  "update_download_now": "Download Now",
+  "update_later": "Later",
+  "update_size": "Size",
+  "update_now": "Update Now",
+  "settings_auto_update": "Auto-update",
+  "settings_auto_update_desc": "Automatically download updates in background"
 }
