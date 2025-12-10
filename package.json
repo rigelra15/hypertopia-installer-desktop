@@ -1,11 +1,11 @@
 {
   "name": "hypertopia-installer",
   "productName": "HyperTopia Installer",
-  "version": "1.0.100",
+  "version": "1.0.101",
   "description": "HyperTopia Installer - Advanced VR Sideloading Tool",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "HyperTopia",
+  "homepage": "https://hypertopia.store",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
