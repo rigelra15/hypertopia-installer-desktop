@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useTheme } from '../contexts/ThemeContext'
 import ChangelogModal from './ChangelogModal'
-import { useToast } from './Toast'
+import { useToast } from '../hooks/useToast'
 import PropTypes from 'prop-types'
 
 export function SettingsModal({
@@ -199,8 +199,8 @@ export function SettingsModal({
                     </div>
                   ) : (
                     <div className="flex items-center justify-center gap-2">
-                       <Icon icon="mdi:folder-edit-outline" className="h-4 w-4" />
-                       {t('settings_change_folder')}
+                      <Icon icon="mdi:folder-edit-outline" className="h-4 w-4" />
+                      {t('settings_change_folder')}
                     </div>
                   )}
                 </button>
@@ -334,11 +334,17 @@ export function SettingsModal({
                   {/* Update Now button (when update available) */}
                   {updateAvailable && updateInfo && (
                     <button
-                      onClick={onUpdateNow}
+                      onClick={() => {
+                        onClose() // Close settings modal first
+                        onUpdateNow?.() // Then show update modal
+                      }}
                       className="w-full flex items-center justify-between rounded-lg border border-green-500/30 bg-green-500/10 p-3 transition-all hover:bg-green-500/20"
                     >
                       <div className="flex items-center gap-3">
-                        <Icon icon="line-md:arrow-up-circle" className="h-5 w-5 text-green-400" />
+                        <Icon
+                          icon="line-md:arrow-up-circle"
+                          className="h-5 w-5 shrink-0 text-green-400"
+                        />
                         <div className="text-left">
                           <p className="text-sm font-medium text-white">
                             {t('update_new_version') || 'New Version Available!'}
@@ -348,7 +354,7 @@ export function SettingsModal({
                       </div>
                       <div className="flex items-center gap-2 text-green-400 text-sm font-medium">
                         {t('update_now') || 'Update Now'}
-                        <Icon icon="line-md:chevron-right" className="h-4 w-4" />
+                        <Icon icon="line-md:chevron-right" className="h-4 w-4 shrink-0" />
                       </div>
                     </button>
                   )}
