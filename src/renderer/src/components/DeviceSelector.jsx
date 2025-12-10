@@ -159,7 +159,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
           ) : (
             <Icon
               icon="line-md:chevron-down"
-              className={`h-3 w-3 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+              className={`h-3 w-3 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
             />
           )}
         </button>
@@ -201,13 +201,15 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
                 />
 
                 {/* Battery Percentage */}
-                <span className={`shrink-0 text-[10px] font-medium ${getBatteryColor(dev.battery)}`}>
+                <span
+                  className={`shrink-0 text-[10px] font-medium ${getBatteryColor(dev.battery)}`}
+                >
                   {dev.battery || 'N/A'}
                 </span>
 
                 {/* Selected Indicator */}
                 {dev.serial === selectedSerial && (
-                  <Icon icon="mdi:check" className="h-3 w-3 flex-shrink-0 text-[#0081FB]" />
+                  <Icon icon="mdi:check" className="h-3 w-3 shrink-0 text-[#0081FB]" />
                 )}
               </button>
             ))}
