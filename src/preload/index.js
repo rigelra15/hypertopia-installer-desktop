@@ -41,7 +41,11 @@ const api = {
     const subscription = (_event, info) => callback(info)
     ipcRenderer.on('update-downloaded', subscription)
     return () => ipcRenderer.removeListener('update-downloaded', subscription)
-  }
+  },
+  // App Storage APIs
+  getAppStorage: () => ipcRenderer.invoke('get-app-storage'),
+  clearCache: () => ipcRenderer.invoke('clear-cache'),
+  clearData: () => ipcRenderer.invoke('clear-data')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
