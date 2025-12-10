@@ -65,11 +65,27 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Get Previous Tag
+        id: previoustag
+        run: |
+          # Get the tag before the current one
+          CURRENT_TAG="${{ github.ref_name }}"
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${CURRENT_TAG}$" | head -1)
+          echo "Previous tag: $PREV_TAG"
+          echo "Current tag: $CURRENT_TAG"
+          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
+
+      - name: List commits between tags
+        run: |
+          echo "Commits between ${{ steps.previoustag.outputs.tag }} and ${{ github.ref_name }}:"
+          git log --oneline ${{ steps.previoustag.outputs.tag }}..${{ github.ref_name }} || echo "No previous tag found, showing recent commits:"
+          git log --oneline -10
 
       - name: Generate Changelog
         id: changelog
@@ -77,8 +93,15 @@ jobs:
         with:
           configuration: '.github/changelog-config.json'
           commitMode: true
+          fromTag: ${{ steps.previoustag.outputs.tag }}
+          toTag: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Debug Changelog Output
+        run: |
+          echo "Changelog output:"
+          echo "${{ steps.changelog.outputs.changelog }}"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
