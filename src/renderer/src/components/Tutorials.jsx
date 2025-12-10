@@ -200,9 +200,11 @@ export function Tutorials({ onNavigate }) {
       <div className="border-b border-white/10 bg-[#111] p-4 text-center md:text-left">
         <h2 className="text-lg font-bold text-white flex items-center gap-2 justify-center md:justify-start">
           <Icon icon="mdi:book-open-page-variant" className="text-[#0081FB] hidden md:block" />
-          <span className="text-[#0081FB]">HyperTopia</span> Tutorials
+          <span className="text-[#0081FB]">HyperTopia</span> {t('tutorials_title') || 'Tutorials'}
         </h2>
-        <p className="text-xs text-white/40">Guides and help for using the installer</p>
+        <p className="text-xs text-white/40">
+          {t('tutorials_subtitle') || 'Guides and help for using the installer'}
+        </p>
       </div>
 
       {/* List Content */}
