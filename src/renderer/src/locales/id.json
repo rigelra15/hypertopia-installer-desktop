@@ -129,16 +129,11 @@
   "settings_auto_update_desc": "Unduh pembaruan secara otomatis di latar belakang",
   "tutorials_title": "Tutorial",
   "tutorials_subtitle": "Panduan dan bantuan untuk menggunakan installer",
-  "storage_app_title": "Penyimpanan Aplikasi",
-  "storage_space_used": "Penggunaan ruang",
-  "storage_app": "Aplikasi",
-  "storage_data": "Data",
-  "storage_cache": "Cache",
-  "storage_total": "Total",
-  "storage_clear_data": "Hapus Data",
-  "storage_clear_cache": "Hapus Cache",
-  "storage_clear_data_confirm": "Ini akan menghapus semua data aplikasi dan me-restart aplikasi. Anda perlu mengatur ulang aplikasi. Lanjutkan?",
-  "storage_clear_cache_confirm": "Ini akan menghapus file cache. Lanjutkan?",
-  "storage_cleared": "Berhasil dihapus",
-  "storage_note": "Catatan: Menghapus data/cache mungkin tidak mengurangi ukuran menjadi 0 MB karena file sistem tetap dipertahankan."
+  "settings_check_update": "Cek Pembaruan",
+  "settings_check_update_desc": "Cek versi secara manual",
+  "settings_checking_update": "Memeriksa pembaruan...",
+  "update_ready_title": "Pembaruan Siap Diinstal",
+  "update_restart_now": "Mulai Ulang Aplikasi",
+  "update_not_available": "Aplikasi sudah versi terbaru",
+  "update_checking": "Memeriksa pembaruan..."
 }
