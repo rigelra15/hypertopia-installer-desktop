@@ -1,31 +1,38 @@
 {
   "categories": [
     {
-      "title": "✨ New Features",
+      "title": "## ✨ New Features",
       "labels": ["feat", "feature"]
     },
     {
-      "title": "🐛 Bug Fixes",
+      "title": "## 🐛 Bug Fixes",
       "labels": ["fix", "bug"]
     },
     {
-      "title": "🚀 Improvements",
+      "title": "## 🚀 Improvements",
       "labels": ["perf", "refactor", "style"]
     },
     {
-      "title": "📦 Maintenance",
+      "title": "## 📦 Maintenance",
       "labels": ["chore", "build", "ci"]
     }
   ],
   "ignore_labels": ["ignore"],
   "sort": "date",
-  "template": "${{TITLE}}\n\n${{CHANGELOG}}",
-  "pr_template": "- ${{TITLE}}\n",
-  "empty_template": "- No changes",
+  "template": "${{CHANGELOG}}",
+  "commit_template": "- ${{COMMIT_MESSAGE}} (${{COMMIT_AUTHOR}})",
+  "empty_template": "No notable changes in this release.",
   "label_extractor": [
     {
       "pattern": "^(feat|fix|chore|perf|refactor|style|build|ci)(\\(.+\\))?:",
-      "target": "$1"
+      "target": "$1",
+      "on_property": "title"
+    }
+  ],
+  "transformers": [
+    {
+      "pattern": "^(feat|fix|chore|perf|refactor|style|build|ci)(\\(.+\\))?:\\s*",
+      "target": ""
     }
   ]
 }
