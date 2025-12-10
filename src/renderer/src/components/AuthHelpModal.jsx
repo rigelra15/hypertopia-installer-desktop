@@ -48,12 +48,17 @@ export function AuthHelpModal({ isOpen, onClose }) {
               />
             </div>
 
-            <button
-              onClick={onClose}
-              className="w-full rounded-xl bg-[#0081FB] py-3 text-sm font-semibold text-white transition-all hover:bg-[#0081FB]/80 active:scale-[0.98] shadow-lg shadow-[#0081FB]/20"
-            >
-              {t('auth_help_btn')}
-            </button>
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex items-center justify-center gap-3">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#0081FB]/30 border-t-[#0081FB]"></div>
+                <span className="text-sm font-medium text-white/70">
+                  {t('auth_help_waiting') || 'Menunggu Otorisasi...'}
+                </span>
+              </div>
+              <p className="text-xs text-white/40 text-center">
+                {t('auth_help_waiting_desc') || 'Tekan "Allow" pada headset Quest Anda'}
+              </p>
+            </div>
           </motion.div>
         </motion.div>
       )}
