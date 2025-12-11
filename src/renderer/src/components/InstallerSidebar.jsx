@@ -4,6 +4,7 @@ import { DeviceSelector } from './DeviceSelector'
 import { ErrorModal } from './ErrorModal'
 import { SettingsModal } from './SettingsModal'
 import UpdateNotification from './UpdateNotification'
+import BrowseMethodModal from './BrowseMethodModal'
 import PropTypes from 'prop-types'
 
 export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
@@ -17,6 +18,7 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
     obbFolder: null
   })
   const [log, setLog] = useState('Waiting...')
+  const [logHistory, setLogHistory] = useState([]) // Array of log entries
   const [isDragOver, setIsDragOver] = useState(false)
   const [isInstalling, setIsInstalling] = useState(false)
   const [installProgress, setInstallProgress] = useState(null)
@@ -25,7 +27,22 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateInfo, setUpdateInfo] = useState(null)
+  const [showBrowseModal, setShowBrowseModal] = useState(false)
+  const [sourceType, setSourceType] = useState('archive') // 'archive' or 'folder'
+  const [folderPath, setFolderPath] = useState(null)
   const fileInputRef = useRef(null)
+  const logContainerRef = useRef(null)
+
+  // Helper to add log entry with timestamp
+  const addLogEntry = (message) => {
+    const time = new Date().toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+    setLogHistory((prev) => [...prev.slice(-19), { time, message }]) // Keep last 20 entries
+    setLog(message)
+  }
 
   // ... (keep useEffects and other handlers as is, until handleInstall)
 
@@ -62,7 +79,54 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
   const handleDrop = async (e) => {
     e.preventDefault()
     setIsDragOver(false)
+
+    // Check if it's a folder using webkitGetAsEntry
+    const items = e.dataTransfer.items
+    if (items && items.length > 0) {
+      const item = items[0]
+      if (item.webkitGetAsEntry) {
+        const entry = item.webkitGetAsEntry()
+        if (entry && entry.isDirectory) {
+          // It's a folder - get the path from the file
+          const droppedFile = e.dataTransfer.files[0]
+          const folderPath = window.api.getFilePath(droppedFile)
+          if (folderPath) {
+            // Process as folder
+            setLog(t('scan_folder') || 'Scanning folder...')
+            setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
+            setFile(null)
+            setSourceType('folder')
+            setFolderPath(folderPath)
+
+            try {
+              const result = await window.api.scanFolder(folderPath)
+              setStatus(result)
+
+              if (result.hasApk && result.hasObb) {
+                setLog(t('bundle_found'))
+              } else if (result.hasApk) {
+                setLog(t('apk_found'))
+              } else {
+                setLog(t('no_content'))
+              }
+
+              const folderName = folderPath.split(/[/\\]/).pop()
+              setFile({ name: folderName, size: 0, isFolder: true })
+            } catch (err) {
+              console.error(err)
+              setLog('Error: ' + (err.message || 'Unknown error'))
+              setErrorDetails(err.message)
+            }
+            return
+          }
+        }
+      }
+    }
+
+    // It's a file - process normally
     const droppedFile = e.dataTransfer.files[0]
+    setSourceType('archive')
+    setFolderPath(null)
     processFile(droppedFile)
   }
 
@@ -124,21 +188,66 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
     }
   }
 
+  // Handle archive selection (existing behavior)
+  const handleSelectArchive = () => {
+    setShowBrowseModal(false)
+    fileInputRef.current.click()
+  }
+
+  // Handle folder selection (new behavior)
+  const handleSelectFolder = async () => {
+    setShowBrowseModal(false)
+    try {
+      const selectedPath = await window.api.selectGameFolder()
+      if (!selectedPath) return
+
+      setLog(t('scan_folder') || 'Scanning folder...')
+      setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
+      setFile(null)
+      setSourceType('folder')
+      setFolderPath(selectedPath)
+
+      const result = await window.api.scanFolder(selectedPath)
+      setStatus(result)
+
+      if (result.hasApk && result.hasObb) {
+        setLog(t('bundle_found'))
+      } else if (result.hasApk) {
+        setLog(t('apk_found'))
+      } else {
+        setLog(t('no_content'))
+      }
+
+      // Create a fake file object for display purposes
+      const folderName = selectedPath.split(/[/\\]/).pop()
+      setFile({ name: folderName, size: 0, isFolder: true })
+    } catch (err) {
+      console.error(err)
+      setLog('Error: ' + (err.message || 'Unknown error'))
+      setErrorDetails(err.message)
+    }
+  }
+
   const handleInstall = async (type) => {
-    if (!file) return
+    if (!file && !folderPath) return
     setIsInstalling(true)
     setLog(type === 'apk' ? t('install_apk') : t('install_full'))
 
     try {
-      const filePath = window.api.getFilePath(file)
-      // Pass selectedDevice
-      await window.api.installGame(filePath, type, selectedDevice)
+      if (sourceType === 'folder' && folderPath) {
+        // Install from folder (skip extraction)
+        await window.api.installGameFolder(folderPath, type, selectedDevice)
+      } else {
+        // Install from archive (existing behavior)
+        const filePath = window.api.getFilePath(file)
+        await window.api.installGame(filePath, type, selectedDevice)
+      }
       setLog(t('install_success'))
       setInstallProgress({ step: 'COMPLETED', percent: 100, detail: t('install_success') })
     } catch (err) {
       console.error(err)
       setLog(t('install_failed') + err.message)
-      setErrorDetails(err.message) // Trigger modal
+      setErrorDetails(err.message)
     } finally {
       setIsInstalling(false)
     }
@@ -149,14 +258,27 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
     const removeListener =
       window.api.onInstallProgress &&
       window.api.onInstallProgress((data) => {
-        setInstallProgress(data)
-        // Also sync log for history/context
-        if (data.detail) setLog(data.detail)
+        // Translate the detail if it's a translation key
+        const translatedDetail = data.detail?.startsWith('progress_')
+          ? t(data.detail) || data.detail
+          : data.detail
+        setInstallProgress({ ...data, detail: translatedDetail })
+        // Add to log history
+        if (translatedDetail) {
+          addLogEntry(`[${data.step}] ${translatedDetail}`)
+        }
       })
     return () => {
       if (removeListener) removeListener()
     }
-  }, [])
+  }, [t])
+
+  // Auto-scroll log container
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight
+    }
+  }, [logHistory])
 
   return (
     <div className="flex h-full w-full flex-col bg-[#0a0a0a] font-['Poppins'] text-white">
@@ -165,7 +287,12 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
         onClose={() => setErrorDetails(null)}
         error={errorDetails}
       />
-      {/* ... (rest of render) */}
+      <BrowseMethodModal
+        isOpen={showBrowseModal}
+        onClose={() => setShowBrowseModal(false)}
+        onSelectArchive={handleSelectArchive}
+        onSelectFolder={handleSelectFolder}
+      />
 
       {/* Header */}
       <div className="flex-none p-6 pb-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-4">
@@ -290,10 +417,14 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
               />
             </svg>
           </div>
-          <p className="text-center text-sm font-medium text-white/90">{t('drag_drop')}</p>
-          <p className="mt-1 text-center text-xs text-white/50">{t('support_ext')}</p>
+          <p className="text-center text-sm font-medium text-white/90">
+            {t('drag_drop_full') || 'Drop Game File or Folder Here'}
+          </p>
+          <p className="mt-1 text-center text-xs text-white/50">
+            {t('support_ext_full') || 'ZIP, RAR, or extracted folder'}
+          </p>
           <button
-            onClick={() => fileInputRef.current.click()}
+            onClick={() => setShowBrowseModal(true)}
             className="mt-4 rounded-lg bg-white/10 px-4 py-2 text-xs font-medium text-white transition-all hover:bg-white/20"
           >
             {t('browse_files')}
@@ -304,22 +435,41 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
         {file && (
           <div className="mb-6 rounded-xl border border-white/10 bg-[#111] p-4">
             <div className="flex items-start gap-3">
-              <div className="mt-1 rounded-lg bg-[#0081FB]/20 p-2 text-[#0081FB]">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
+              <div
+                className={`mt-1 rounded-lg p-2 ${file.isFolder ? 'bg-green-500/20 text-green-400' : 'bg-[#0081FB]/20 text-[#0081FB]'}`}
+              >
+                {file.isFolder ? (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                    />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="break-all text-sm font-medium text-white line-clamp-2">{file.name}</p>
+                <p className="break-all text-sm font-medium text-white">{file.name}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center rounded-md bg-white/5 px-2 py-1 text-[10px] font-medium text-white/60 ring-1 ring-inset ring-white/10">
-                    {(file.size / (1024 * 1024)).toFixed(2)} MB
-                  </span>
+                  {file.isFolder ? (
+                    <span className="inline-flex items-center rounded-md bg-green-500/10 px-2 py-1 text-[10px] font-medium text-green-400 ring-1 ring-inset ring-green-500/20">
+                      {t('folder_selected') || 'Folder'}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-md bg-white/5 px-2 py-1 text-[10px] font-medium text-white/60 ring-1 ring-inset ring-white/10">
+                      {(file.size / (1024 * 1024)).toFixed(2)} MB
+                    </span>
+                  )}
                   {status.apkName && (
                     <span className="inline-flex items-center rounded-md bg-green-500/10 px-2 py-1 text-[10px] font-medium text-green-400 ring-1 ring-inset ring-green-500/20">
                       APK: {status.apkName}
@@ -353,7 +503,7 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
                 ></div>
               </div>
               <p
-                className="mt-2 truncate text-xs font-mono text-white/50"
+                className="mt-2 break-all text-xs font-mono text-white/50"
                 title={installProgress.detail}
               >
                 {installProgress.detail}
@@ -362,17 +512,29 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
           )}
 
         {/* Status Log */}
-        <div className="mb-6 rounded-xl border border-white/10 bg-[#111] p-4">
-          <p className="text-[10px] uppercase tracking-wider text-white/30 font-bold mb-2">
-            {t('system_log')}
-          </p>
-          <div className="flex items-center gap-2">
-            {isInstalling ? (
+        <div className="mb-6 rounded-xl border border-white/10 bg-[#111] p-4 overflow-hidden">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] uppercase tracking-wider text-white/30 font-bold">
+              {t('system_log')}
+            </p>
+            {isInstalling && (
               <div className="h-2 w-2 animate-pulse rounded-full bg-[#0081FB]"></div>
-            ) : (
-              <div className="h-2 w-2 rounded-full bg-white/20"></div>
             )}
-            <p className="text-xs font-mono text-white/70 truncate">{log}</p>
+          </div>
+          <div
+            ref={logContainerRef}
+            className="max-h-32 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-white/10"
+          >
+            {logHistory.length > 0 ? (
+              logHistory.map((entry, idx) => (
+                <div key={idx} className="flex gap-2 text-[11px] font-mono">
+                  <span className="text-white/30 shrink-0">{entry.time}</span>
+                  <span className="text-white/70 break-all">{entry.message}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs font-mono text-white/50">{log}</p>
+            )}
           </div>
         </div>
 
