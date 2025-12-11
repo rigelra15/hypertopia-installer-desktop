@@ -1,5 +1,6 @@
-appId: com.electron.app
+appId: com.hypertopia.installer
 productName: HyperTopia Installer
+copyright: Copyright © 2024 HyperTopia
 directories:
   buildResources: build
 files:
@@ -17,16 +18,27 @@ extraResources:
       - '**/*'
 win:
   executableName: hypertopia-installer
+  icon: build/icon.ico
+  target:
+    - nsis
+    - portable
 nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
   entitlementsInherit: build/entitlements.mac.plist
+  category: public.app-category.utilities
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
   extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
@@ -36,8 +48,11 @@ linux:
   target:
     - AppImage
     - deb
-  maintainer: electronjs.org
+    - rpm
+    - snap
+  maintainer: HyperTopia
   category: Utility
+  icon: build/icons
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
