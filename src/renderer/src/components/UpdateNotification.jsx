@@ -19,9 +19,17 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
   const [totalBytes, setTotalBytes] = useState(0)
   const [showModal, setShowModal] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [currentVersion, setCurrentVersion] = useState('')
   const [autoUpdate] = useState(() => {
     return localStorage.getItem('autoUpdate') !== 'false'
   })
+
+  // Fetch current app version on mount
+  useEffect(() => {
+    window.api.getAppVersion?.().then((ver) => {
+      setCurrentVersion(ver?.version || '')
+    })
+  }, [])
 
   useEffect(() => {
     // Apply auto-download setting on mount
@@ -99,6 +107,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
         isOpen={showModal}
         onClose={handleLater}
         updateInfo={updateInfo}
+        currentVersion={currentVersion}
         onDownload={handleDownload}
         isDownloading={updateState === 'downloading'}
         downloadProgress={downloadProgress}

@@ -11,6 +11,7 @@ export default function UpdateModal({
   isOpen,
   onClose,
   updateInfo,
+  currentVersion,
   onDownload,
   isDownloading,
   downloadProgress,
@@ -101,7 +102,7 @@ export default function UpdateModal({
                     : t('update_new_version') || 'New Version Available!'}
                 </h2>
                 <p className="text-sm text-white/50">
-                  {t('update_current') || 'Current'}: v{window.__APP_VERSION__ || '1.0.0'}
+                  {t('update_current') || 'Current'}: v{currentVersion || 'Unknown'}
                 </p>
               </div>
             </div>
@@ -213,6 +214,7 @@ UpdateModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   updateInfo: PropTypes.object,
+  currentVersion: PropTypes.string,
   onDownload: PropTypes.func.isRequired,
   isDownloading: PropTypes.bool,
   downloadProgress: PropTypes.number,
