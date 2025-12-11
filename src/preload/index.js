@@ -17,6 +17,11 @@ const api = {
   listApps: (deviceSerial) => ipcRenderer.invoke('list-apps', deviceSerial),
   uninstallApp: (deviceSerial, packageName) =>
     ipcRenderer.invoke('uninstall-app', deviceSerial, packageName),
+  // New APIs for folder selection
+  selectGameFolder: () => ipcRenderer.invoke('select-game-folder'),
+  scanFolder: (folderPath) => ipcRenderer.invoke('scan-folder', folderPath),
+  installGameFolder: (folderPath, type, deviceSerial) =>
+    ipcRenderer.invoke('install-game-folder', { folderPath, type, deviceSerial }),
   onInstallProgress: (callback) => {
     const subscription = (_event, value) => callback(value)
     ipcRenderer.on('install-progress', subscription)

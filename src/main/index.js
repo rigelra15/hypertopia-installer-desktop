@@ -728,23 +728,73 @@ function extractZipWithProgress(zipPath, targetDir, onProgress) {
   })
 }
 
-// Helper: Run ADB Command with Spawn
+// Helper: Run ADB Command with Spawn (improved progress tracking)
 function runAdbCommand(args, onOutput) {
   return new Promise((resolve, reject) => {
     const adb = getAdbPath()
-    const child = spawn(adb, args)
 
-    child.stdout.on('data', (data) => {
-      if (onOutput) onOutput(data.toString())
+    // Add -p flag for progress when pushing files
+    let finalArgs = args
+    if (args[0] === 'push' || (args.length > 2 && args[2] === 'push')) {
+      // Insert -p flag after 'push' for progress output
+      const pushIndex = args.indexOf('push')
+      if (pushIndex !== -1) {
+        finalArgs = [...args]
+        // -p is not needed, progress is shown by default, but ensure we capture it
+      }
+    }
+
+    const child = spawn(adb, finalArgs, {
+      // Force line-buffered output for better progress tracking
+      stdio: ['pipe', 'pipe', 'pipe']
     })
 
-    child.stderr.on('data', (data) => {
-      if (onOutput) onOutput(data.toString())
-    })
+    // Collect output and parse progress more frequently
+    let outputBuffer = ''
+    let stderrBuffer = ''
+
+    const processOutput = (data) => {
+      const str = data.toString()
+      outputBuffer += str
+
+      // Process each line/chunk for progress
+      if (onOutput) {
+        onOutput(str)
+      }
+
+      // Log for debugging
+      console.log('[ADB Output]', str.trim())
+    }
+
+    const processStderr = (data) => {
+      const str = data.toString()
+      stderrBuffer += str
+      outputBuffer += str
+
+      // Also process stderr for progress (ADB outputs progress to stderr)
+      if (onOutput) {
+        onOutput(str)
+      }
+
+      console.log('[ADB Stderr]', str.trim())
+    }
+
+    child.stdout.on('data', processOutput)
+    child.stderr.on('data', processStderr)
 
     child.on('close', (code) => {
-      if (code === 0) resolve()
-      else reject(new Error(`ADB exited with code ${code}`))
+      if (code === 0) {
+        resolve(outputBuffer)
+      } else {
+        // Include actual ADB output in error message for debugging
+        const errorDetail = stderrBuffer.trim() || outputBuffer.trim() || 'Unknown error'
+        const lastLines = errorDetail.split('\n').slice(-5).join('\n') // Last 5 lines
+        reject(new Error(`ADB failed (code ${code}): ${lastLines}`))
+      }
+    })
+
+    child.on('error', (err) => {
+      reject(new Error(`ADB spawn error: ${err.message}`))
     })
   })
 }
@@ -834,24 +884,24 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
     if (!apkPath) throw new Error('No APK found to install.')
 
     // 2. INSTALL APK
-    sendProgress('INSTALLING_APK', 0, 'Pushing APK to device...')
+    sendProgress('INSTALLING_APK', 0, 'progress_pushing_apk')
 
     const remoteApk = `/data/local/tmp/base.apk`
     await runAdbCommand([...deviceFlag, 'push', apkPath, remoteApk], (output) => {
       const match = output.match(/\[\s*(\d+)%\]/)
       if (match) {
-        sendProgress('INSTALLING_APK', parseInt(match[1]), 'Pushing APK...')
+        sendProgress('INSTALLING_APK', parseInt(match[1]), 'progress_pushing_apk')
       }
     })
 
-    sendProgress('INSTALLING_APK', 100, 'Installing package...')
+    sendProgress('INSTALLING_APK', 100, 'progress_installing_package')
     await runAdbCommand([...deviceFlag, 'shell', 'pm', 'install', '-r', remoteApk])
 
     runAdbCommand([...deviceFlag, 'shell', 'rm', remoteApk]).catch(console.warn)
 
     // 3. PUSH OBB
     if (type === 'full' && obbPath) {
-      sendProgress('PUSHING_OBB', 0, 'Preparing OBB...')
+      sendProgress('PUSHING_OBB', 0, 'progress_preparing_obb')
 
       // Ensure /sdcard/Android/obb/ directory exists
       try {
@@ -861,22 +911,39 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
         // Continue anyway - folder might already exist
       }
 
-      // Push OBB folder to device
-      sendProgress('PUSHING_OBB', 0, 'Copying OBB files...')
-      await runAdbCommand([...deviceFlag, 'push', obbPath, '/sdcard/Android/obb/'], (output) => {
-        const match = output.match(/\[\s*(\d+)%\]/)
-        const fileMatch = output.match(/: ([^\s]+)/)
-        const detail = fileMatch ? `Copying: ${path.basename(fileMatch[1])}` : `Copying OBB...`
+      // Get list of files in OBB folder
+      const obbFolderName = path.basename(obbPath)
+      const obbFiles = fs
+        .readdirSync(obbPath)
+        .filter((f) => fs.statSync(path.join(obbPath, f)).isFile())
 
-        if (match) {
-          sendProgress('PUSHING_OBB', parseInt(match[1]), detail)
-        }
-      })
+      console.log('[OBB Push] Files to push:', obbFiles)
 
-      sendProgress('PUSHING_OBB', 100, 'OBB files copied successfully')
+      // Create remote folder
+      const remoteObbFolder = `/sdcard/Android/obb/${obbFolderName}`
+      try {
+        await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteObbFolder])
+      } catch (e) {
+        console.warn('mkdir obb folder failed:', e.message)
+      }
+
+      // Push each file individually with progress tracking
+      for (let i = 0; i < obbFiles.length; i++) {
+        const fileName = obbFiles[i]
+        const localFilePath = path.join(obbPath, fileName)
+        const remoteFilePath = `${remoteObbFolder}/${fileName}`
+        const progressPercent = Math.round((i / obbFiles.length) * 100)
+
+        sendProgress('PUSHING_OBB', progressPercent, `Copying: ${fileName}`)
+        console.log(`[OBB Push] Pushing file ${i + 1}/${obbFiles.length}: ${fileName}`)
+
+        await runAdbCommand([...deviceFlag, 'push', localFilePath, remoteFilePath])
+      }
+
+      sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
     }
 
-    sendProgress('COMPLETED', 100, 'Installation Finished!')
+    sendProgress('COMPLETED', 100, 'progress_finished')
   } catch (err) {
     console.error(err)
     sendProgress('ERROR', 0, err.message)
@@ -884,7 +951,7 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
   } finally {
     // Auto Cleanup: Bersihkan folder temporary setelah instalasi selesai
     console.log(`[Cleanup] Cleaning up temp folder: ${tempDir}`)
-    sendProgress('CLEANUP', 0, 'Cleaning up temporary files...')
+    sendProgress('CLEANUP', 0, 'progress_cleanup')
 
     try {
       await fs.remove(tempDir)
@@ -969,6 +1036,200 @@ ipcMain.handle('scan-zip', async (event, filePath) => {
       zipfile.on('error', (err) => reject(err))
     })
   })
+})
+
+// IPC: Select Game Folder (for pre-extracted games)
+ipcMain.handle('select-game-folder', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+    title: 'Select Extracted Game Folder',
+    buttonLabel: 'Select Folder'
+  })
+
+  if (result.canceled || !result.filePaths[0]) {
+    return null
+  }
+
+  return result.filePaths[0]
+})
+
+// IPC: Scan Folder for APK/OBB (similar to scan-zip but for folders)
+ipcMain.handle('scan-folder', async (event, folderPath) => {
+  let result = {
+    hasApk: false,
+    hasObb: false,
+    apkName: null,
+    obbFolder: null,
+    folderPath: folderPath
+  }
+
+  try {
+    // Recursive function to find APK
+    const findApk = (dir) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          const found = findApk(fullPath)
+          if (found) return found
+        } else if (entry.name.toLowerCase().endsWith('.apk')) {
+          return { path: fullPath, name: entry.name }
+        }
+      }
+      return null
+    }
+
+    // Recursive function to find OBB folder (folder containing .obb files)
+    const findObbFolder = (dir) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          // Check if this folder contains .obb files
+          const children = fs.readdirSync(fullPath)
+          if (children.some((c) => c.toLowerCase().endsWith('.obb'))) {
+            return { path: fullPath, name: entry.name }
+          }
+          // Otherwise recurse
+          const found = findObbFolder(fullPath)
+          if (found) return found
+        }
+      }
+      return null
+    }
+
+    const apkResult = findApk(folderPath)
+    if (apkResult) {
+      result.hasApk = true
+      result.apkName = apkResult.name
+    }
+
+    const obbResult = findObbFolder(folderPath)
+    if (obbResult) {
+      result.hasObb = true
+      result.obbFolder = obbResult.name
+    }
+
+    console.log('[Scan Folder] Result:', result)
+    return result
+  } catch (err) {
+    console.error('[Scan Folder] Error:', err)
+    throw new Error('Failed to scan folder: ' + err.message)
+  }
+})
+
+// IPC: Install Game from Folder (skip extraction)
+ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSerial }) => {
+  const deviceFlag = deviceSerial ? ['-s', deviceSerial] : []
+
+  const sendProgress = (step, percent, detail) => {
+    event.sender.send('install-progress', { step, percent, detail })
+  }
+
+  try {
+    sendProgress('INITIALIZING', 0, 'progress_preparing')
+
+    // Find APK in folder
+    const findApk = (dir) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          const found = findApk(fullPath)
+          if (found) return found
+        } else if (entry.name.toLowerCase().endsWith('.apk')) {
+          return fullPath
+        }
+      }
+      return null
+    }
+
+    // Find OBB folder
+    const findObbFolder = (dir) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          const children = fs.readdirSync(fullPath)
+          if (children.some((c) => c.toLowerCase().endsWith('.obb'))) {
+            return fullPath
+          }
+          const found = findObbFolder(fullPath)
+          if (found) return found
+        }
+      }
+      return null
+    }
+
+    const apkPath = findApk(folderPath)
+    if (!apkPath) throw new Error('No APK found in folder.')
+
+    const obbPath = findObbFolder(folderPath)
+
+    // Install APK
+    sendProgress('INSTALLING_APK', 0, 'progress_pushing_apk')
+
+    const remoteApk = `/data/local/tmp/base.apk`
+    await runAdbCommand([...deviceFlag, 'push', apkPath, remoteApk], (output) => {
+      const match = output.match(/\[\s*(\d+)%\]/)
+      if (match) {
+        sendProgress('INSTALLING_APK', parseInt(match[1]), 'progress_pushing_apk')
+      }
+    })
+
+    sendProgress('INSTALLING_APK', 100, 'progress_installing_package')
+    await runAdbCommand([...deviceFlag, 'shell', 'pm', 'install', '-r', remoteApk])
+
+    runAdbCommand([...deviceFlag, 'shell', 'rm', remoteApk]).catch(console.warn)
+
+    // Push OBB if full install
+    if (type === 'full' && obbPath) {
+      sendProgress('PUSHING_OBB', 0, 'progress_preparing_obb')
+
+      try {
+        await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', '/sdcard/Android/obb/'])
+      } catch (mkdirErr) {
+        console.warn('mkdir failed (might exist):', mkdirErr.message)
+      }
+
+      // Get list of files in OBB folder
+      const obbFolderName = path.basename(obbPath)
+      const obbFiles = fs
+        .readdirSync(obbPath)
+        .filter((f) => fs.statSync(path.join(obbPath, f)).isFile())
+
+      console.log('[OBB Push Folder] Files to push:', obbFiles)
+
+      // Create remote folder
+      const remoteObbFolder = `/sdcard/Android/obb/${obbFolderName}`
+      try {
+        await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteObbFolder])
+      } catch (e) {
+        console.warn('mkdir obb folder failed:', e.message)
+      }
+
+      // Push each file individually with progress tracking
+      for (let i = 0; i < obbFiles.length; i++) {
+        const fileName = obbFiles[i]
+        const localFilePath = path.join(obbPath, fileName)
+        const remoteFilePath = `${remoteObbFolder}/${fileName}`
+        const progressPercent = Math.round((i / obbFiles.length) * 100)
+
+        sendProgress('PUSHING_OBB', progressPercent, `Copying: ${fileName}`)
+        console.log(`[OBB Push Folder] Pushing file ${i + 1}/${obbFiles.length}: ${fileName}`)
+
+        await runAdbCommand([...deviceFlag, 'push', localFilePath, remoteFilePath])
+      }
+
+      sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
+    }
+
+    sendProgress('COMPLETED', 100, 'progress_finished')
+  } catch (err) {
+    console.error(err)
+    sendProgress('ERROR', 0, err.message)
+    throw err
+  }
 })
 
 // IPC: List OBB Folders
