@@ -27,6 +27,8 @@ const api = {
     ipcRenderer.on('install-progress', subscription)
     return () => ipcRenderer.removeListener('install-progress', subscription)
   },
+  // Cancel installation API
+  cancelInstallation: () => ipcRenderer.invoke('cancel-installation'),
   // Auto-update APIs
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),

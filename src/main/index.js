@@ -14,6 +14,49 @@ autoUpdater.autoInstallOnAppQuit = true
 
 let mainWindow = null
 
+// Installation cancellation state
+let installationState = {
+  isCancelled: false,
+  activeChildProcess: null,
+  tempDir: null
+}
+
+// Reset installation state
+function resetInstallationState() {
+  installationState.isCancelled = false
+  installationState.activeChildProcess = null
+  installationState.tempDir = null
+}
+
+// Cancel installation handler
+ipcMain.handle('cancel-installation', async () => {
+  console.log('[Cancel] Cancellation requested')
+  installationState.isCancelled = true
+
+  // Kill active child process if exists
+  if (installationState.activeChildProcess) {
+    try {
+      installationState.activeChildProcess.kill('SIGTERM')
+      console.log('[Cancel] Killed active child process')
+    } catch (err) {
+      console.warn('[Cancel] Failed to kill child process:', err.message)
+    }
+  }
+
+  // Cleanup temp directory if exists
+  if (installationState.tempDir && fs.existsSync(installationState.tempDir)) {
+    try {
+      await fs.remove(installationState.tempDir)
+      console.log('[Cancel] Cleaned up temp directory:', installationState.tempDir)
+    } catch (err) {
+      console.warn('[Cancel] Failed to cleanup temp dir:', err.message)
+    }
+  }
+
+  resetInstallationState()
+  return { success: true, message: 'Installation cancelled' }
+})
+
 function createWindow() {
   // Create the browser window.
   mainWindow = new BrowserWindow({
@@ -728,9 +771,14 @@ function extractZipWithProgress(zipPath, targetDir, onProgress) {
   })
 }
 
-// Helper: Run ADB Command with Spawn (improved progress tracking)
+// Helper: Run ADB Command with Spawn (improved progress tracking + cancellation support)
 function runAdbCommand(args, onOutput) {
   return new Promise((resolve, reject) => {
+    // Check if already cancelled before starting
+    if (installationState.isCancelled) {
+      return reject(new Error('Installation cancelled'))
+    }
+
     const adb = getAdbPath()
 
     // Add -p flag for progress when pushing files
@@ -748,6 +796,9 @@ function runAdbCommand(args, onOutput) {
       // Force line-buffered output for better progress tracking
       stdio: ['pipe', 'pipe', 'pipe']
     })
+
+    // Store child process reference for cancellation
+    installationState.activeChildProcess = child
 
     // Collect output and parse progress more frequently
     let outputBuffer = ''
@@ -782,7 +833,15 @@ function runAdbCommand(args, onOutput) {
     child.stdout.on('data', processOutput)
     child.stderr.on('data', processStderr)
 
-    child.on('close', (code) => {
+    child.on('close', (code, signal) => {
+      // Clear child process reference
+      installationState.activeChildProcess = null
+
+      // Check if killed due to cancellation
+      if (installationState.isCancelled || signal === 'SIGTERM') {
+        return reject(new Error('Installation cancelled'))
+      }
+
       if (code === 0) {
         resolve(outputBuffer)
       } else {
@@ -794,6 +853,7 @@ function runAdbCommand(args, onOutput) {
     })
 
     child.on('error', (err) => {
+      installationState.activeChildProcess = null
       reject(new Error(`ADB spawn error: ${err.message}`))
     })
   })
@@ -801,6 +861,9 @@ function runAdbCommand(args, onOutput) {
 
 // IPC: Install Game
 ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) => {
+  // Reset cancellation state at start
+  resetInstallationState()
+
   const deviceFlag = deviceSerial ? ['-s', deviceSerial] : []
 
   // Get extract path from localStorage or use temp directory
@@ -816,7 +879,12 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 
   const tempDir = path.join(extractBasePath, 'hypertopia_install_' + Date.now())
 
+  // Store temp directory for cleanup on cancel
+  installationState.tempDir = tempDir
+
   const sendProgress = (step, percent, detail) => {
+    // Don't send progress if cancelled
+    if (installationState.isCancelled) return
     event.sender.send('install-progress', { step, percent, detail })
   }
 
@@ -1120,9 +1188,14 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
 
 // IPC: Install Game from Folder (skip extraction)
 ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSerial }) => {
+  // Reset cancellation state at start
+  resetInstallationState()
+
   const deviceFlag = deviceSerial ? ['-s', deviceSerial] : []
 
   const sendProgress = (step, percent, detail) => {
+    // Don't send progress if cancelled
+    if (installationState.isCancelled) return
     event.sender.send('install-progress', { step, percent, detail })
   }
 

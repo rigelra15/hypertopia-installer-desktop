@@ -246,10 +246,29 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
       setInstallProgress({ step: 'COMPLETED', percent: 100, detail: t('install_success') })
     } catch (err) {
       console.error(err)
-      setLog(t('install_failed') + err.message)
-      setErrorDetails(err.message)
+      // Check if it was a cancellation
+      if (err.message && err.message.includes('cancelled')) {
+        setLog(t('install_cancelled') || 'Installation cancelled')
+        setInstallProgress(null)
+      } else {
+        setLog(t('install_failed') + err.message)
+        setErrorDetails(err.message)
+      }
     } finally {
       setIsInstalling(false)
+    }
+  }
+
+  const handleCancelInstall = async () => {
+    try {
+      addLogEntry(t('install_cancelling') || 'Cancelling installation...')
+      await window.api.cancelInstallation()
+      setIsInstalling(false)
+      setInstallProgress(null)
+      setLog(t('install_cancelled') || 'Installation cancelled')
+      addLogEntry(t('install_cancelled') || 'Installation cancelled')
+    } catch (err) {
+      console.error('Failed to cancel:', err)
     }
   }
 
@@ -508,6 +527,29 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
               >
                 {installProgress.detail}
               </p>
+
+              {/* Cancel Button - Only show when installing (not completed) */}
+              {isInstalling && installProgress.step !== 'COMPLETED' && (
+                <button
+                  onClick={handleCancelInstall}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 py-2 text-xs font-semibold text-red-400 transition-all hover:bg-red-500/20 hover:text-red-300"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                  {t('cancel_install') || 'Cancel Installation'}
+                </button>
+              )}
             </div>
           )}
 
