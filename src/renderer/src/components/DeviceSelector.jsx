@@ -11,13 +11,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
   const [showAuthHelp, setShowAuthHelp] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const authHelpDismissed = useRef(false)
-  const showAuthHelpRef = useRef(showAuthHelp)
   const dropdownRef = useRef(null)
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    showAuthHelpRef.current = showAuthHelp
-  }, [showAuthHelp])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -70,11 +64,8 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
       const hasUnauthorized = result.some((d) => d.state === 'unauthorized')
       if (hasUnauthorized && !authHelpDismissed.current) {
         setShowAuthHelp(true)
-      } else if (!hasUnauthorized && showAuthHelpRef.current) {
-        // Auto-close modal when device becomes authorized
-        setShowAuthHelp(false)
-        authHelpDismissed.current = false // Reset so modal can show again for future unauthorized devices
       }
+      // Note: We no longer auto-close the modal. The user must click "Mengerti" button.
 
       // Auto-select logic
       if (!selectedSerial && result.length > 0) {
@@ -110,12 +101,19 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
     setIsOpen(false)
   }
 
+  // Check if device is authorized (no unauthorized devices when modal is showing)
+  const isDeviceAuthorized = showAuthHelp && !devices.some((d) => d.state === 'unauthorized')
+
   // Get selected device for display
   const selectedDevice = devices.find((d) => d.serial === selectedSerial)
 
   return (
     <div className="flex flex-col">
-      <AuthHelpModal isOpen={showAuthHelp} onClose={handleCloseAuthHelp} />
+      <AuthHelpModal
+        isOpen={showAuthHelp}
+        onClose={handleCloseAuthHelp}
+        isAuthorized={isDeviceAuthorized}
+      />
 
       {/* Custom Dropdown */}
       <div className="relative" ref={dropdownRef}>
