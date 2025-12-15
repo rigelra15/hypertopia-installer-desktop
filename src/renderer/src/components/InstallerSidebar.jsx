@@ -410,12 +410,14 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
         {/* Drop Zone */}
         <div
           className={`relative mb-6 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition-all ${
-            isDragOver
-              ? 'border-[#0081FB] bg-[#0081FB]/10 scale-[1.02]'
-              : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+            !selectedDevice
+              ? 'border-white/5 bg-white/[0.02] cursor-not-allowed opacity-50'
+              : isDragOver
+                ? 'border-[#0081FB] bg-[#0081FB]/10 scale-[1.02]'
+                : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
           }`}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
+          onDrop={selectedDevice ? handleDrop : (e) => e.preventDefault()}
+          onDragOver={selectedDevice ? handleDragOver : (e) => e.preventDefault()}
           onDragLeave={handleDragLeave}
         >
           <input
@@ -424,9 +426,10 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
             onChange={handleFileInput}
             className="hidden"
             accept=".zip,.rar"
+            disabled={!selectedDevice}
           />
 
-          <div className="mb-4 rounded-full bg-[#0081FB]/20 p-4 text-[#0081FB]">
+          <div className={`mb-4 rounded-full p-4 ${selectedDevice ? 'bg-[#0081FB]/20 text-[#0081FB]' : 'bg-white/5 text-white/30'}`}>
             <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
@@ -436,15 +439,24 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
               />
             </svg>
           </div>
-          <p className="text-center text-sm font-medium text-white/90">
-            {t('drag_drop_full') || 'Drop Game File or Folder Here'}
+          <p className={`text-center text-sm font-medium ${selectedDevice ? 'text-white/90' : 'text-white/40'}`}>
+            {selectedDevice
+              ? (t('drag_drop_full') || 'Drop Game File or Folder Here')
+              : (t('connect_device_first') || 'Connect VR Device First')}
           </p>
-          <p className="mt-1 text-center text-xs text-white/50">
-            {t('support_ext_full') || 'ZIP, RAR, or extracted folder'}
+          <p className={`mt-1 text-center text-xs ${selectedDevice ? 'text-white/50' : 'text-white/30'}`}>
+            {selectedDevice
+              ? (t('support_ext_full') || 'ZIP, RAR, or extracted folder')
+              : (t('connect_device_first_desc') || 'Please connect your Meta Quest to continue')}
           </p>
           <button
-            onClick={() => setShowBrowseModal(true)}
-            className="mt-4 rounded-lg bg-white/10 px-4 py-2 text-xs font-medium text-white transition-all hover:bg-white/20"
+            onClick={() => selectedDevice && setShowBrowseModal(true)}
+            disabled={!selectedDevice}
+            className={`mt-4 rounded-lg px-4 py-2 text-xs font-medium transition-all ${
+              selectedDevice
+                ? 'bg-white/10 text-white hover:bg-white/20'
+                : 'bg-white/5 text-white/30 cursor-not-allowed'
+            }`}
           >
             {t('browse_files')}
           </button>
@@ -580,13 +592,40 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
           </div>
         </div>
 
+        {/* No Device Warning */}
+        {!selectedDevice && (file || status.hasApk) && (
+          <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3">
+            <svg
+              className="h-5 w-5 shrink-0 text-red-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-red-400">
+                {t('no_device_warning_title')}
+              </p>
+              <p className="mt-0.5 text-[10px] text-red-300/70">
+                {t('no_device_warning_desc')}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="space-y-3">
           <button
             onClick={() => handleInstall('apk')}
-            disabled={!file || !status.hasApk || isInstalling || status.hasObb}
+            disabled={!file || !status.hasApk || isInstalling || status.hasObb || !selectedDevice}
             className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all ${
-              !file || !status.hasApk || isInstalling || status.hasObb
+              !file || !status.hasApk || isInstalling || status.hasObb || !selectedDevice
                 ? 'cursor-not-allowed bg-white/5 text-white/20'
                 : 'bg-linear-to-r from-[#0081FB] to-[#00C2FF] text-white shadow-lg shadow-[#0081FB]/25 hover:shadow-[#0081FB]/40 hover:scale-[1.02] active:scale-[0.98]'
             }`}
@@ -608,9 +647,9 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
 
           <button
             onClick={() => handleInstall('full')}
-            disabled={!file || !status.hasApk || !status.hasObb || isInstalling}
+            disabled={!file || !status.hasApk || !status.hasObb || isInstalling || !selectedDevice}
             className={`group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl py-3 text-sm font-semibold transition-all ${
-              !file || !status.hasApk || !status.hasObb || isInstalling
+              !file || !status.hasApk || !status.hasObb || isInstalling || !selectedDevice
                 ? 'cursor-not-allowed bg-white/5 text-white/20'
                 : 'bg-linear-to-r from-purple-600 to-purple-400 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98]'
             }`}

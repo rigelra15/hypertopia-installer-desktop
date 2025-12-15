@@ -10,6 +10,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
   const [isLoading, setIsLoading] = useState(false)
   const [showAuthHelp, setShowAuthHelp] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+  const [hasScannedOnce, setHasScannedOnce] = useState(false)
   const authHelpDismissed = useRef(false)
   const dropdownRef = useRef(null)
 
@@ -82,6 +83,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
       console.error('Failed to list devices', err)
     } finally {
       setIsLoading(false)
+      setHasScannedOnce(true)
     }
   }, [selectedSerial, onSelect])
 
@@ -143,7 +145,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
             ) : (
               <span className="text-white/40">
                 {devices.length === 0
-                  ? isLoading
+                  ? (isLoading && !hasScannedOnce)
                     ? t('scanning')
                     : t('no_device')
                   : t('select_device')}
@@ -152,7 +154,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
           </div>
 
           {/* Chevron / Loading */}
-          {isLoading && devices.length === 0 ? (
+          {isLoading && devices.length === 0 && !hasScannedOnce ? (
             <div className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white"></div>
           ) : (
             <Icon
@@ -245,6 +247,38 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
             </div>
           </div>
         )}
+
+      {/* Troubleshooting Tips - Show when no device found after initial scan */}
+      {hasScannedOnce && devices.length === 0 && (
+        <div className="mt-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
+          <div className="flex items-start gap-2">
+            <Icon icon="mdi:help-circle-outline" className="h-4 w-4 shrink-0 text-yellow-500 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-semibold text-yellow-400 mb-2">
+                {t('troubleshoot_title')}
+              </p>
+              <ul className="space-y-1.5 text-[10px] text-white/60">
+                <li className="flex items-start gap-1.5">
+                  <span className="text-yellow-500 shrink-0">•</span>
+                  <span>{t('troubleshoot_cable')}</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-yellow-500 shrink-0">•</span>
+                  <span>{t('troubleshoot_dev_mode')}</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-yellow-500 shrink-0">•</span>
+                  <span>{t('troubleshoot_usb_debug')}</span>
+                </li>
+                <li className="flex items-start gap-1.5">
+                  <span className="text-yellow-500 shrink-0">•</span>
+                  <span>{t('troubleshoot_restart')}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
