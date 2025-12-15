@@ -46,7 +46,7 @@ export function ErrorModal({ isOpen, onClose, error }) {
               opacity: { duration: 0.3 },
               x: { duration: 0.5, times: [0, 0.2, 0.4, 0.6, 0.8, 1] }
             }}
-            className="w-full max-w-sm transform rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+            className="w-full max-w-sm max-h-[90vh] overflow-y-auto transform rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl custom-scrollbar"
           >
             <div className="mb-4 flex items-center justify-center rounded-full bg-red-500/10 p-4 text-red-500">
               <Icon icon="line-md:alert-twotone" className="h-8 w-8" />

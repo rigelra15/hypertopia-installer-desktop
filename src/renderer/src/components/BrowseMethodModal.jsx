@@ -46,7 +46,7 @@ export default function BrowseMethodModal({ isOpen, onClose, onSelectArchive, on
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#111] p-5 shadow-2xl mx-4"
+            className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#111] p-5 shadow-2xl mx-4 custom-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
