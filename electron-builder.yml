@@ -16,6 +16,8 @@ extraResources:
     to: platform-tools
     filter:
       - '**/*'
+  - from: resources/unrar.exe
+    to: unrar.exe
 win:
   executableName: hypertopia-installer
   icon: build/icon.ico

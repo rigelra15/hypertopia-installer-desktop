@@ -3,8 +3,6 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { exec, spawn, execFile } from 'child_process'
-import yauzl from 'yauzl' // For fast ZIP scanning
-import unzipper from 'unzipper' // For ZIP extraction with progress
 import { autoUpdater } from 'electron-updater'
 
 // Configure auto-updater
@@ -518,10 +516,26 @@ app.whenReady().then(() => {
 })
 
 // FUNGSI SCAN ZIP/RAR
-import { createExtractorFromData } from 'node-unrar-js'
+// node-7z untuk ZIP, node-unrar-js untuk RAR (karena 7za tidak support RAR5)
+const Seven = require('node-7z')
+const sevenBin = require('7zip-bin')
 const path = require('path')
 const fs = require('fs-extra')
 const os = require('os')
+
+// Helper: Get 7za binary path
+function get7zPath() {
+  return sevenBin.path7za
+}
+
+// Helper: Get UnRAR binary path
+function getUnrarPath() {
+  const isDev = !app.isPackaged
+  if (isDev) {
+    return path.join(__dirname, '../../resources/unrar.exe')
+  }
+  return path.join(process.resourcesPath, 'unrar.exe')
+}
 
 // Auto Cleanup: Bersihkan folder temporary lama
 async function cleanupOldTempFolders(customExtractPath = null) {
@@ -604,170 +618,303 @@ function getAdbPath() {
   return path.join(process.resourcesPath, 'platform-tools/adb')
 }
 
-// Helper: Scan RAR for APK and OBB
+// Helper: Scan RAR for APK and OBB using UnRAR command-line (no memory limit)
 async function scanRar(rarPath) {
-  const buf = Uint8Array.from(fs.readFileSync(rarPath)).buffer
-  const extractor = await createExtractorFromData({ data: buf })
+  return new Promise((resolve, reject) => {
+    const unrarPath = getUnrarPath()
 
-  const list = extractor.getFileList()
-  const fileHeaders = [...list.fileHeaders]
-
-  let result = {
-    hasApk: false,
-    hasObb: false,
-    apkName: null,
-    obbFolder: null
-  }
-
-  for (const file of fileHeaders) {
-    const fileName = file.name
-    const lowerName = fileName.toLowerCase()
-
-    // Cek APK
-    if (lowerName.endsWith('.apk') && !result.hasApk) {
-      result.hasApk = true
-      result.apkName = fileName.split('/').pop().split('\\').pop()
+    let result = {
+      hasApk: false,
+      hasObb: false,
+      apkName: null,
+      obbFolder: null
     }
 
-    // Cek OBB
-    if (
-      (lowerName.endsWith('.obb') ||
-        lowerName.includes('/obb/') ||
-        lowerName.includes('\\obb\\')) &&
-      !result.hasObb
-    ) {
-      result.hasObb = true
-      const parts = fileName.replace(/\\/g, '/').split('/')
-      const obbIndex = parts.findIndex((p) => p.toLowerCase() === 'obb')
-      if (obbIndex !== -1 && parts[obbIndex + 1]) {
-        result.obbFolder = parts[obbIndex + 1]
-      } else if (lowerName.endsWith('.obb')) {
-        result.obbFolder = parts.length > 1 ? parts[parts.length - 2] : 'Detected'
+    // Use 'lb' command for bare list output (just filenames)
+    const child = spawn(unrarPath, ['lb', rarPath], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    })
+
+    let stdout = ''
+    let stderr = ''
+
+    child.stdout.on('data', (data) => {
+      stdout += data.toString()
+    })
+
+    child.stderr.on('data', (data) => {
+      stderr += data.toString()
+    })
+
+    child.on('close', (code) => {
+      if (code !== 0 && code !== 1) {
+        console.error('UnRAR error:', stderr)
+        if (stderr.includes('Cannot open') || stderr.includes('is not RAR archive')) {
+          return reject(new Error('RAR_INVALID: File bukan RAR yang valid atau corrupt.'))
+        }
+        if (stderr.includes('Wrong password') || stderr.includes('encrypted')) {
+          return reject(new Error('RAR_ENCRYPTED: File RAR terenkripsi/memiliki password.'))
+        }
+        return reject(new Error('RAR_ERROR: Gagal membaca file RAR: ' + stderr))
       }
-    }
-  }
 
-  return result
+      // Parse file list
+      const lines = stdout
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l)
+
+      for (const fileName of lines) {
+        const lowerName = fileName.toLowerCase()
+
+        // Cek APK
+        if (lowerName.endsWith('.apk') && !result.hasApk) {
+          result.hasApk = true
+          result.apkName = fileName.split('/').pop().split('\\').pop()
+        }
+
+        // Cek OBB
+        if (
+          (lowerName.endsWith('.obb') ||
+            lowerName.includes('/obb/') ||
+            lowerName.includes('\\obb\\')) &&
+          !result.hasObb
+        ) {
+          result.hasObb = true
+          const parts = fileName.replace(/\\/g, '/').split('/')
+          const obbIndex = parts.findIndex((p) => p.toLowerCase() === 'obb')
+          if (obbIndex !== -1 && parts[obbIndex + 1]) {
+            result.obbFolder = parts[obbIndex + 1]
+          } else if (lowerName.endsWith('.obb')) {
+            result.obbFolder = parts.length > 1 ? parts[parts.length - 2] : 'Detected'
+          }
+        }
+      }
+
+      resolve(result)
+    })
+
+    child.on('error', (err) => {
+      console.error('UnRAR spawn error:', err)
+      reject(new Error('RAR_ERROR: Gagal menjalankan UnRAR: ' + err.message))
+    })
+  })
 }
 
-// Helper: Extract RAR with Progress
-async function extractRarWithProgress(rarPath, targetDir, onProgress) {
+// Helper: Scan Archive for APK and OBB using 7-zip (for ZIP files)
+async function scan7z(archivePath) {
+  return new Promise((resolve, reject) => {
+    const sevenPath = get7zPath()
+
+    let result = {
+      hasApk: false,
+      hasObb: false,
+      apkName: null,
+      obbFolder: null
+    }
+
+    const listStream = Seven.list(archivePath, {
+      $bin: sevenPath,
+      $progress: false
+    })
+
+    listStream.on('data', (data) => {
+      const fileName = data.file
+      if (!fileName) return
+
+      const lowerName = fileName.toLowerCase()
+
+      // Cek APK
+      if (lowerName.endsWith('.apk') && !result.hasApk) {
+        result.hasApk = true
+        result.apkName = fileName.split('/').pop().split('\\').pop()
+      }
+
+      // Cek OBB
+      if (
+        (lowerName.endsWith('.obb') ||
+          lowerName.includes('/obb/') ||
+          lowerName.includes('\\obb\\')) &&
+        !result.hasObb
+      ) {
+        result.hasObb = true
+        const parts = fileName.replace(/\\/g, '/').split('/')
+        const obbIndex = parts.findIndex((p) => p.toLowerCase() === 'obb')
+        if (obbIndex !== -1 && parts[obbIndex + 1]) {
+          result.obbFolder = parts[obbIndex + 1]
+        } else if (lowerName.endsWith('.obb')) {
+          result.obbFolder = parts.length > 1 ? parts[parts.length - 2] : 'Detected'
+        }
+      }
+    })
+
+    listStream.on('end', () => {
+      resolve(result)
+    })
+
+    listStream.on('error', (err) => {
+      console.error('7z list error:', err)
+      reject(err)
+    })
+  })
+}
+
+// Helper: Extract RAR with Progress using UnRAR command-line (no memory limit)
+async function extractRar(rarPath, targetDir, onProgress) {
   fs.ensureDirSync(targetDir)
 
-  // Read RAR file into buffer
-  const buf = Uint8Array.from(fs.readFileSync(rarPath)).buffer
-  const extractor = await createExtractorFromData({ data: buf })
+  return new Promise((resolve, reject) => {
+    const unrarPath = getUnrarPath()
 
-  // Get file list first to calculate total
-  const list = extractor.getFileList()
-  const fileHeaders = [...list.fileHeaders]
-  const totalFiles = fileHeaders.filter(
-    (f) => f.name.toLowerCase().endsWith('.apk') || f.name.toLowerCase().endsWith('.obb')
-  ).length
+    // First, get file count for progress
+    let totalFiles = 0
+    let extractedFiles = 0
 
-  let extractedFiles = 0
+    // Count relevant files first
+    const countChild = spawn(unrarPath, ['lb', rarPath], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    })
 
-  // Extract all files
-  const extracted = extractor.extract()
+    let countOutput = ''
 
-  // Process extracted files
-  for (const file of extracted.files) {
-    const fileName = file.fileHeader.name
-    const lowerName = fileName.toLowerCase()
+    countChild.stdout.on('data', (data) => {
+      countOutput += data.toString()
+    })
 
-    // Only save APK and OBB files
-    if (lowerName.endsWith('.apk') || lowerName.endsWith('.obb')) {
-      extractedFiles++
+    countChild.on('close', () => {
+      const lines = countOutput.split('\n').filter((l) => {
+        const lower = l.trim().toLowerCase()
+        return lower.endsWith('.apk') || lower.endsWith('.obb')
+      })
+      totalFiles = lines.length
 
-      if (onProgress) {
-        onProgress(extractedFiles, totalFiles, fileName)
-      }
+      // Now extract with progress
+      // Use 'x' to extract with full paths
+      const extractChild = spawn(unrarPath, ['x', '-y', '-o+', rarPath, targetDir + path.sep], {
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
 
-      // Skip if it's a directory
-      if (!file.fileHeader.flags.directory && file.extraction) {
-        const outputPath = path.join(targetDir, fileName)
-        fs.ensureDirSync(path.dirname(outputPath))
-        fs.writeFileSync(outputPath, Buffer.from(file.extraction))
-      }
-    }
-  }
+      let stderr = ''
 
-  return true
+      extractChild.stdout.on('data', (data) => {
+        const output = data.toString()
+        // Parse extraction progress
+        const lines = output.split('\n')
+        for (const line of lines) {
+          // UnRAR outputs "Extracting  filename" for each file
+          if (line.includes('Extracting') || line.includes('...')) {
+            const match = line.match(/(?:Extracting|\.\.\.)\s+(.+)/)
+            if (match) {
+              const fileName = match[1].trim()
+              const lowerName = fileName.toLowerCase()
+              if (lowerName.endsWith('.apk') || lowerName.endsWith('.obb')) {
+                extractedFiles++
+                if (onProgress) {
+                  onProgress(extractedFiles, totalFiles, fileName)
+                }
+              }
+            }
+          }
+        }
+      })
+
+      extractChild.stderr.on('data', (data) => {
+        stderr += data.toString()
+      })
+
+      extractChild.on('close', (code) => {
+        if (code !== 0 && code !== 1) {
+          console.error('UnRAR extract error:', stderr)
+          if (stderr.includes('Wrong password') || stderr.includes('encrypted')) {
+            return reject(new Error('RAR_ENCRYPTED: File RAR terenkripsi/memiliki password.'))
+          }
+          return reject(new Error('RAR_ERROR: Gagal mengekstrak file RAR: ' + stderr))
+        }
+        resolve(true)
+      })
+
+      extractChild.on('error', (err) => {
+        console.error('UnRAR extract spawn error:', err)
+        reject(new Error('RAR_ERROR: Gagal menjalankan UnRAR: ' + err.message))
+      })
+    })
+
+    countChild.on('error', (err) => {
+      console.error('UnRAR count spawn error:', err)
+      reject(new Error('RAR_ERROR: Gagal menjalankan UnRAR: ' + err.message))
+    })
+  })
 }
 
-// Helper: Extract ZIP with Progress (using unzipper)
-function extractZipWithProgress(zipPath, targetDir, onProgress) {
+// Helper: Extract Archive with Progress using 7-zip (for ZIP files)
+async function extract7z(archivePath, targetDir, onProgress) {
+  fs.ensureDirSync(targetDir)
+
   return new Promise((resolve, reject) => {
-    const fileStream = require('fs').createReadStream(zipPath)
-    let totalSize = 0
-    let extractedSize = 0
-    const relevantFiles = []
+    const sevenPath = get7zPath()
 
-    // First pass: Calculate total size of APK and OBB files only
-    fileStream
-      .pipe(unzipper.Parse())
-      .on('entry', (entry) => {
-        const fileName = entry.path
-        const lowerName = fileName.toLowerCase()
-        const isApk = lowerName.endsWith('.apk')
-        const isObb = lowerName.endsWith('.obb')
+    // First, get list of files to calculate total count
+    let totalFiles = 0
+    let extractedFiles = 0
+    const filesToExtract = []
 
-        if (isApk || isObb) {
-          totalSize += entry.vars.uncompressedSize
-          relevantFiles.push({
-            path: fileName,
-            size: entry.vars.uncompressedSize
-          })
-        }
-        entry.autodrain()
+    const listStream = Seven.list(archivePath, {
+      $bin: sevenPath,
+      $progress: false
+    })
+
+    listStream.on('data', (data) => {
+      const fileName = data.file
+      if (!fileName) return
+
+      const lowerName = fileName.toLowerCase()
+      if (lowerName.endsWith('.apk') || lowerName.endsWith('.obb')) {
+        totalFiles++
+        filesToExtract.push(fileName)
+      }
+    })
+
+    listStream.on('end', () => {
+      if (filesToExtract.length === 0) {
+        return resolve(true)
+      }
+
+      // Extract all files (wildcard filtering has issues with node-7z)
+      const extractStream = Seven.extractFull(archivePath, targetDir, {
+        $bin: sevenPath,
+        $progress: true,
+        recursive: true
       })
-      .on('close', () => {
-        // Second pass: Extract files with progress tracking
-        if (relevantFiles.length === 0) {
-          return resolve(true)
+
+      extractStream.on('progress', (progress) => {
+        if (onProgress && progress.percent) {
+          onProgress(progress.percent, 100, `Extracting... ${progress.percent}%`)
         }
-
-        const extractStream = require('fs').createReadStream(zipPath)
-        extractStream
-          .pipe(unzipper.Parse())
-          .on('entry', (entry) => {
-            const fileName = entry.path
-            const lowerName = fileName.toLowerCase()
-            const isApk = lowerName.endsWith('.apk')
-            const isObb = lowerName.endsWith('.obb')
-
-            if (isApk || isObb) {
-              const safePath = path.join(targetDir, fileName)
-
-              // Handle directories
-              if (entry.type === 'Directory') {
-                fs.ensureDirSync(safePath)
-                entry.autodrain()
-                return
-              }
-
-              // Extract file
-              fs.ensureDirSync(path.dirname(safePath))
-              const writeStream = fs.createWriteStream(safePath)
-
-              entry.on('data', (chunk) => {
-                extractedSize += chunk.length
-                if (onProgress && totalSize > 0) {
-                  onProgress(extractedSize, totalSize, fileName)
-                }
-              })
-
-              entry.pipe(writeStream).on('finish', () => {
-                writeStream.close()
-              })
-            } else {
-              entry.autodrain()
-            }
-          })
-          .on('close', () => resolve(true))
-          .on('error', (err) => reject(err))
       })
-      .on('error', (err) => reject(err))
+
+      extractStream.on('data', (data) => {
+        if (data.file) {
+          extractedFiles++
+          if (onProgress) {
+            onProgress(extractedFiles, totalFiles, data.file)
+          }
+        }
+      })
+
+      extractStream.on('end', () => {
+        resolve(true)
+      })
+
+      extractStream.on('error', (err) => {
+        console.error('7z extract error:', err)
+        reject(err)
+      })
+    })
+
+    listStream.on('error', (err) => {
+      console.error('7z list error:', err)
+      reject(err)
+    })
   })
 }
 
@@ -900,16 +1047,43 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
       const isRar = filePath.toLowerCase().endsWith('.rar')
       sendProgress('EXTRACTING', 0, 'Scanning archive...')
 
-      if (isRar) {
-        await extractRarWithProgress(filePath, tempDir, (current, total, fileName) => {
-          const percent = total > 0 ? Math.floor((current / total) * 100) : 0
-          sendProgress('EXTRACTING', percent, `Extracting: ${fileName}`)
-        })
-      } else {
-        await extractZipWithProgress(filePath, tempDir, (current, total, fileName) => {
-          const percent = total > 0 ? Math.floor((current / total) * 100) : 0
-          sendProgress('EXTRACTING', percent, `Extracting: ${fileName}`)
-        })
+      try {
+        if (isRar) {
+          // Use extractRar for RAR files (supports RAR5)
+          await extractRar(filePath, tempDir, (current, total, fileName) => {
+            const percent = total > 0 ? Math.floor((current / total) * 100) : 0
+            sendProgress('EXTRACTING', percent, `Extracting: ${fileName}`)
+          })
+        } else {
+          // Use extract7z for ZIP files
+          await extract7z(filePath, tempDir, (current, total, fileName) => {
+            const percent = total > 0 ? Math.floor((current / total) * 100) : 0
+            sendProgress('EXTRACTING', percent, `Extracting: ${fileName}`)
+          })
+        }
+      } catch (extractErr) {
+        const errMsg = extractErr.message || ''
+
+        // Re-throw user-friendly errors as-is
+        if (errMsg.startsWith('RAR_') || errMsg.startsWith('ARCHIVE_')) {
+          throw extractErr
+        }
+
+        // Check for common errors
+        if (
+          errMsg.includes('Cannot open') ||
+          errMsg.includes('not supported') ||
+          errMsg.includes('invalid signature')
+        ) {
+          throw new Error(
+            'File archive tidak valid atau format tidak didukung. Coba download ulang atau extract manual menggunakan WinRAR/7-Zip lalu pilih folder hasil ekstrak.'
+          )
+        } else if (errMsg.includes('Wrong password') || errMsg.includes('encrypted')) {
+          throw new Error(
+            'File archive terenkripsi/memiliki password. Extract manual menggunakan WinRAR/7-Zip lalu pilih folder hasil ekstrak.'
+          )
+        }
+        throw extractErr
       }
 
       const findFileByExt = (dir, ext) => {
@@ -1038,72 +1212,63 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 
 // FUNGSI SCAN ZIP/RAR
 ipcMain.handle('scan-zip', async (event, filePath) => {
-  // Handle RAR files
-  if (filePath.toLowerCase().endsWith('.rar')) {
+  const lowerPath = filePath.toLowerCase()
+
+  // Check if file is a supported archive format
+  if (!lowerPath.endsWith('.zip') && !lowerPath.endsWith('.rar') && !lowerPath.endsWith('.7z')) {
+    throw new Error('UNSUPPORTED_FORMAT: Hanya format ZIP, RAR, dan 7z yang didukung.')
+  }
+
+  // Use scanRar for RAR files (node-unrar-js supports RAR5)
+  if (lowerPath.endsWith('.rar')) {
     try {
       return await scanRar(filePath)
     } catch (err) {
       console.error('Error scanning RAR:', err)
-      throw new Error('Failed to scan RAR file: ' + err.message)
+      const errMsg = err.message || ''
+
+      // Re-throw user-friendly errors as-is
+      if (errMsg.startsWith('RAR_')) {
+        throw err
+      }
+
+      // Handle other errors
+      if (errMsg.includes('invalid signature') || errMsg.includes('Invalid signature')) {
+        throw new Error(
+          'RAR_INVALID: File bukan RAR yang valid atau corrupt. Coba download ulang file-nya.'
+        )
+      }
+      throw new Error('RAR_ERROR: Gagal membaca file RAR: ' + err.message)
     }
   }
 
-  // Handle ZIP files with yauzl (optimized for fast scanning)
-  return new Promise((resolve, reject) => {
-    if (!filePath.toLowerCase().endsWith('.zip')) {
-      return reject(new Error('Only ZIP and RAR formats are supported'))
+  // Use scan7z for ZIP and 7z files
+  try {
+    return await scan7z(filePath)
+  } catch (err) {
+    console.error('Error scanning archive:', err)
+    const errMsg = err.message || ''
+
+    // Check for common 7z errors and provide user-friendly messages
+    if (
+      errMsg.includes('Cannot open') ||
+      errMsg.includes('not archive') ||
+      errMsg.includes('Unsupported')
+    ) {
+      throw new Error(
+        'ARCHIVE_INVALID: File archive tidak valid atau corrupt. Coba download ulang file-nya atau extract manual menggunakan WinRAR/7-Zip.'
+      )
+    } else if (errMsg.includes('Wrong password') || errMsg.includes('encrypted')) {
+      throw new Error(
+        'ARCHIVE_ENCRYPTED: File archive terenkripsi/memiliki password. Extract manual menggunakan WinRAR/7-Zip lalu gunakan opsi "Pilih Folder".'
+      )
+    } else if (errMsg.includes('ENOENT') || errMsg.includes('no such file')) {
+      throw new Error(
+        'ARCHIVE_NOT_FOUND: File tidak ditemukan. Pastikan file masih ada di lokasi tersebut.'
+      )
     }
-
-    let result = {
-      hasApk: false,
-      hasObb: false,
-      apkName: null,
-      obbFolder: null
-    }
-
-    yauzl.open(filePath, { lazyEntries: true }, (err, zipfile) => {
-      if (err) {
-        console.error('Error opening zip:', err)
-        return resolve(result) // Return empty result on error
-      }
-
-      zipfile.readEntry()
-
-      zipfile.on('entry', (entry) => {
-        const fileName = entry.fileName
-        const lowerName = fileName.toLowerCase()
-
-        // Check APK
-        if (lowerName.endsWith('.apk') && !result.hasApk) {
-          result.hasApk = true
-          result.apkName = fileName.split('/').pop().split('\\').pop()
-        }
-
-        // Check OBB
-        if ((lowerName.endsWith('.obb') || lowerName.includes('/obb/')) && !result.hasObb) {
-          result.hasObb = true
-          const parts = fileName.replace(/\\/g, '/').split('/')
-          const obbIndex = parts.findIndex((p) => p.toLowerCase() === 'obb')
-          if (obbIndex !== -1 && parts[obbIndex + 1]) {
-            result.obbFolder = parts[obbIndex + 1]
-          } else if (lowerName.endsWith('.obb')) {
-            result.obbFolder = parts.length > 1 ? parts[parts.length - 2] : 'Detected'
-          }
-        }
-
-        // Early termination: Close if both found
-        if (result.hasApk && result.hasObb) {
-          zipfile.close()
-          return resolve(result)
-        }
-
-        zipfile.readEntry()
-      })
-
-      zipfile.on('end', () => resolve(result))
-      zipfile.on('error', (err) => reject(err))
-    })
-  })
+    throw new Error('ARCHIVE_ERROR: Gagal membaca file archive: ' + err.message)
+  }
 })
 
 // IPC: Select Game Folder (for pre-extracted games)
