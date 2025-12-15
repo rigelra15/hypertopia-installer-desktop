@@ -207,6 +207,17 @@ export function Tutorials({ onNavigate }) {
         </p>
       </div>
 
+      {/* Info Banner - Read Tutorials First */}
+      <div className="flex items-start gap-2 border-b border-green-500/20 bg-green-500/5 px-4 py-3">
+        <Icon icon="mdi:lightbulb-outline" className="h-4 w-4 shrink-0 text-green-500 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] text-white/80 leading-relaxed">
+            <span className="font-semibold text-green-400">{t('tutorials_info_title')}</span>{' '}
+            {t('tutorials_info_desc')}
+          </p>
+        </div>
+      </div>
+
       {/* List Content */}
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">

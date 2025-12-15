@@ -153,6 +153,21 @@ export function HypertopiaStore({ initialUrl }) {
         </button>
       </div>
 
+      {/* Info Banner - Important Notice */}
+      <div className="flex items-center gap-2 border-b border-[#0081FB]/20 bg-[#0081FB]/10 px-3 py-2">
+        <Icon icon="mdi:information-outline" className="h-4 w-4 shrink-0 text-[#0081FB]" />
+        <p className="flex-1 text-[11px] text-white/80">
+          {t('webview_info_notice')}
+        </p>
+        <button
+          onClick={handleOpenExternal}
+          className="shrink-0 flex items-center gap-1 rounded-md bg-[#0081FB] px-2 py-1 text-[10px] font-medium text-white transition-colors hover:bg-[#0081FB]/80"
+        >
+          <Icon icon="mdi:open-in-new" className="h-3 w-3" />
+          {t('open_in_browser')}
+        </button>
+      </div>
+
       {/* Webview */}
       <div className="flex-1 overflow-hidden relative">
         {/* eslint-disable react/no-unknown-property */}

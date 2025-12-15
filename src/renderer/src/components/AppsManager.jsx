@@ -95,6 +95,14 @@ export function AppsManager({ selectedDevice }) {
         </button>
       </div>
 
+      {/* Info Banner */}
+      <div className="mb-4 flex items-start gap-2 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-3 py-2">
+        <Icon icon="mdi:alert-circle-outline" className="h-4 w-4 shrink-0 text-yellow-500 mt-0.5" />
+        <p className="text-[11px] text-white/70 leading-relaxed">
+          {t('apps_info_desc')}
+        </p>
+      </div>
+
       {/* Search Box */}
       {selectedDevice && apps.length > 0 && (
         <div className="mb-4 relative">
