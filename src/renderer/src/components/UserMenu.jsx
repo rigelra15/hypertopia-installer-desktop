@@ -22,6 +22,7 @@ export function UserMenu() {
     accessTypes,
     loading,
     eligibilityLoading,
+    checkEligibility,
     deviceCode,
     deviceCodeLoading,
     deviceCodeError,
@@ -32,6 +33,7 @@ export function UserMenu() {
   const [showDropdown, setShowDropdown] = useState(false)
   const [loginModalRequested, setLoginModalRequested] = useState(false)
   const [timeLeft, dispatchTimer] = useReducer(timerReducer, 0)
+  const [imageError, setImageError] = useState(false)
 
   // Derive showLoginModal from state - modal shows only if requested AND (has code OR loading OR error)
   const showLoginModal = loginModalRequested && !user && (deviceCode || deviceCodeLoading || deviceCodeError)
@@ -218,11 +220,12 @@ export function UserMenu() {
         onClick={() => setShowDropdown(!showDropdown)}
         className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 transition-all hover:bg-white/10"
       >
-        {user.photoURL ? (
+        {user.photoURL && !imageError ? (
           <img
             src={user.photoURL}
             alt={user.displayName || user.email}
             className="h-7 w-7 rounded-full border border-white/20"
+            onError={() => setImageError(true)}
           />
         ) : (
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0081FB]">
@@ -269,11 +272,12 @@ export function UserMenu() {
             {/* User Info */}
             <div className="border-b border-white/10 px-3 py-3 mb-2">
               <div className="flex items-center gap-3">
-                {user.photoURL ? (
+                {user.photoURL && !imageError ? (
                   <img
                     src={user.photoURL}
                     alt={user.displayName || user.email}
                     className="h-10 w-10 rounded-full border border-white/20"
+                    onError={() => setImageError(true)}
                   />
                 ) : (
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0081FB]">
@@ -311,6 +315,19 @@ export function UserMenu() {
                 )}
               </div>
             </div>
+
+            {/* Refresh Access Button */}
+            <button
+              onClick={() => checkEligibility(user.email)}
+              disabled={eligibilityLoading}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/5 disabled:opacity-50"
+            >
+              <Icon
+                icon={eligibilityLoading ? 'mdi:loading' : 'mdi:refresh'}
+                className={`h-4 w-4 ${eligibilityLoading ? 'animate-spin' : ''}`}
+              />
+              <span>{t('refresh_access') || 'Refresh Access'}</span>
+            </button>
 
             {/* Logout Button */}
             <button
