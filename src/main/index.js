@@ -12,6 +12,92 @@ autoUpdater.autoInstallOnAppQuit = true
 
 let mainWindow = null
 
+// Deep linking: Store pending auth resolve function
+let pendingAuthResolve = null
+
+// Register custom protocol for deep linking (hypertopia://)
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('hypertopia', process.execPath, [process.argv[1]])
+  }
+} else {
+  app.setAsDefaultProtocolClient('hypertopia')
+}
+
+// Handle deep link URL (Windows/Linux)
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (event, commandLine) => {
+    // Someone tried to run a second instance, focus our window
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+
+    // Handle deep link URL on Windows/Linux
+    const url = commandLine.find((arg) => arg.startsWith('hypertopia://'))
+    if (url) {
+      handleDeepLink(url)
+    }
+  })
+}
+
+// Handle deep link URL (macOS)
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  handleDeepLink(url)
+})
+
+// Process deep link URL
+function handleDeepLink(url) {
+  console.log('[DeepLink] Received URL:', url)
+
+  try {
+    // Parse URL: hypertopia://auth-callback?token=xxx&email=xxx&name=xxx&photo=xxx
+    const urlObj = new URL(url)
+
+    if (urlObj.hostname === 'auth-callback' || urlObj.pathname.includes('auth-callback')) {
+      const params = new URLSearchParams(urlObj.search || urlObj.pathname.split('?')[1])
+      const token = params.get('token')
+      const email = params.get('email')
+      const name = params.get('name')
+      const photo = params.get('photo')
+
+      if (token && email) {
+        console.log('[DeepLink] Auth success for:', email)
+
+        // Resolve pending auth if exists
+        if (pendingAuthResolve) {
+          pendingAuthResolve({
+            success: true,
+            accessToken: token,
+            email: decodeURIComponent(email),
+            displayName: name ? decodeURIComponent(name) : null,
+            photoURL: photo ? decodeURIComponent(photo) : null
+          })
+          pendingAuthResolve = null
+        }
+
+        // Also send to renderer if window exists
+        if (mainWindow) {
+          mainWindow.webContents.send('auth-callback', {
+            success: true,
+            accessToken: token,
+            email: decodeURIComponent(email),
+            displayName: name ? decodeURIComponent(name) : null,
+            photoURL: photo ? decodeURIComponent(photo) : null
+          })
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[DeepLink] Error parsing URL:', err)
+  }
+}
+
 // Installation cancellation state
 let installationState = {
   isCancelled: false,
@@ -493,6 +579,115 @@ app.whenReady().then(() => {
   // IPC: Install update and restart
   ipcMain.handle('install-update', () => {
     autoUpdater.quitAndInstall()
+  })
+
+  // IPC: Google Sign In via Website Deep Linking
+  // Opens default browser to HyperTopia website, user logs in, website redirects back via hypertopia:// protocol
+  ipcMain.handle('google-sign-in', async () => {
+    return new Promise((resolve) => {
+      // Store resolve function for deep link callback
+      pendingAuthResolve = resolve
+
+      // Open HyperTopia website auth page in default browser
+      const authUrl = 'https://hypertopia.store/auth-installer'
+      shell.openExternal(authUrl)
+
+      // Set timeout for auth (2 minutes)
+      setTimeout(() => {
+        if (pendingAuthResolve === resolve) {
+          pendingAuthResolve = null
+          resolve({ success: false, error: 'Auth timeout' })
+        }
+      }, 2 * 60 * 1000)
+    })
+  })
+
+  // IPC: Google Sign In via BrowserWindow (fallback method)
+  ipcMain.handle('google-sign-in-popup', async () => {
+    return new Promise((resolve) => {
+      const firebaseAuthDomain = 'hypertopia-id-bc.firebaseapp.com'
+      const webClientId = '176112373977-61sguaetet4tu1gdbpolgu6m7dgt5je8.apps.googleusercontent.com'
+      const redirectUri = encodeURIComponent(`https://${firebaseAuthDomain}/__/auth/handler`)
+      const scope = encodeURIComponent('openid email profile')
+
+      const googleAuthUrl =
+        `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${webClientId}` +
+        `&redirect_uri=${redirectUri}` +
+        `&response_type=id_token token` +
+        `&scope=${scope}` +
+        `&nonce=${Date.now()}`
+
+      const { session } = require('electron')
+      const authSession = session.fromPartition('persist:google-auth')
+
+      const authWindow = new BrowserWindow({
+        width: 500,
+        height: 700,
+        show: true,
+        title: 'Login dengan Google',
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          session: authSession
+        }
+      })
+
+      authWindow.loadURL(googleAuthUrl)
+
+      let hasResolved = false
+
+      const extractToken = (url) => {
+        try {
+          if (url.includes('access_token=') || url.includes('id_token=')) {
+            let tokenPart = url
+            if (url.includes('#')) {
+              tokenPart = url.split('#')[1]
+            }
+            const params = new URLSearchParams(tokenPart)
+            return params.get('access_token') || params.get('id_token')
+          }
+        } catch (err) {
+          console.error('[OAuth] Error extracting token:', err)
+        }
+        return null
+      }
+
+      const handleUrl = (url) => {
+        if (hasResolved) return
+        if (url.includes('access_token=') || url.includes('id_token=')) {
+          const token = extractToken(url)
+          if (token) {
+            hasResolved = true
+            authWindow.close()
+            resolve({ success: true, accessToken: token })
+            return true
+          }
+        }
+        if (url.includes('error=')) {
+          hasResolved = true
+          authWindow.close()
+          resolve({ success: false, error: 'OAuth error' })
+          return true
+        }
+        return false
+      }
+
+      authWindow.webContents.on('will-navigate', (e, url) => handleUrl(url))
+      authWindow.webContents.on('will-redirect', (e, url) => handleUrl(url))
+      authWindow.webContents.on('did-navigate', (e, url) => handleUrl(url))
+      authWindow.webContents.on('did-finish-load', () => {
+        if (!hasResolved) handleUrl(authWindow.webContents.getURL())
+      })
+      authWindow.on('closed', () => {
+        if (!hasResolved) resolve({ success: false, error: 'User closed window' })
+      })
+    })
+  })
+
+  // IPC: Google Sign Out (just returns success, actual sign out handled in renderer)
+  ipcMain.handle('google-sign-out', async () => {
+    return { success: true }
   })
 
   app.on('activate', function () {

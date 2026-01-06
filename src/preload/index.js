@@ -53,6 +53,15 @@ const api = {
     const subscription = () => callback()
     ipcRenderer.on('update-not-available', subscription)
     return () => ipcRenderer.removeListener('update-not-available', subscription)
+  },
+  // Google OAuth APIs
+  googleSignIn: () => ipcRenderer.invoke('google-sign-in'),
+  googleSignInPopup: () => ipcRenderer.invoke('google-sign-in-popup'),
+  googleSignOut: () => ipcRenderer.invoke('google-sign-out'),
+  onAuthCallback: (callback) => {
+    const subscription = (_event, data) => callback(data)
+    ipcRenderer.on('auth-callback', subscription)
+    return () => ipcRenderer.removeListener('auth-callback', subscription)
   }
 }
 
