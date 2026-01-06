@@ -62,7 +62,9 @@ const api = {
     const subscription = (_event, data) => callback(data)
     ipcRenderer.on('auth-callback', subscription)
     return () => ipcRenderer.removeListener('auth-callback', subscription)
-  }
+  },
+  // Shell utilities
+  openExternal: (url) => ipcRenderer.invoke('open-external', url)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

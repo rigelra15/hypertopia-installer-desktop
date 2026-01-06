@@ -496,11 +496,17 @@ function GameCard({ game, isEligible, selectedDevice }) {
   }
 
   // Handle download click
-  const handleDownload = (e) => {
+  const handleDownload = async (e) => {
     e.stopPropagation()
     const link = getDownloadLink()
     if (link) {
-      window.open(link, '_blank')
+      // Use Electron's shell.openExternal for reliable external URL opening
+      if (window.api?.openExternal) {
+        await window.api.openExternal(link)
+      } else {
+        // Fallback for web or if API not available
+        window.open(link, '_blank')
+      }
     }
   }
 

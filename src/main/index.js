@@ -1791,6 +1791,17 @@ ipcMain.handle('list-devices', async () => {
   })
 })
 
+// IPC: Open External URL (for Google Drive downloads etc)
+ipcMain.handle('open-external', async (event, url) => {
+  try {
+    await shell.openExternal(url)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to open external URL:', error)
+    return { success: false, error: error.message }
+  }
+})
+
 // Auto Cleanup: Bersihkan semua temp folder saat app akan quit
 app.on('before-quit', async (event) => {
   event.preventDefault()
