@@ -433,6 +433,7 @@ function GameCard({ game, isEligible, selectedDevice }) {
         const url = await coverImages.getCoverUrl(gameTitle)
         if (mounted && url) {
           setCoverUrl(url)
+          setLoadingImage(false)
           return
         }
       } catch (err) {
