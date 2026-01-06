@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import UpdateModal from './UpdateModal'
+import DownloadProgressWidget from './DownloadProgressWidget'
 import PropTypes from 'prop-types'
 
 /**
@@ -18,6 +19,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
   const [downloadedBytes, setDownloadedBytes] = useState(0)
   const [totalBytes, setTotalBytes] = useState(0)
   const [showModal, setShowModal] = useState(false)
+  const [showWidget, setShowWidget] = useState(false) // NEW: floating widget visibility
   const [dismissed, setDismissed] = useState(false)
   const [currentVersion, setCurrentVersion] = useState('')
   const [autoUpdate] = useState(() => {
@@ -45,9 +47,10 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
       setDismissed(false)
       onUpdateAvailable?.(true, info)
 
-      // If auto-update is ON, start download immediately
+      // If auto-update is ON, start download immediately and show widget
       if (autoUpdate) {
         window.api.downloadUpdate()
+        setShowWidget(true)
       } else {
         // Show modal to ask user
         setShowModal(true)
@@ -55,7 +58,6 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
     })
 
     const unsubProgress = window.api.onUpdateDownloadProgress((progress) => {
-      console.log('[Update] Progress:', progress.percent?.toFixed(1) + '%', 'Speed:', progress.bytesPerSecond)
       setDownloadProgress(progress.percent || 0)
       setDownloadSpeed(progress.bytesPerSecond || 0)
       setDownloadedBytes(progress.transferred || 0)
@@ -68,7 +70,9 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
       setUpdateInfo(info)
       setUpdateState('ready')
       setDownloadProgress(100)
+      // Show modal when ready to install (user needs to click restart)
       setShowModal(true)
+      // Keep widget visible too
     })
 
     return () => {
@@ -81,6 +85,9 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
   const handleDownload = () => {
     window.api.downloadUpdate()
     setUpdateState('downloading')
+    // Close modal and show floating widget instead
+    setShowModal(false)
+    setShowWidget(true)
   }
 
   const handleInstall = () => {
@@ -116,6 +123,18 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
         totalBytes={totalBytes}
         onInstall={handleInstall}
         isReady={updateState === 'ready'}
+      />
+
+      {/* Floating Download Progress Widget */}
+      <DownloadProgressWidget
+        isVisible={showWidget && (updateState === 'downloading' || updateState === 'ready')}
+        updateInfo={updateInfo}
+        downloadProgress={downloadProgress}
+        downloadSpeed={downloadSpeed}
+        downloadedBytes={downloadedBytes}
+        totalBytes={totalBytes}
+        isReady={updateState === 'ready'}
+        onInstall={handleInstall}
       />
 
       {/* Inline Notification */}
