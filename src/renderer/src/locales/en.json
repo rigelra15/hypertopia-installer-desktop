@@ -234,5 +234,7 @@
   "sort_by_added": "Newest",
   "sort_by_downloads": "Downloads",
   "sort_by_size": "Size",
-  "sort_by_rating": "Rating"
+  "sort_by_rating": "Rating",
+  "update_background_info": "Download running in background",
+  "refresh_access": "Refresh Access"
 }

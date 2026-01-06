@@ -234,5 +234,7 @@
   "sort_by_added": "Terbaru",
   "sort_by_downloads": "Unduhan",
   "sort_by_size": "Ukuran",
-  "sort_by_rating": "Rating"
+  "sort_by_rating": "Rating",
+  "update_background_info": "Unduhan berjalan di background",
+  "refresh_access": "Segarkan Akses"
 }
