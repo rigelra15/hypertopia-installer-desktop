@@ -37,29 +37,42 @@ export function AuthProvider({ children }) {
     }
 
     setEligibilityLoading(true)
+    
     try {
-      // Check all three categories in parallel
+      // Fetch all data from each category and filter client-side
+      // This avoids the need for Firebase Rules indexing on REST API
       const [standaloneRes, pcvrRes, qgoRes] = await Promise.all([
-        fetch(`${FIREBASE_DB_URL}/eligibleUsers/standalone.json?orderBy="email"&equalTo="${email}"`),
-        fetch(`${FIREBASE_DB_URL}/eligibleUsers/pcvr.json?orderBy="email"&equalTo="${email}"`),
-        fetch(`${FIREBASE_DB_URL}/eligibleUsers/qgo.json?orderBy="email"&equalTo="${email}"`)
+        fetch(`${FIREBASE_DB_URL}/eligibleUsers/standalone.json`),
+        fetch(`${FIREBASE_DB_URL}/eligibleUsers/pcvr.json`),
+        fetch(`${FIREBASE_DB_URL}/eligibleUsers/qgo.json`)
       ])
 
       const [standaloneData, pcvrData, qgoData] = await Promise.all([
-        standaloneRes.json(),
-        pcvrRes.json(),
-        qgoRes.json()
+        standaloneRes.ok ? standaloneRes.json() : null,
+        pcvrRes.ok ? pcvrRes.json() : null,
+        qgoRes.ok ? qgoRes.json() : null
       ])
 
+      // Filter by email client-side
+      const hasStandaloneAccess = standaloneData && Object.values(standaloneData).some(
+        (user) => user && user.email && user.email.toLowerCase() === email.toLowerCase()
+      )
+      const hasPcvrAccess = pcvrData && Object.values(pcvrData).some(
+        (user) => user && user.email && user.email.toLowerCase() === email.toLowerCase()
+      )
+      const hasQgoAccess = qgoData && Object.values(qgoData).some(
+        (user) => user && user.email && user.email.toLowerCase() === email.toLowerCase()
+      )
+
       const access = []
-      if (standaloneData && Object.keys(standaloneData).length > 0) access.push('standalone')
-      if (pcvrData && Object.keys(pcvrData).length > 0) access.push('pcvr')
-      if (qgoData && Object.keys(qgoData).length > 0) access.push('qgo')
+      if (hasStandaloneAccess) access.push('standalone')
+      if (hasPcvrAccess) access.push('pcvr')
+      if (hasQgoAccess) access.push('qgo')
 
       setAccessTypes(access)
       return access
     } catch (error) {
-      console.error('Error checking eligibility:', error)
+      console.error('[Auth] Error checking eligibility:', error)
       setAccessTypes([])
       return []
     } finally {
