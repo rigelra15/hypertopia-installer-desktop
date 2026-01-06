@@ -72,6 +72,19 @@ export function UserMenu() {
     setLoginModalRequested(false)
   }
 
+  const [copied, setCopied] = useState(false)
+  const handleCopyCode = async () => {
+    if (deviceCode?.code) {
+      try {
+        await navigator.clipboard.writeText(deviceCode.code)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch (err) {
+        console.error('Failed to copy:', err)
+      }
+    }
+  }
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -160,7 +173,7 @@ export function UserMenu() {
                     </a>
 
                     {/* Code Display */}
-                    <div className="flex justify-center gap-2 mb-6">
+                    <div className="flex justify-center gap-2 mb-4">
                       {deviceCode.code.split('').map((char, i) => (
                         <div
                           key={i}
@@ -170,6 +183,22 @@ export function UserMenu() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Copy Button */}
+                    <button
+                      onClick={handleCopyCode}
+                      className={`flex items-center justify-center gap-2 mx-auto mb-6 px-4 py-2 rounded-lg text-sm transition-all ${
+                        copied
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <Icon
+                        icon={copied ? 'mdi:check' : 'mdi:content-copy'}
+                        className="h-4 w-4"
+                      />
+                      <span>{copied ? (t('copied') || 'Copied!') : (t('copy_code') || 'Copy Code')}</span>
+                    </button>
 
                     {/* Timer */}
                     <div className="flex items-center justify-center gap-2 text-sm mb-4">
