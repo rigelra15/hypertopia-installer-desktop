@@ -5,30 +5,24 @@ import { useToast } from './hooks/useToast'
 import { InstallerSidebar } from './components/InstallerSidebar'
 import { OBBManager } from './components/OBBManager'
 import { AppsManager } from './components/AppsManager'
-import { HypertopiaStore } from './components/HypertopiaStore'
+import { StandaloneGames } from './components/StandaloneGames'
 import { Tutorials } from './components/Tutorials'
 import { SetupModal } from './components/SetupModal'
+import { UserMenu } from './components/UserMenu'
 
 function App() {
   const { t } = useLanguage()
   const toast = useToast()
   const hasCheckedUpdates = useRef(false)
   const [selectedDevice, setSelectedDevice] = useState(null)
-  const [activeTab, setActiveTab] = useState('tutorials') // 'obb' | 'apps' | 'store' | 'tutorials'
+  const [activeTab, setActiveTab] = useState('tutorials') // 'obb' | 'apps' | 'games' | 'tutorials'
   const [sidebarWidth, setSidebarWidth] = useState(400)
-  const [storeUrl, setStoreUrl] = useState(null)
   const [isResizing, setIsResizing] = useState(false)
   const [showSetupModal, setShowSetupModal] = useState(() => {
     // Check if extract path is configured
     const extractPath = localStorage.getItem('extractPath')
     return !extractPath
   })
-
-  // Deep Link Handler (from Tutorials)
-  const handleNavigate = (url) => {
-    setStoreUrl(url)
-    setActiveTab('store')
-  }
 
   // Resize Handlers
   const startResizing = (e) => {
@@ -116,51 +110,55 @@ function App() {
         {/* Content */}
         <div className="flex w-full flex-1 flex-col md:h-full min-w-0">
           {/* Tab Switcher */}
-          <div className="flex border-b border-white/10 bg-[#111] p-2">
-            <button
-              onClick={() => setActiveTab('tutorials')}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
-                activeTab === 'tutorials'
-                  ? 'bg-[#0081FB]/10 text-[#0081FB]'
-                  : 'text-white/50 hover:bg-white/5 hover:text-white/70'
-              }`}
-            >
-              <Icon icon="mdi:book-open-page-variant" className="h-4 w-4" />
-              <span>{t('tab_tutorials')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('obb')}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
-                activeTab === 'obb'
-                  ? 'bg-[#0081FB]/10 text-[#0081FB]'
-                  : 'text-white/50 hover:bg-white/5 hover:text-white/70'
-              }`}
-            >
-              <Icon icon="line-md:folder-filled" className="h-4 w-4" />
-              <span>{t('tab_obb')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('apps')}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
-                activeTab === 'apps'
-                  ? 'bg-[#0081FB]/10 text-[#0081FB]'
-                  : 'text-white/50 hover:bg-white/5 hover:text-white/70'
-              }`}
-            >
-              <Icon icon="mdi:application" className="h-4 w-4" />
-              <span>{t('tab_apps')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('store')}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
-                activeTab === 'store'
-                  ? 'bg-[#0081FB]/10 text-[#0081FB]'
-                  : 'text-white/50 hover:bg-white/5 hover:text-white/70'
-              }`}
-            >
-              <Icon icon="mdi:store" className="h-4 w-4" />
-              <span>{t('tab_store')}</span>
-            </button>
+          <div className="flex items-center border-b border-white/10 bg-[#111] p-2 gap-2">
+            <div className="flex flex-1">
+              <button
+                onClick={() => setActiveTab('tutorials')}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+                  activeTab === 'tutorials'
+                    ? 'bg-[#0081FB]/10 text-[#0081FB]'
+                    : 'text-white/50 hover:bg-white/5 hover:text-white/70'
+                }`}
+              >
+                <Icon icon="mdi:book-open-page-variant" className="h-4 w-4" />
+                <span>{t('tab_tutorials')}</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('obb')}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+                  activeTab === 'obb'
+                    ? 'bg-[#0081FB]/10 text-[#0081FB]'
+                    : 'text-white/50 hover:bg-white/5 hover:text-white/70'
+                }`}
+              >
+                <Icon icon="line-md:folder-filled" className="h-4 w-4" />
+                <span>{t('tab_obb')}</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('apps')}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+                  activeTab === 'apps'
+                    ? 'bg-[#0081FB]/10 text-[#0081FB]'
+                    : 'text-white/50 hover:bg-white/5 hover:text-white/70'
+                }`}
+              >
+                <Icon icon="mdi:application" className="h-4 w-4" />
+                <span>{t('tab_apps')}</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('games')}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+                  activeTab === 'games'
+                    ? 'bg-[#0081FB]/10 text-[#0081FB]'
+                    : 'text-white/50 hover:bg-white/5 hover:text-white/70'
+                }`}
+              >
+                <Icon icon="mdi:gamepad-variant" className="h-4 w-4" />
+                <span>{t('tab_games')}</span>
+              </button>
+            </div>
+            {/* User Login Menu */}
+            <UserMenu />
           </div>
 
           {/* Tab Content */}
@@ -168,10 +166,10 @@ function App() {
             <OBBManager selectedDevice={selectedDevice} />
           ) : activeTab === 'apps' ? (
             <AppsManager selectedDevice={selectedDevice} />
-          ) : activeTab === 'store' ? (
-            <HypertopiaStore initialUrl={storeUrl} />
+          ) : activeTab === 'games' ? (
+            <StandaloneGames />
           ) : (
-            <Tutorials onNavigate={handleNavigate} />
+            <Tutorials />
           )}
         </div>
       </div>
