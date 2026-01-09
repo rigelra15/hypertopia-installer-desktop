@@ -7,7 +7,7 @@ import UpdateNotification from './UpdateNotification'
 import BrowseMethodModal from './BrowseMethodModal'
 import PropTypes from 'prop-types'
 
-export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
+export function InstallerSidebar({ selectedDevice, onDeviceSelect, extractPath, onExtractPathChange }) {
   const { t, language, setLanguage } = useLanguage()
   const [file, setFile] = useState(null)
   const [appVersion, setAppVersion] = useState({ version: '1.0.0', build: '...' })
@@ -23,7 +23,6 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
   const [isInstalling, setIsInstalling] = useState(false)
   const [installProgress, setInstallProgress] = useState(null)
   const [errorDetails, setErrorDetails] = useState(null)
-  const [extractPath, setExtractPath] = useState(localStorage.getItem('extractPath') || '')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateInfo, setUpdateInfo] = useState(null)
@@ -52,8 +51,8 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
 
   const handleCloseSettings = (newPath) => {
     setIsSettingsOpen(false)
-    if (newPath) {
-      setExtractPath(newPath)
+    if (newPath && onExtractPathChange) {
+      onExtractPathChange(newPath)
     }
   }
 
@@ -413,17 +412,15 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
           }}
         />
 
-        {/* Drop Zone */}
+        {/* Drop Zone - Always enabled, user can select file first */}
         <div
           className={`relative mb-6 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition-all ${
-            !selectedDevice
-              ? 'border-white/5 bg-white/[0.02] cursor-not-allowed opacity-50'
-              : isDragOver
-                ? 'border-[#0081FB] bg-[#0081FB]/10 scale-[1.02]'
-                : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+            isDragOver
+              ? 'border-[#0081FB] bg-[#0081FB]/10 scale-[1.02]'
+              : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
           }`}
-          onDrop={selectedDevice ? handleDrop : (e) => e.preventDefault()}
-          onDragOver={selectedDevice ? handleDragOver : (e) => e.preventDefault()}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
         >
           <input
@@ -432,10 +429,9 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
             onChange={handleFileInput}
             className="hidden"
             accept=".zip,.rar"
-            disabled={!selectedDevice}
           />
 
-          <div className={`mb-4 rounded-full p-4 ${selectedDevice ? 'bg-[#0081FB]/20 text-[#0081FB]' : 'bg-white/5 text-white/30'}`}>
+          <div className="mb-4 rounded-full p-4 bg-[#0081FB]/20 text-[#0081FB]">
             <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
@@ -445,24 +441,15 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
               />
             </svg>
           </div>
-          <p className={`text-center text-sm font-medium ${selectedDevice ? 'text-white/90' : 'text-white/40'}`}>
-            {selectedDevice
-              ? (t('drag_drop_full') || 'Drop Game File or Folder Here')
-              : (t('connect_device_first') || 'Connect VR Device First')}
+          <p className="text-center text-sm font-medium text-white/90">
+            {t('drag_drop_full') || 'Drop Game File or Folder Here'}
           </p>
-          <p className={`mt-1 text-center text-xs ${selectedDevice ? 'text-white/50' : 'text-white/30'}`}>
-            {selectedDevice
-              ? (t('support_ext_full') || 'ZIP, RAR, or extracted folder')
-              : (t('connect_device_first_desc') || 'Please connect your Meta Quest to continue')}
+          <p className="mt-1 text-center text-xs text-white/50">
+            {t('support_ext_full') || 'ZIP, RAR, or extracted folder'}
           </p>
           <button
-            onClick={() => selectedDevice && setShowBrowseModal(true)}
-            disabled={!selectedDevice}
-            className={`mt-4 rounded-lg px-4 py-2 text-xs font-medium transition-all ${
-              selectedDevice
-                ? 'bg-white/10 text-white hover:bg-white/20'
-                : 'bg-white/5 text-white/30 cursor-not-allowed'
-            }`}
+            onClick={() => setShowBrowseModal(true)}
+            className="mt-4 rounded-lg px-4 py-2 text-xs font-medium transition-all bg-white/10 text-white hover:bg-white/20"
           >
             {t('browse_files')}
           </button>
@@ -598,33 +585,6 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
           </div>
         </div>
 
-        {/* No Device Warning */}
-        {!selectedDevice && (file || status.hasApk) && (
-          <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3">
-            <svg
-              className="h-5 w-5 shrink-0 text-red-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-red-400">
-                {t('no_device_warning_title')}
-              </p>
-              <p className="mt-0.5 text-[10px] text-red-300/70">
-                {t('no_device_warning_desc')}
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Action Buttons */}
         <div className="space-y-3">
           <button
@@ -679,6 +639,33 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
               </span>
             </div>
           </button>
+
+          {/* No Device Warning - Show after buttons when file is selected but no device */}
+          {!selectedDevice && file && status.hasApk && (
+            <div className="mt-4 flex items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/10 p-3">
+              <svg
+                className="h-5 w-5 shrink-0 text-orange-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-orange-400">
+                  {t('no_device_warning_title') || 'No VR Device Connected'}
+                </p>
+                <p className="mt-0.5 text-[10px] text-orange-300/70">
+                  {t('connect_to_install') || 'Connect your Meta Quest to install this game'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -711,5 +698,7 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
 
 InstallerSidebar.propTypes = {
   selectedDevice: PropTypes.string,
-  onDeviceSelect: PropTypes.func
+  onDeviceSelect: PropTypes.func,
+  extractPath: PropTypes.string,
+  onExtractPathChange: PropTypes.func
 }
