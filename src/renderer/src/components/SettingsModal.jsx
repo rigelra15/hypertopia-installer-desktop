@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
-import { useTheme } from '../contexts/ThemeContext'
 import ChangelogModal from './ChangelogModal'
 import { useToast } from '../hooks/useToast'
 import PropTypes from 'prop-types'
@@ -16,12 +15,11 @@ export function SettingsModal({
   updateInfo,
   onUpdateNow
 }) {
-  const { t, language } = useLanguage()
+  const { t } = useLanguage()
   const [extractPath, setExtractPath] = useState(currentPath || '')
   const [diskSpace, setDiskSpace] = useState(null)
   const [isLoadingSpace, setIsLoadingSpace] = useState(false)
   const [isChanging, setIsChanging] = useState(false)
-  const { theme, setTheme } = useTheme()
   const [showChangelog, setShowChangelog] = useState(false)
   const toast = useToast()
   const [autoUpdate, setAutoUpdate] = useState(() => {
@@ -115,12 +113,22 @@ export function SettingsModal({
     }
   }
 
-  // Get color based on used percentage
-  const getStorageColor = (percent) => {
-    if (percent >= 90) return 'bg-red-500'
-    if (percent >= 75) return 'bg-orange-500'
-    if (percent >= 50) return 'bg-yellow-500'
-    return 'bg-green-500'
+  // Get gradient background based on used percentage (light to dark of same color)
+  const getStorageGradient = (percent) => {
+    if (percent >= 90) {
+      // Red gradient: red-400 → red-600
+      return 'linear-gradient(90deg, #f87171 0%, #dc2626 100%)'
+    }
+    if (percent >= 75) {
+      // Orange gradient: orange-400 → orange-600
+      return 'linear-gradient(90deg, #fb923c 0%, #ea580c 100%)'
+    }
+    if (percent >= 50) {
+      // Yellow gradient: yellow-400 → yellow-600
+      return 'linear-gradient(90deg, #facc15 0%, #ca8a04 100%)'
+    }
+    // Green gradient: green-400 → green-600
+    return 'linear-gradient(90deg, #4ade80 0%, #16a34a 100%)'
   }
 
   const getStorageTextColor = (percent) => {
@@ -219,9 +227,22 @@ export function SettingsModal({
                     {/* Storage Bar */}
                     <div className="relative h-3 overflow-hidden rounded-full bg-white/10">
                       <div
-                        className={`h-full transition-all ${getStorageColor(diskSpace.percent)}`}
-                        style={{ width: `${diskSpace.percent}%` }}
-                      ></div>
+                        className="h-full transition-all relative overflow-hidden"
+                        style={{
+                          width: `${diskSpace.percent}%`,
+                          background: getStorageGradient(diskSpace.percent)
+                        }}
+                      >
+                        {/* Shimmer Effect */}
+                        <div
+                          className="absolute inset-0 animate-shimmer"
+                          style={{
+                            background:
+                              'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)',
+                            backgroundSize: '200% 100%'
+                          }}
+                        />
+                      </div>
                     </div>
 
                     {/* Storage Text */}
@@ -242,61 +263,6 @@ export function SettingsModal({
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
                 </div>
               )}
-
-              {/* Theme Selector */}
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-white/50">
-                    {t('settings_theme')}
-                  </label>
-                  <span className="rounded-full bg-yellow-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-yellow-500">
-                    {language === 'id' ? 'Segera Hadir' : 'Coming Soon'}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {/* Dark Mode */}
-                  <button
-                    onClick={() => setTheme('dark')}
-                    disabled
-                    className={`flex flex-1 cursor-not-allowed flex-col items-center gap-2 rounded-lg border p-3 transition-all opacity-50 ${
-                      theme === 'dark'
-                        ? 'border-[#0081FB]/50 bg-[#0081FB]/10'
-                        : 'border-white/10 bg-white/5'
-                    }`}
-                  >
-                    <Icon icon="line-md:moon-filled-alt-loop" className="h-5 w-5 text-white/70" />
-                    <span className="text-xs text-white/70">{t('settings_theme_dark')}</span>
-                  </button>
-
-                  {/* Light Mode */}
-                  <button
-                    onClick={() => setTheme('light')}
-                    disabled
-                    className={`flex flex-1 cursor-not-allowed flex-col items-center gap-2 rounded-lg border p-3 transition-all opacity-50 ${
-                      theme === 'light'
-                        ? 'border-[#0081FB]/50 bg-[#0081FB]/10'
-                        : 'border-white/10 bg-white/5'
-                    }`}
-                  >
-                    <Icon icon="line-md:sunny-loop" className="h-5 w-5 text-white/70" />
-                    <span className="text-xs text-white/70">{t('settings_theme_light')}</span>
-                  </button>
-
-                  {/* System Mode */}
-                  <button
-                    onClick={() => setTheme('system')}
-                    disabled
-                    className={`flex flex-1 cursor-not-allowed flex-col items-center gap-2 rounded-lg border p-3 transition-all opacity-50 ${
-                      theme === 'system'
-                        ? 'border-[#0081FB]/50 bg-[#0081FB]/10'
-                        : 'border-white/10 bg-white/5'
-                    }`}
-                  >
-                    <Icon icon="line-md:monitor-twotone" className="h-5 w-5 text-white/70" />
-                    <span className="text-xs text-white/70">{t('settings_theme_system')}</span>
-                  </button>
-                </div>
-              </div>
 
               {/* Auto-Update Section */}
               <div className="border-t border-white/10 pt-4">
