@@ -423,35 +423,26 @@ function GameCard({ game, isEligible, selectedDevice }) {
   const downloadCount = game.downloadCount || 0
   const isSupportedV76 = game.isSupportedV76 || false
 
-  // Fetch cover image from Firebase Storage (same as website), fallback to API photoUrl
+  // Fetch cover image from Firebase Storage only
   useEffect(() => {
     let mounted = true
     const fetchCover = async () => {
       setLoadingImage(true)
       try {
-        // Try Firebase Storage first (same as website)
         const url = await coverImages.getCoverUrl(gameTitle)
         if (mounted && url) {
           setCoverUrl(url)
-          setLoadingImage(false)
-          return
         }
       } catch (err) {
-        console.warn('Firebase Storage failed, trying API photoUrl:', err)
+        console.warn('Firebase Storage failed:', err)
       }
-      
-      // Fallback to API photoUrl
-      if (mounted && game.photoUrl) {
-        setCoverUrl(game.photoUrl)
-      }
-      
       if (mounted) setLoadingImage(false)
     }
     fetchCover()
     return () => {
       mounted = false
     }
-  }, [gameTitle, game.photoUrl])
+  }, [gameTitle])
 
   // Get versions info - with null safety
   const versions = Array.isArray(game.versions) ? game.versions.filter((v) => v !== null) : []
