@@ -5,7 +5,32 @@ import { ipcRenderer } from 'electron'
 // Custom APIs for renderer
 const api = {
   scanZip: (filePath) => ipcRenderer.invoke('scan-zip', filePath),
-  getFilePath: (file) => webUtils.getPathForFile(file),
+  getFilePath: (file) => {
+    // Debug logging
+    console.log('[getFilePath] Input file object:', file)
+    console.log('[getFilePath] file.path:', file?.path)
+    console.log('[getFilePath] file.name:', file?.name)
+    
+    // Try webUtils.getPathForFile first (new Electron API)
+    try {
+      const webUtilsPath = webUtils.getPathForFile(file)
+      console.log('[getFilePath] webUtils.getPathForFile result:', webUtilsPath)
+      if (webUtilsPath && webUtilsPath.length > 0) {
+        return webUtilsPath
+      }
+    } catch (err) {
+      console.error('[getFilePath] webUtils.getPathForFile error:', err)
+    }
+    
+    // Fallback to file.path (older Electron / some browsers)
+    if (file?.path && file.path.length > 0) {
+      console.log('[getFilePath] Using fallback file.path:', file.path)
+      return file.path
+    }
+    
+    console.error('[getFilePath] Could not resolve file path')
+    return null
+  },
   installGame: (filePath, type, deviceSerial) =>
     ipcRenderer.invoke('install-game', { filePath, type, deviceSerial }),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),

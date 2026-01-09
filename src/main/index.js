@@ -720,7 +720,30 @@ const os = require('os')
 
 // Helper: Get 7za binary path
 function get7zPath() {
-  return sevenBin.path7za
+  const isDev = !app.isPackaged
+  
+  if (isDev) {
+    // In development, use the path from 7zip-bin package
+    return sevenBin.path7za
+  }
+  
+  // In production, the 7zip-bin module is unpacked to app.asar.unpacked
+  // We need to manually construct the path to the executable
+  const arch = process.arch // x64, ia32, arm64
+  const sevenZipPath = path.join(
+    process.resourcesPath,
+    'app.asar.unpacked',
+    'node_modules',
+    '7zip-bin',
+    'win',
+    arch,
+    '7za.exe'
+  )
+  
+  console.log('[get7zPath] Resolved path:', sevenZipPath)
+  console.log('[get7zPath] Path exists:', require('fs').existsSync(sevenZipPath))
+  
+  return sevenZipPath
 }
 
 // Helper: Get UnRAR binary path
@@ -900,6 +923,12 @@ async function scanRar(rarPath) {
 async function scan7z(archivePath) {
   return new Promise((resolve, reject) => {
     const sevenPath = get7zPath()
+    
+    // Debug logging
+    console.log('[scan7z] 7z binary path:', sevenPath)
+    console.log('[scan7z] 7z binary exists:', fs.existsSync(sevenPath))
+    console.log('[scan7z] Archive path:', archivePath)
+    console.log('[scan7z] Archive exists:', fs.existsSync(archivePath))
 
     let result = {
       hasApk: false,
@@ -1407,6 +1436,28 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 
 // FUNGSI SCAN ZIP/RAR
 ipcMain.handle('scan-zip', async (event, filePath) => {
+  // Debug logging for production troubleshooting
+  console.log('[scan-zip] Received filePath:', filePath)
+  console.log('[scan-zip] filePath type:', typeof filePath)
+  console.log('[scan-zip] 7z path:', get7zPath())
+  
+  // Verify file exists before attempting scan
+  if (!fs.existsSync(filePath)) {
+    console.error('[scan-zip] File does not exist:', filePath)
+    // Try to normalize the path
+    const normalizedPath = path.normalize(filePath)
+    console.log('[scan-zip] Normalized path:', normalizedPath)
+    if (!fs.existsSync(normalizedPath)) {
+      throw new Error(
+        'ARCHIVE_NOT_FOUND: File tidak ditemukan. Pastikan file masih ada di lokasi tersebut.'
+      )
+    }
+    // Use normalized path if it exists
+    filePath = normalizedPath
+  }
+  
+  console.log('[scan-zip] File exists, proceeding with scan')
+  
   const lowerPath = filePath.toLowerCase()
 
   // Check if file is a supported archive format
