@@ -150,6 +150,12 @@ export function InstallerSidebar({ selectedDevice, onDeviceSelect }) {
       if (!paramFile) return
 
       const filePath = window.api.getFilePath(paramFile)
+      // Debug logging for production troubleshooting
+      console.log('[processFile] paramFile:', paramFile)
+      console.log('[processFile] paramFile.name:', paramFile?.name)
+      console.log('[processFile] paramFile.path:', paramFile?.path)
+      console.log('[processFile] resolved filePath:', filePath)
+      
       if (!filePath) throw new Error('Could not resolve file path.')
 
       const lowerPath = filePath.toLowerCase()
