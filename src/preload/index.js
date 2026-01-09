@@ -37,6 +37,7 @@ const api = {
   listObb: (deviceSerial) => ipcRenderer.invoke('list-obb', deviceSerial),
   listDevices: () => ipcRenderer.invoke('list-devices'),
   selectExtractFolder: () => ipcRenderer.invoke('select-extract-folder'),
+  ensureExtractFolder: (folderPath) => ipcRenderer.invoke('ensure-extract-folder', folderPath),
   getDiskSpace: (folderPath) => ipcRenderer.invoke('get-disk-space', folderPath),
   moveExtractFolder: (oldPath) => ipcRenderer.invoke('move-extract-folder', oldPath),
   listApps: (deviceSerial) => ipcRenderer.invoke('list-apps', deviceSerial),

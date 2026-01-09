@@ -18,10 +18,11 @@ function App() {
   const [activeTab, setActiveTab] = useState('tutorials') // 'obb' | 'apps' | 'games' | 'tutorials'
   const [sidebarWidth, setSidebarWidth] = useState(400)
   const [isResizing, setIsResizing] = useState(false)
+  const [extractPath, setExtractPath] = useState(() => localStorage.getItem('extractPath') || '')
   const [showSetupModal, setShowSetupModal] = useState(() => {
     // Check if extract path is configured
-    const extractPath = localStorage.getItem('extractPath')
-    return !extractPath
+    const savedPath = localStorage.getItem('extractPath')
+    return !savedPath
   })
 
   // Resize Handlers
@@ -56,6 +57,7 @@ function App() {
 
   const handleSetupComplete = (path) => {
     setShowSetupModal(false)
+    setExtractPath(path)
     console.log('Extract path set to:', path)
   }
 
@@ -93,7 +95,12 @@ function App() {
           className="flex flex-none flex-col border-b border-white/10 md:h-full md:border-b-0 md:border-r relative"
           style={{ width: window.innerWidth >= 768 ? sidebarWidth : '100%' }}
         >
-          <InstallerSidebar selectedDevice={selectedDevice} onDeviceSelect={setSelectedDevice} />
+          <InstallerSidebar
+            selectedDevice={selectedDevice}
+            onDeviceSelect={setSelectedDevice}
+            extractPath={extractPath}
+            onExtractPathChange={setExtractPath}
+          />
 
           {/* Resize Handle (Desktop Only) */}
           <div

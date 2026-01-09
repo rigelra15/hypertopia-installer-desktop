@@ -52,8 +52,20 @@ export function SetupModal({ isOpen, onComplete }) {
     return 'text-green-400'
   }
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (extractPath) {
+      // Create the folder if it doesn't exist (only on Continue click)
+      try {
+        const result = await window.api.ensureExtractFolder(extractPath)
+        if (!result.success) {
+          console.error('Failed to create extract folder:', result.error)
+          return
+        }
+      } catch (err) {
+        console.error('Error creating extract folder:', err)
+        return
+      }
+
       localStorage.setItem('extractPath', extractPath)
       // Save auto-update preference
       localStorage.setItem('autoUpdate', autoUpdate.toString())
@@ -70,14 +82,14 @@ export function SetupModal({ isOpen, onComplete }) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl custom-scrollbar"
+            className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl custom-scrollbar"
           >
             {/* Icon */}
             <div className="mb-4 flex justify-center">
@@ -96,7 +108,7 @@ export function SetupModal({ isOpen, onComplete }) {
                 {t('setup_extract_folder')}
               </label>
               <div className="flex gap-2">
-                <div className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                <div className="min-w-0 flex-1 overflow-hidden rounded-lg border border-white/10 bg-white/5 px-3 py-2">
                   {extractPath ? (
                     <p className="truncate text-xs text-white" title={extractPath}>
                       {extractPath}
@@ -126,23 +138,44 @@ export function SetupModal({ isOpen, onComplete }) {
                 </button>
               </div>
 
-              {/* Info about HyperTopiaExtraction folder */}
-              <div className="mt-3 rounded-lg border border-[#0081FB]/20 bg-[#0081FB]/5 p-3">
+              {/* Info about HyperTopiaExtraction folder - Dynamic based on folder name */}
+              <div className={`mt-3 rounded-lg border p-3 ${
+                extractPath && extractPath.endsWith('HyperTopiaExtraction')
+                  ? 'border-green-500/20 bg-green-500/5'
+                  : 'border-[#0081FB]/20 bg-[#0081FB]/5'
+              }`}>
                 <div className="flex gap-2">
                   <svg
-                    className="h-4 w-4 shrink-0 text-[#0081FB]"
+                    className={`h-4 w-4 shrink-0 ${
+                      extractPath && extractPath.endsWith('HyperTopiaExtraction')
+                        ? 'text-green-500'
+                        : 'text-[#0081FB]'
+                    }`}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
+                    {extractPath && extractPath.endsWith('HyperTopiaExtraction') ? (
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    ) : (
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    )}
                   </svg>
-                  <p className="text-xs text-white/70">{t('setup_folder_auto_create')}</p>
+                  <p className="text-xs text-white/70">
+                    {extractPath && extractPath.endsWith('HyperTopiaExtraction')
+                      ? t('setup_folder_already_correct') || 'Folder yang dipilih sudah benar dan akan digunakan langsung.'
+                      : t('setup_folder_auto_create')}
+                  </p>
                 </div>
               </div>
             </div>

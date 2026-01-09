@@ -218,7 +218,7 @@ ipcMain.handle('get-app-version', async () => {
   })
 })
 
-// IPC: Select Extract Folder
+// IPC: Select Extract Folder (only returns path, does NOT create folder yet)
 ipcMain.handle('select-extract-folder', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory', 'createDirectory'],
@@ -230,19 +230,35 @@ ipcMain.handle('select-extract-folder', async () => {
     return null
   }
 
-  // Auto-create HyperTopiaExtraction subfolder
-  const baseFolder = result.filePaths[0]
-  const extractFolder = path.join(baseFolder, 'HyperTopiaExtraction')
+  const selectedFolder = result.filePaths[0]
+  const folderName = path.basename(selectedFolder)
 
-  // Create folder if it doesn't exist
-  try {
-    await fs.ensureDir(extractFolder)
-    console.log('[Folder] Created HyperTopiaExtraction folder at:', extractFolder)
-  } catch (err) {
-    console.error('[Folder] Error creating HyperTopiaExtraction folder:', err)
+  // Check if selected folder is already named "HyperTopiaExtraction"
+  if (folderName === 'HyperTopiaExtraction') {
+    console.log('[Folder] Selected folder is already HyperTopiaExtraction:', selectedFolder)
+    return selectedFolder
   }
 
+  // Return the path WITH HyperTopiaExtraction appended (preview only, not created yet)
+  const extractFolder = path.join(selectedFolder, 'HyperTopiaExtraction')
+  console.log('[Folder] Preview extract folder:', extractFolder)
   return extractFolder
+})
+
+// IPC: Ensure Extract Folder exists (called when user clicks Continue)
+ipcMain.handle('ensure-extract-folder', async (event, folderPath) => {
+  if (!folderPath) {
+    return { success: false, error: 'No folder path provided' }
+  }
+
+  try {
+    await fs.ensureDir(folderPath)
+    console.log('[Folder] Created/ensured folder exists:', folderPath)
+    return { success: true, path: folderPath }
+  } catch (err) {
+    console.error('[Folder] Error creating folder:', err)
+    return { success: false, error: err.message }
+  }
 })
 
 // IPC: Get Disk Space for a path
@@ -295,11 +311,14 @@ ipcMain.handle('get-disk-space', async (event, folderPath) => {
         const used = total - free
         const percent = total > 0 ? Math.round((used / total) * 100) : 0
 
-        // Convert to human-readable format
+        // Convert to human-readable format (dynamic units, base 1024)
         const formatBytes = (bytes) => {
-          if (bytes === 0) return '0 GB'
-          const gb = bytes / 1024 ** 3
-          return gb.toFixed(1) + ' GB'
+          if (bytes === 0) return '0 B'
+          const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+          const k = 1024
+          const i = Math.floor(Math.log(bytes) / Math.log(k))
+          const size = bytes / Math.pow(k, i)
+          return size.toFixed(1) + ' ' + units[i]
         }
 
         console.log('Disk space result:', { total, free, used, percent })
