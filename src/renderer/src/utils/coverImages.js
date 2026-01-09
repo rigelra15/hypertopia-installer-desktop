@@ -34,9 +34,14 @@ async function ensureListLoaded() {
   // 3. Fetch from network if no cache or expired
   if (_listPromise) return _listPromise
 
+  console.log('[CoverImages] Fetching list from Firebase Storage...')
   _listPromise = listAll(ref(storage, 'coverGamesImages/'))
     .then((res) => {
       const items = res.items || []
+      console.log(`[CoverImages] SUCCESS: Loaded ${items.length} items from Firebase Storage`)
+      if (items.length > 0) {
+        console.log('[CoverImages] Sample items:', items.slice(0, 3).map((i) => i.name))
+      }
       _listCache.items = items
       _listCache.timestamp = Date.now()
 
@@ -55,7 +60,7 @@ async function ensureListLoaded() {
       return _listCache.items
     })
     .catch((err) => {
-      console.warn('coverImages util: listAll failed', err?.message || err)
+      console.error('[CoverImages] FAILED to list Firebase Storage:', err?.message || err)
       _listCache.items = []
       return _listCache.items
     })
@@ -84,9 +89,17 @@ export async function getCoverUrl(name) {
 
   const items = await ensureListLoaded()
   console.log(`[CoverImages] Looking for "${name}" in ${items.length} items`)
+  
+  // Show sample of actual file names (first 5)
+  if (items.length > 0 && !window._coverImagesSampleShown) {
+    window._coverImagesSampleShown = true
+    console.log('[CoverImages] Sample file names from Storage:', items.slice(0, 10).map((i) => i.name))
+  }
+  
   const found = items.find((it) => it.name === name)
 
   if (found) {
+    console.log(`[CoverImages] ✅ FOUND: "${name}" -> ${found.fullPath}`)
     try {
       let storageRef = found
       if (!found.root) {
@@ -94,6 +107,7 @@ export async function getCoverUrl(name) {
       }
 
       const url = await getDownloadURL(storageRef)
+      console.log(`[CoverImages] ✅ URL: ${url.substring(0, 80)}...`)
       _urlCache[name] = url
       try {
         localStorage.setItem(`gameBackgroundUrl_${name}`, url)
@@ -103,8 +117,11 @@ export async function getCoverUrl(name) {
       }
       return url
     } catch (err) {
+      console.error(`[CoverImages] ❌ Failed to get URL for "${name}":`, err.message)
       // fallback to UnknownPicture if available
     }
+  } else {
+    console.log(`[CoverImages] ❌ NOT FOUND: "${name}"`)
   }
 
   // try UnknownPicture
