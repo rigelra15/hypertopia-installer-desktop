@@ -59,7 +59,18 @@ export default function UpdateModal({
     return null
   }
 
-  const fileSize = updateInfo.files?.[0]?.size ? formatSize(updateInfo.files[0].size) : null
+  // File size: Only show actual download size from progress (not the misleading full installer size)
+  // The full installer size from updateInfo.files is NOT the delta update size
+  const getDisplaySize = () => {
+    // Only show size when we have actual download size (from progress)
+    if (totalBytes && totalBytes > 0) {
+      return formatSize(totalBytes)
+    }
+    // Don't show the full installer size - it's misleading for delta updates
+    return null
+  }
+
+  const fileSize = getDisplaySize()
   const speedDisplay = formatSpeed(downloadSpeed)
   const etaDisplay = calculateETA(downloadSpeed, downloadedBytes, totalBytes)
 
