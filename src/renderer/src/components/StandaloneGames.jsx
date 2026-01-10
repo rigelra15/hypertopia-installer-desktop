@@ -5,6 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useGames } from '../contexts/GamesContext'
 import DevicePreferenceModal from './DevicePreferenceModal'
+import GameDetailModal from './GameDetailModal'
 import coverImages from '../utils/coverImages'
 
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48, 96]
@@ -34,6 +35,10 @@ export function StandaloneGames() {
   const [itemsPerPage, setItemsPerPage] = useState(24)
   const [totalItems, setTotalItems] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
+
+  // Game detail modal state
+  const [selectedGame, setSelectedGame] = useState(null)
+  const [showGameDetail, setShowGameDetail] = useState(false)
 
   const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
 
@@ -324,7 +329,16 @@ export function StandaloneGames() {
             {/* Games Grid */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {games.map((game) => (
-                <GameCard key={game.id} game={game} isEligible={isEligible} selectedDevice={devicePreference} />
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  isEligible={isEligible}
+                  selectedDevice={devicePreference}
+                  onClick={() => {
+                    setSelectedGame(game)
+                    setShowGameDetail(true)
+                  }}
+                />
               ))}
             </div>
 
@@ -396,6 +410,17 @@ export function StandaloneGames() {
         currentDevice={devicePreference}
         totalGames={totalItems}
       />
+
+      {/* Game Detail Modal */}
+      <GameDetailModal
+        isOpen={showGameDetail}
+        onClose={() => {
+          setShowGameDetail(false)
+          setSelectedGame(null)
+        }}
+        game={selectedGame}
+        selectedDevice={devicePreference}
+      />
     </div>
   )
 }
@@ -428,7 +453,7 @@ const formatDownloadCount = (count) => {
   return count.toString()
 }
 
-function GameCard({ game, isEligible, selectedDevice }) {
+function GameCard({ game, selectedDevice, onClick }) {
   const { t } = useLanguage()
   const [coverUrl, setCoverUrl] = useState(null)
   const [loadingImage, setLoadingImage] = useState(true)
@@ -463,14 +488,6 @@ function GameCard({ game, isEligible, selectedDevice }) {
   const versions = Array.isArray(game.versions) ? game.versions.filter((v) => v !== null) : []
   const gameVersion = game.version || game.gameVersion || ''
 
-  // Get download link - get first version's download link or game's direct link
-  const getDownloadLink = () => {
-    if (versions.length > 0 && versions[0]?.downloadLinks?.length > 0) {
-      return versions[0].downloadLinks[0]
-    }
-    return game.linkDownload || null
-  }
-
   // Get version display text
   const getVersionDisplay = () => {
     if (versions.length > 1) {
@@ -501,23 +518,11 @@ function GameCard({ game, isEligible, selectedDevice }) {
     return Object.entries(game).filter(([k, v]) => k.startsWith('supportMetaQuest') && v)
   }
 
-  // Handle download click
-  const handleDownload = async (e) => {
-    e.stopPropagation()
-    const link = getDownloadLink()
-    if (link) {
-      // Use Electron's shell.openExternal for reliable external URL opening
-      if (window.api?.openExternal) {
-        await window.api.openExternal(link)
-      } else {
-        // Fallback for web or if API not available
-        window.open(link, '_blank')
-      }
-    }
-  }
-
   return (
-    <div className="group flex flex-col w-full h-full rounded-2xl border-2 border-white/10 bg-[#1a1a1a] cursor-pointer hover:border-[#0081FB]/50 hover:shadow-xl hover:shadow-[#0081FB]/10 transition-all duration-300 overflow-hidden">
+    <div
+      onClick={onClick}
+      className="group flex flex-col w-full h-full rounded-2xl border-2 border-white/10 bg-[#1a1a1a] cursor-pointer hover:border-[#0081FB]/50 hover:shadow-xl hover:shadow-[#0081FB]/10 transition-all duration-300 overflow-hidden"
+    >
       {/* Image Header Container */}
       <div className="relative w-full h-48 sm:h-56 bg-[#0a0a0a] overflow-hidden">
         {/* Spinner while loading */}
@@ -573,19 +578,6 @@ function GameCard({ game, isEligible, selectedDevice }) {
             </span>
           )}
         </div>
-
-        {/* Top Right: Download Button for Eligible Users */}
-        {isEligible && getDownloadLink() && (
-          <div className="absolute top-3 right-3 z-20">
-            <button
-              onClick={handleDownload}
-              className="p-2 rounded-full bg-[#0081FB] text-white hover:bg-[#0081FB]/80 transition-all duration-300 shadow-lg"
-              title={t('download') || 'Download'}
-            >
-              <Icon icon="mdi:download" className="w-5 h-5" />
-            </button>
-          </div>
-        )}
 
         {/* Bottom Content: Title & v76 Warning */}
         <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
@@ -694,12 +686,14 @@ GameCard.propTypes = {
     supportMetaQuestPro: PropTypes.bool
   }).isRequired,
   isEligible: PropTypes.bool,
-  selectedDevice: PropTypes.string
+  selectedDevice: PropTypes.string,
+  onClick: PropTypes.func
 }
 
 GameCard.defaultProps = {
   isEligible: false,
-  selectedDevice: null
+  selectedDevice: null,
+  onClick: () => {}
 }
 
 export default StandaloneGames
