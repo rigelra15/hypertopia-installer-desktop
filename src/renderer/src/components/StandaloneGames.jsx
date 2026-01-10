@@ -1,25 +1,28 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
+import { useGames } from '../contexts/GamesContext'
 import DevicePreferenceModal from './DevicePreferenceModal'
 import coverImages from '../utils/coverImages'
 
-const API_BASE_URL = 'https://api.hypertopia.store'
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48, 96]
 
 export function StandaloneGames() {
   const { t } = useLanguage()
   const { user, accessTypes } = useAuth()
+  const { fetchGames: fetchGamesFromContext, getCachedGames } = useGames()
   const isEligible = accessTypes.includes('standalone')
   
   const [games, setGames] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [sortBy, setSortBy] = useState('added') // 'added' | 'name' | 'downloads' | 'size' | 'rating'
   const [sortOrder, setSortOrder] = useState('asc') // 'asc' | 'desc'
+  const searchTimeoutRef = useRef(null)
 
   // Device preference state
   const [devicePreference, setDevicePreference] = useState(null) // null = all, or 'quest1', 'quest2', etc.
@@ -32,7 +35,7 @@ export function StandaloneGames() {
   const [totalItems, setTotalItems] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
 
-const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
+  const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
 
   // Load device preference from Firebase
   useEffect(() => {
@@ -67,38 +70,41 @@ const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.f
     loadDevicePreference()
   }, [user])
 
-  // Fetch games from paginated API
-  const fetchGames = useCallback(async () => {
+  // Build params object for fetching
+  const getQueryParams = useCallback(() => ({
+    page: currentPage,
+    limit: itemsPerPage,
+    sortBy,
+    sortOrder,
+    search: debouncedSearch,
+    device: devicePreference
+  }), [currentPage, itemsPerPage, sortBy, sortOrder, debouncedSearch, devicePreference])
+
+  // Fetch games with caching from context
+  const loadGames = useCallback(async (forceRefresh = false) => {
+    const params = getQueryParams()
+    
+    // Try to get from cache first (instant load when switching tabs)
+    if (!forceRefresh) {
+      const cached = getCachedGames(params)
+      if (cached) {
+        setGames(cached.games)
+        if (cached.pagination) {
+          setTotalItems(cached.pagination.totalItems)
+          setTotalPages(cached.pagination.totalPages)
+        }
+        setIsLoading(false)
+        return
+      }
+    }
+
     setIsLoading(true)
     setError(null)
+    
     try {
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: itemsPerPage.toString(),
-        sortBy,
-        sortOrder,
-        search: searchQuery
-      })
+      const result = await fetchGamesFromContext(params, forceRefresh)
+      setGames(result.games)
       
-      // Add device filter if preference is set
-      if (devicePreference) {
-        params.set('device', devicePreference)
-      }
-      
-      const response = await fetch(`${API_BASE_URL}/api/v1/standalone-games-paginated?${params}`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch games')
-      }
-      const result = await response.json()
-      
-      // Convert object to array with keys
-      const gamesArray = Object.entries(result.data || {}).map(([key, game]) => ({
-        id: key,
-        ...game
-      }))
-      setGames(gamesArray)
-      
-      // Update pagination info from API
       if (result.pagination) {
         setTotalItems(result.pagination.totalItems)
         setTotalPages(result.pagination.totalPages)
@@ -109,22 +115,22 @@ const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.f
     } finally {
       setIsLoading(false)
     }
-  }, [currentPage, itemsPerPage, sortBy, sortOrder, searchQuery, devicePreference])
+  }, [getQueryParams, getCachedGames, fetchGamesFromContext])
 
-  // Fetch when params change
+  // Initial load and when params change
   useEffect(() => {
     if (!devicePreferenceLoading) {
-      fetchGames()
+      loadGames(false) // Use cache if available
     }
-  }, [fetchGames, devicePreferenceLoading])
+  }, [loadGames, devicePreferenceLoading])
 
   // Reset to page 1 when search or filter changes
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, sortBy, sortOrder, itemsPerPage, devicePreference])
+  }, [debouncedSearch, sortBy, sortOrder, itemsPerPage, devicePreference])
 
   const handleRefresh = () => {
-    fetchGames()
+    loadGames(true) // Force refresh, bypass cache
   }
 
   const toggleSortOrder = () => {
@@ -209,7 +215,16 @@ const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.f
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                // Debounce search to reduce API calls
+                if (searchTimeoutRef.current) {
+                  clearTimeout(searchTimeoutRef.current)
+                }
+                searchTimeoutRef.current = setTimeout(() => {
+                  setDebouncedSearch(e.target.value)
+                }, 300)
+              }}
               placeholder={t('search_placeholder')}
               className="w-full rounded-lg border border-white/10 bg-[#0a0a0a] py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-[#0081FB]/50 transition-colors"
             />
