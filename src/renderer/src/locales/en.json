@@ -246,5 +246,14 @@
   "login_required": "Please login to download",
   "coming_soon": "Coming Soon",
   "download_parts": "Download Parts",
-  "download_all_parts_warning": "You must download all parts for the game to work!"
+  "download_all_parts_warning": "You must download all parts for the game to work!",
+  "profile": "Profile",
+  "profile_access_types": "Access Types",
+  "profile_registered": "Registered",
+  "profile_transactions": "Transactions",
+  "profile_order": "Order #",
+  "profile_source": "Source",
+  "profile_recent_transactions": "Recent Transactions",
+  "retry": "Try Again",
+  "close": "Close"
 }
