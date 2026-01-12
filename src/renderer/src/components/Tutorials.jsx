@@ -220,24 +220,38 @@ export function Tutorials({ onNavigate }) {
 
       {/* List Content */}
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           {tutorials.map((tutorial) => (
             <button
               key={tutorial.id}
               onClick={() => setSelectedTutorial(tutorial)}
-              className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/5 p-6 text-left transition-all hover:border-[#0081FB]/50 hover:bg-[#0081FB]/5 hover:translate-y-[-2px]"
+              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-left transition-all duration-300 hover:border-[#0081FB]/50 hover:bg-white/10 flex flex-col"
             >
-              <div className="mb-4 flex items-center gap-3">
-                <div className="rounded-lg bg-[#0081FB]/10 p-2 text-[#0081FB] group-hover:bg-[#0081FB] group-hover:text-white transition-colors">
-                  <Icon icon={tutorial.icon} className="h-6 w-6" />
+              {/* Gradient Top Accent - Always Visible */}
+              <div className="h-1 w-full rounded-t-2xl bg-gradient-to-r from-[#0081FB] to-[#00D4FF] shrink-0" />
+              
+              {/* Card Content */}
+              <div className="p-4 flex flex-col flex-1">
+                {/* Icon */}
+                <div className="mb-3 w-10 h-10 rounded-lg bg-[#0081FB]/10 flex items-center justify-center text-[#0081FB] group-hover:bg-[#0081FB] group-hover:text-white transition-all duration-300 shrink-0">
+                  <Icon icon={tutorial.icon} className="h-5 w-5" />
                 </div>
-                <h3 className="font-bold text-white">{t(tutorial.titleKey)}</h3>
-              </div>
-              <p className="text-sm text-white/60 line-clamp-2">{t(tutorial.descriptionKey)}</p>
-
-              <div className="mt-4 flex items-center text-xs font-medium text-[#0081FB] opacity-0 group-hover:opacity-100 transition-opacity">
-                <span>{t('tutorial_read_guide')}</span>
-                <Icon icon="mdi:arrow-right" className="ml-1 h-3 w-3" />
+                
+                {/* Title */}
+                <h3 className="font-semibold text-sm text-white mb-1.5 line-clamp-2">
+                  {t(tutorial.titleKey)}
+                </h3>
+                
+                {/* Description */}
+                <p className="text-xs text-white/50 line-clamp-2 flex-1">
+                  {t(tutorial.descriptionKey)}
+                </p>
+                
+                {/* Read More */}
+                <div className="flex items-center text-xs font-medium text-[#0081FB] mt-3">
+                  <span>{t('tutorial_read_guide')}</span>
+                  <Icon icon="mdi:arrow-right" className="ml-1 h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
             </button>
           ))}
