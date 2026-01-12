@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import ProfileModal from './ProfileModal'
+import RedeemModal from './RedeemModal'
 
 // Timer reducer - avoids setState sync in effect
 function timerReducer(state, action) {
@@ -36,6 +37,7 @@ export function UserMenu() {
   const [timeLeft, dispatchTimer] = useReducer(timerReducer, 0)
   const [imageError, setImageError] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showRedeemModal, setShowRedeemModal] = useState(false)
 
   // Derive showLoginModal from state - modal shows only if requested AND (has code OR loading OR error)
   const showLoginModal = loginModalRequested && !user && (deviceCode || deviceCodeLoading || deviceCodeError)
@@ -372,6 +374,18 @@ export function UserMenu() {
               <span>{t('refresh_access') || 'Refresh Access'}</span>
             </button>
 
+            {/* Redeem Button */}
+            <button
+              onClick={() => {
+                setShowDropdown(false)
+                setShowRedeemModal(true)
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#0081FB] transition-colors hover:bg-[#0081FB]/10"
+            >
+              <Icon icon="mdi:ticket-confirmation" className="h-4 w-4" />
+              <span>{t('redeem') || 'Redeem Akses'}</span>
+            </button>
+
             {/* Logout Button */}
             <button
               onClick={handleLogout}
@@ -389,6 +403,14 @@ export function UserMenu() {
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
         user={user}
+      />
+
+      {/* Redeem Modal */}
+      <RedeemModal
+        isOpen={showRedeemModal}
+        onClose={() => setShowRedeemModal(false)}
+        user={user}
+        onSuccess={() => checkEligibility(user.email)}
       />
     </div>
   )

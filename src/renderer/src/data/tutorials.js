@@ -82,5 +82,20 @@ export const tutorials = [
       },
       { textKey: 'tutorial_connect_device_step4' }
     ]
+  },
+  {
+    id: 'redeem_access',
+    icon: 'mdi:ticket-confirmation',
+    titleKey: 'tutorial_redeem_title',
+    descriptionKey: 'tutorial_redeem_desc',
+    noteKey: 'tutorial_redeem_note',
+    steps: [
+      { textKey: 'tutorial_redeem_step1' },
+      { textKey: 'tutorial_redeem_step2' },
+      { textKey: 'tutorial_redeem_step3' },
+      { textKey: 'tutorial_redeem_step4' },
+      { textKey: 'tutorial_redeem_step5' },
+      { textKey: 'tutorial_redeem_step6' }
+    ]
   }
 ]

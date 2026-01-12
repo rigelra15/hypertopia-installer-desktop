@@ -255,5 +255,18 @@
   "profile_source": "Sumber",
   "profile_recent_transactions": "Transaksi Terakhir",
   "retry": "Coba Lagi",
-  "close": "Tutup"
+  "close": "Tutup",
+  "redeem": "Penukaran",
+  "redeem_title": "Tukar Kode Akses",
+  "redeem_desc": "Tukarkan nomor pesanan Shopee untuk mendapatkan akses VR",
+  "order_number": "Nomor Pesanan",
+  "tutorial_redeem_title": "Cara Redeem Akses Shopee",
+  "tutorial_redeem_desc": "Panduan menukarkan nomor pesanan Shopee untuk akses VR.",
+  "tutorial_redeem_note": "Token akses diberikan oleh admin melalui chat Shopee setelah pesanan selesai. Jika belum menerima token, hubungi admin.",
+  "tutorial_redeem_step1": "Pastikan Anda sudah login dengan akun Google atau Email yang benar.",
+  "tutorial_redeem_step2": "Klik avatar profil Anda di pojok kanan atas, lalu pilih menu 'Penukaran'.",
+  "tutorial_redeem_step3": "Masukkan Nomor Pesanan Shopee Anda (contoh: 240101ABC123XYZ) lalu klik 'Cari Pesanan'.",
+  "tutorial_redeem_step4": "Setelah pesanan ditemukan, akan muncul informasi pesanan seperti kategori, varian, dan status.",
+  "tutorial_redeem_step5": "Jika pesanan belum diklaim, masukkan Token Akses yang diberikan admin lalu klik 'Proses'.",
+  "tutorial_redeem_step6": "Jika berhasil, akses Anda akan langsung aktif. Anda bisa mengunduh game sesuai kategori yang didapatkan."
 }
