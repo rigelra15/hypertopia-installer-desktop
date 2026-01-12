@@ -255,5 +255,18 @@
   "profile_source": "Source",
   "profile_recent_transactions": "Recent Transactions",
   "retry": "Try Again",
-  "close": "Close"
+  "close": "Close",
+  "redeem": "Redeem Code",
+  "redeem_title": "Redeem Access Code",
+  "redeem_desc": "Redeem your Shopee order number to get VR access",
+  "order_number": "Order Number",
+  "tutorial_redeem_title": "How to Redeem Shopee Access",
+  "tutorial_redeem_desc": "Guide to redeem your Shopee order for VR access.",
+  "tutorial_redeem_note": "Access token is provided by admin through Shopee chat after your order is completed. If you haven't received the token, please contact admin.",
+  "tutorial_redeem_step1": "Make sure you are logged in with the correct Google or Email account.",
+  "tutorial_redeem_step2": "Click your profile avatar in the top right corner, then select 'Redeem Code' menu.",
+  "tutorial_redeem_step3": "Enter your Shopee Order Number (example: 240101ABC123XYZ) then click 'Search Order'.",
+  "tutorial_redeem_step4": "Once the order is found, order information such as category, variant, and status will be displayed.",
+  "tutorial_redeem_step5": "If the order has not been claimed, enter the Access Token given by admin then click 'Process'.",
+  "tutorial_redeem_step6": "If successful, your access will be activated immediately. You can download games according to the category you received."
 }
