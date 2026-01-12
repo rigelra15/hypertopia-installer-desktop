@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://hypertopia.my.id'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.hypertopia.store'
 
 export function ProfileModal({ isOpen, onClose, user }) {
   const { t } = useLanguage()
@@ -46,9 +46,10 @@ export function ProfileModal({ isOpen, onClose, user }) {
   }
 
   const formatDate = (dateString) => {
-    if (!dateString) return '-'
+    if (!dateString) return 'Belum terdaftar'
     try {
       const date = new Date(dateString)
+      if (isNaN(date.getTime())) return 'Belum terdaftar'
       return date.toLocaleDateString('id-ID', {
         year: 'numeric',
         month: 'long',
@@ -75,7 +76,7 @@ export function ProfileModal({ isOpen, onClose, user }) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-50 bg-black/80"
         onClick={onClose}
       />
 
@@ -251,7 +252,7 @@ export function ProfileModal({ isOpen, onClose, user }) {
                             {/* Source Icon */}
                             {tx.source === 'shopee' ? (
                               <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center" title="Shopee">
-                                <Icon icon="simple-icons:shopee" className="h-3 w-3 text-orange-400" />
+                                <Icon icon="mdi:shopping" className="h-3 w-3 text-orange-400" />
                               </div>
                             ) : (
                               <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center" title="Website">
@@ -277,7 +278,9 @@ export function ProfileModal({ isOpen, onClose, user }) {
                                   ? 'bg-yellow-500/20 text-yellow-400' 
                                   : 'bg-gray-500/20 text-gray-400'
                             }`}>
-                              {tx.status === 'redeemed' ? 'Redeemed' : tx.status || 'Unknown'}
+                              {tx.status === 'redeemed' ? 'Diklaim' : 
+                               tx.status === 'success' || tx.status === 'paid' ? 'Berhasil' : 
+                               tx.status === 'pending' ? 'Menunggu' : 'Tidak diketahui'}
                             </div>
                             <span className="text-[10px] text-white/40">
                               {formatDate(tx.createdAt)}
