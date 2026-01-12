@@ -10,6 +10,31 @@ import coverImages from '../utils/coverImages'
 
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48, 96]
 
+// Helper function to compare versions (from highest to lowest)
+const compareVersions = (versionA, versionB) => {
+  const parseVersion = (version) => {
+    if (!version) return { major: 0, minor: 0, patch: 0, build: 0 }
+    const cleaned = version.replace(/^v/, '')
+    const [versionPart, buildPart] = cleaned.split('_')
+    const versionNumbers = versionPart.split('.').map((num) => parseInt(num) || 0)
+    const buildNumber = parseInt(buildPart) || 0
+    return {
+      major: versionNumbers[0] || 0,
+      minor: versionNumbers[1] || 0,
+      patch: versionNumbers[2] || 0,
+      build: buildNumber
+    }
+  }
+
+  const a = parseVersion(versionA)
+  const b = parseVersion(versionB)
+
+  if (a.major !== b.major) return b.major - a.major
+  if (a.minor !== b.minor) return b.minor - a.minor
+  if (a.patch !== b.patch) return b.patch - a.patch
+  return b.build - a.build
+}
+
 export function StandaloneGames() {
   const { t } = useLanguage()
   const { user, accessTypes } = useAuth()
@@ -488,14 +513,22 @@ function GameCard({ game, selectedDevice, onClick }) {
   const versions = Array.isArray(game.versions) ? game.versions.filter((v) => v !== null) : []
   const gameVersion = game.version || game.gameVersion || ''
 
-  // Get version display text
+  // Get version display text - sorted from highest to lowest
   const getVersionDisplay = () => {
-    if (versions.length > 1) {
-      const lastVersion = versions[versions.length - 1]?.version || ''
-      const firstVersion = versions[0]?.version || ''
-      if (lastVersion && firstVersion) {
-        return `${lastVersion} - ${firstVersion}`
+    if (versions.length > 0) {
+      // Sort versions from highest to lowest
+      const sortedVersions = [...versions].sort((a, b) => 
+        compareVersions(a?.version || '', b?.version || '')
+      )
+      const highestVersion = sortedVersions[0]?.version || ''
+      
+      if (versions.length > 1) {
+        const lowestVersion = sortedVersions[sortedVersions.length - 1]?.version || ''
+        if (highestVersion && lowestVersion && highestVersion !== lowestVersion) {
+          return `${highestVersion} - ${lowestVersion}`
+        }
       }
+      return highestVersion || gameVersion || 'v1.0'
     }
     return gameVersion || 'v1.0'
   }
