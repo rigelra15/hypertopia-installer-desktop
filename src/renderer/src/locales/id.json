@@ -246,5 +246,14 @@
   "login_required": "Silakan login untuk mengunduh",
   "coming_soon": "Segera Hadir",
   "download_parts": "Bagian Unduhan",
-  "download_all_parts_warning": "Anda harus mengunduh semua bagian agar game berfungsi!"
+  "download_all_parts_warning": "Anda harus mengunduh semua bagian agar game berfungsi!",
+  "profile": "Profil",
+  "profile_access_types": "Tipe Akses",
+  "profile_registered": "Terdaftar",
+  "profile_transactions": "Transaksi",
+  "profile_order": "No. Order",
+  "profile_source": "Sumber",
+  "profile_recent_transactions": "Transaksi Terakhir",
+  "retry": "Coba Lagi",
+  "close": "Tutup"
 }

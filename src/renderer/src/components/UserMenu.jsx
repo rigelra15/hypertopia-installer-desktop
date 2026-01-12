@@ -2,6 +2,7 @@ import { useState, useEffect, useReducer } from 'react'
 import { Icon } from '@iconify/react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import ProfileModal from './ProfileModal'
 
 // Timer reducer - avoids setState sync in effect
 function timerReducer(state, action) {
@@ -34,6 +35,7 @@ export function UserMenu() {
   const [loginModalRequested, setLoginModalRequested] = useState(false)
   const [timeLeft, dispatchTimer] = useReducer(timerReducer, 0)
   const [imageError, setImageError] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
 
   // Derive showLoginModal from state - modal shows only if requested AND (has code OR loading OR error)
   const showLoginModal = loginModalRequested && !user && (deviceCode || deviceCodeLoading || deviceCodeError)
@@ -345,6 +347,18 @@ export function UserMenu() {
               </div>
             </div>
 
+            {/* Profile Button */}
+            <button
+              onClick={() => {
+                setShowDropdown(false)
+                setShowProfileModal(true)
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/5"
+            >
+              <Icon icon="mdi:account-circle" className="h-4 w-4" />
+              <span>{t('profile') || 'Profile'}</span>
+            </button>
+
             {/* Refresh Access Button */}
             <button
               onClick={() => checkEligibility(user.email)}
@@ -369,6 +383,13 @@ export function UserMenu() {
           </div>
         </>
       )}
+
+      {/* Profile Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={user}
+      />
     </div>
   )
 }
