@@ -7,17 +7,22 @@ import { OBBManager } from './components/OBBManager'
 import { AppsManager } from './components/AppsManager'
 import { StandaloneGames } from './components/StandaloneGames'
 import { Tutorials } from './components/Tutorials'
+import { LiveAssist } from './components/LiveAssist'
 import { SetupModal } from './components/SetupModal'
 import { UserMenu } from './components/UserMenu'
+import LiveAssistNotification from './components/LiveAssistNotification'
+import { useAuth } from './contexts/AuthContext'
 
 function App() {
   const { t } = useLanguage()
+  const { user } = useAuth()
   const toast = useToast()
   const hasCheckedUpdates = useRef(false)
   const [selectedDevice, setSelectedDevice] = useState(null)
-  const [activeTab, setActiveTab] = useState('tutorials') // 'obb' | 'apps' | 'games' | 'tutorials'
+  const [activeTab, setActiveTab] = useState('tutorials') // 'obb' | 'apps' | 'games' | 'tutorials' | 'liveassist'
   const [sidebarWidth, setSidebarWidth] = useState(400)
   const [isResizing, setIsResizing] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [extractPath, setExtractPath] = useState(() => localStorage.getItem('extractPath') || '')
   const [showSetupModal, setShowSetupModal] = useState(() => {
     // Check if extract path is configured
@@ -89,17 +94,27 @@ function App() {
   return (
     <>
       <SetupModal isOpen={showSetupModal} onComplete={handleSetupComplete} />
+
+      {/* Live Assist Notification - Shows from any tab except Live Assist */}
+      <LiveAssistNotification
+        userEmail={user?.email}
+        isOnLiveAssistTab={activeTab === 'liveassist'}
+        onNavigateToLiveAssist={() => setActiveTab('liveassist')}
+      />
       <div className="flex h-screen w-full flex-col overflow-hidden bg-[#0a0a0a] text-white selection:bg-[#0081FB]/30 md:flex-row">
         {/* Sidebar */}
         <div
-          className="flex flex-none flex-col border-b border-white/10 md:h-full md:border-b-0 md:border-r relative"
-          style={{ width: window.innerWidth >= 768 ? sidebarWidth : '100%' }}
+          className="flex flex-none flex-col border-b border-white/10 md:h-full md:border-b-0 md:border-r relative transition-all duration-300"
+          style={{
+            width: window.innerWidth >= 768 ? (isSidebarCollapsed ? 64 : sidebarWidth) : '100%'
+          }}
         >
           <InstallerSidebar
             selectedDevice={selectedDevice}
             onDeviceSelect={setSelectedDevice}
             extractPath={extractPath}
             onExtractPathChange={setExtractPath}
+            onCollapsedChange={setIsSidebarCollapsed}
           />
 
           {/* Resize Handle (Desktop Only) */}
@@ -163,6 +178,17 @@ function App() {
                 <Icon icon="mdi:gamepad-variant" className="h-4 w-4" />
                 <span>{t('tab_games')}</span>
               </button>
+              <button
+                onClick={() => setActiveTab('liveassist')}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+                  activeTab === 'liveassist'
+                    ? 'bg-[#0081FB]/10 text-[#0081FB]'
+                    : 'text-white/50 hover:bg-white/5 hover:text-white/70'
+                }`}
+              >
+                <Icon icon="mdi:headset" className="h-4 w-4" />
+                <span>{t('tab_live_assist') || 'Live Assist'}</span>
+              </button>
             </div>
             {/* User Login Menu */}
             <UserMenu />
@@ -175,6 +201,8 @@ function App() {
             <AppsManager selectedDevice={selectedDevice} />
           ) : activeTab === 'games' ? (
             <StandaloneGames />
+          ) : activeTab === 'liveassist' ? (
+            <LiveAssist />
           ) : (
             <Tutorials />
           )}
