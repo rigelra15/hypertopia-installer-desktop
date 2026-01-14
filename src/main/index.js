@@ -709,6 +709,21 @@ app.whenReady().then(() => {
     return { success: true }
   })
 
+  // IPC: Get desktop sources for screen sharing
+  ipcMain.handle('get-desktop-sources', async () => {
+    const { desktopCapturer } = require('electron')
+    const sources = await desktopCapturer.getSources({
+      types: ['screen', 'window'],
+      thumbnailSize: { width: 150, height: 150 }
+    })
+    // Return simplified source info
+    return sources.map(source => ({
+      id: source.id,
+      name: source.name,
+      thumbnail: source.thumbnail.toDataURL()
+    }))
+  })
+
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
