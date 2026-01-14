@@ -90,7 +90,9 @@ const api = {
     return () => ipcRenderer.removeListener('auth-callback', subscription)
   },
   // Shell utilities
-  openExternal: (url) => ipcRenderer.invoke('open-external', url)
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  // Desktop capturer for screen sharing
+  getDesktopSources: () => ipcRenderer.invoke('get-desktop-sources')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
