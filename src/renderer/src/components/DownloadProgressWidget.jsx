@@ -71,7 +71,7 @@ export default function DownloadProgressWidget({
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="fixed bottom-4 right-4 z-50"
       >
-        <div className="rounded-2xl border border-white/10 bg-[#111]/95 backdrop-blur-xl shadow-2xl overflow-hidden min-w-[280px] max-w-[320px]">
+        <div className="rounded-2xl border border-white/20 bg-[#111] shadow-2xl overflow-hidden min-w-[280px] max-w-[320px]">
           {/* Header - Always visible, clickable to expand/collapse */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
