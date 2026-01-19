@@ -91,6 +91,32 @@ const api = {
   },
   // Shell utilities
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  openDownloadsFolder: () => ipcRenderer.invoke('open-downloads-folder'),
+  // Download file with progress
+  downloadFile: (url, fileName) => ipcRenderer.invoke('download-file', { url, fileName }),
+  onDownloadProgress: (callback) => {
+    const subscription = (_event, progress) => callback(progress)
+    ipcRenderer.on('download-progress', subscription)
+    return () => ipcRenderer.removeListener('download-progress', subscription)
+  },
+  // Download and install APK to device
+  downloadAndInstallApk: (url, fileName, deviceSerial) =>
+    ipcRenderer.invoke('download-and-install-apk', { url, fileName, deviceSerial }),
+  // Download and install archive (ZIP/RAR) to device - handles APK + OBB
+  downloadAndInstallArchive: (url, fileName, deviceSerial) =>
+    ipcRenderer.invoke('download-and-install-archive', { url, fileName, deviceSerial }),
+  onInstallApkProgress: (callback) => {
+    const subscription = (_event, progress) => callback(progress)
+    ipcRenderer.on('install-apk-progress', subscription)
+    return () => ipcRenderer.removeListener('install-apk-progress', subscription)
+  },
+  // Check which files are already downloaded
+  checkDownloadedFiles: (fileNames) => ipcRenderer.invoke('check-downloaded-files', { fileNames }),
+  // Delete a downloaded file
+  deleteDownloadedFile: (fileName) => ipcRenderer.invoke('delete-downloaded-file', { fileName }),
+  // Install a local APK file to device
+  installLocalApk: (filePath, deviceSerial) => 
+    ipcRenderer.invoke('install-local-apk', { filePath, deviceSerial }),
   // Desktop capturer for screen sharing
   getDesktopSources: () => ipcRenderer.invoke('get-desktop-sources')
 }
