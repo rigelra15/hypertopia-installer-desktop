@@ -8,6 +8,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { LanguageProvider } from './contexts/LanguageContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { GamesProvider } from './contexts/GamesContext'
+import { DownloadProvider } from './contexts/DownloadContext'
 
 import { ToastProvider } from './components/Toast'
 
@@ -17,9 +18,11 @@ createRoot(document.getElementById('root')).render(
       <LanguageProvider>
         <AuthProvider>
           <GamesProvider>
-            <ToastProvider>
-              <App />
-            </ToastProvider>
+            <DownloadProvider>
+              <ToastProvider>
+                <App />
+              </ToastProvider>
+            </DownloadProvider>
           </GamesProvider>
         </AuthProvider>
       </LanguageProvider>
