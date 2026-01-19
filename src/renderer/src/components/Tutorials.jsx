@@ -172,7 +172,7 @@ export function Tutorials({ onNavigate }) {
         {/* Image Lightbox */}
         {previewImage && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"
             onClick={() => setPreviewImage(null)}
           >
             <div className="relative max-h-full max-w-full">

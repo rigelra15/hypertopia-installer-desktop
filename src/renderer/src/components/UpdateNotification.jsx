@@ -146,8 +146,8 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
             exit={{ opacity: 0, y: 10 }}
             className={`rounded-xl border overflow-hidden ${className} ${
               updateState === 'ready'
-                ? 'bg-green-500/10 border-green-500/30'
-                : 'bg-[#0081FB]/10 border-[#0081FB]/30'
+                ? 'bg-[#0d2818] border-green-700'
+                : 'bg-[#0a1929] border-[#0066cc]'
             }`}
           >
             <div className="p-3">
@@ -156,7 +156,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
                 <div className="flex items-center gap-2">
                   <div
                     className={`rounded-lg p-1.5 ${
-                      updateState === 'ready' ? 'bg-green-500/20' : 'bg-[#0081FB]/20'
+                      updateState === 'ready' ? 'bg-[#1a4028]' : 'bg-[#0a2840]'
                     }`}
                   >
                     {updateState === 'downloading' ? (
@@ -213,7 +213,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
               {updateState === 'available' && !showModal && (
                 <button
                   onClick={() => setShowModal(true)}
-                  className="mt-2 w-full py-1.5 px-3 rounded-lg bg-[#0081FB]/20 hover:bg-[#0081FB]/30 border border-[#0081FB]/30 text-[#0081FB] text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                  className="mt-2 w-full py-1.5 px-3 rounded-lg bg-[#0a2840] hover:bg-[#0d3355] border border-[#0066cc] text-[#0081FB] text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
                 >
                   <Icon icon="line-md:download-loop" className="h-3.5 w-3.5" />
                   {t('update_download_now') || 'Download Now'}
@@ -223,7 +223,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
               {updateState === 'ready' && (
                 <button
                   onClick={handleInstall}
-                  className="mt-2 w-full py-1.5 px-3 rounded-lg bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-400 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                  className="mt-2 w-full py-1.5 px-3 rounded-lg bg-[#1a4028] hover:bg-[#225030] border border-green-700 text-green-400 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
                 >
                   <Icon icon="line-md:rotate-270" className="h-3.5 w-3.5" />
                   {t('update_restart') || 'Restart to Update'}
