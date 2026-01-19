@@ -102,6 +102,22 @@ export function SetupModal({ isOpen, onComplete }) {
             <h2 className="mb-2 text-center text-xl font-bold text-white">{t('setup_title')}</h2>
             <p className="mb-6 text-center text-sm text-white/60">{t('setup_desc')}</p>
 
+            {/* Info Box about folder usage */}
+            <div className="mb-6 rounded-lg border border-[#0081FB]/30 bg-[#0081FB]/10 p-3">
+              <div className="flex gap-2">
+                <Icon icon="mdi:information" className="h-5 w-5 shrink-0 text-[#0081FB]" />
+                <div className="text-xs text-white/80">
+                  <p className="font-medium text-[#0081FB] mb-1">{t('setup_folder_usage_title') || 'This folder will be used for:'}</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-white/70">
+                    <li>{t('setup_folder_usage_1') || 'Temporary file extraction during installation'}</li>
+                    <li>{t('setup_folder_usage_2') || 'Standalone Games downloads'}</li>
+                    <li>{t('setup_folder_usage_3') || 'QGO (Quest Games Optimizer) downloads'}</li>
+                  </ul>
+                  <p className="mt-2 text-white/50">{t('setup_folder_usage_note') || 'No need to select separate folders for downloads!'}</p>
+                </div>
+              </div>
+            </div>
+
             {/* Folder Selection */}
             <div className="mb-6">
               <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
