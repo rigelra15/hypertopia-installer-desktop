@@ -194,24 +194,44 @@ export function SettingsModal({
                   </p>
                 </div>
 
+                {/* Info about folder usage */}
+                <div className="mt-2 rounded-lg border border-[#0081FB]/20 bg-[#0081FB]/5 p-2">
+                  <div className="flex gap-2">
+                    <Icon icon="mdi:folder-information" className="h-4 w-4 shrink-0 text-[#0081FB]" />
+                    <div className="text-[10px] text-white/60">
+                      <span className="text-[#0081FB] font-medium">{t('settings_folder_usage_label') || 'Used for:'}</span>{' '}
+                      {t('settings_folder_usage_items') || 'Extraction, Standalone Games, QGO downloads'}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Change Folder Button */}
-                <button
-                  onClick={handleChangeFolder}
-                  disabled={isChanging}
-                  className="mt-3 w-full rounded-lg bg-[#0081FB] px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-[#0081FB]/90 disabled:opacity-50"
-                >
-                  {isChanging ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
-                      {t('settings_changing')}
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2">
-                      <Icon icon="mdi:folder-edit-outline" className="h-4 w-4" />
-                      {t('settings_change_folder')}
-                    </div>
-                  )}
-                </button>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={handleChangeFolder}
+                    disabled={isChanging}
+                    className="flex-1 rounded-lg bg-[#0081FB] px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-[#0081FB]/90 disabled:opacity-50"
+                  >
+                    {isChanging ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
+                        {t('settings_changing')}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2">
+                        <Icon icon="mdi:folder-edit-outline" className="h-4 w-4" />
+                        {t('settings_change_folder')}
+                      </div>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => window.api.openDownloadsFolder?.()}
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium text-white transition-all hover:bg-white/10"
+                    title={t('settings_open_downloads') || 'Open Downloads Folder'}
+                  >
+                    <Icon icon="mdi:folder-open-outline" className="h-4 w-4" />
+                  </button>
+                </div>
 
                 {/* Info Text */}
                 <p className="mt-2 text-center text-xs text-white/40">{t('settings_info')}</p>
