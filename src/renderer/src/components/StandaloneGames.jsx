@@ -35,12 +35,12 @@ const compareVersions = (versionA, versionB) => {
   return b.build - a.build
 }
 
-export function StandaloneGames() {
+export function StandaloneGames({ selectedDevice: connectedDevice }) {
   const { t } = useLanguage()
   const { user, accessTypes } = useAuth()
   const { fetchGames: fetchGamesFromContext, getCachedGames } = useGames()
   const isEligible = accessTypes.includes('standalone')
-  
+
   const [games, setGames] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -65,7 +65,8 @@ export function StandaloneGames() {
   const [selectedGame, setSelectedGame] = useState(null)
   const [showGameDetail, setShowGameDetail] = useState(false)
 
-  const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
+  const FIREBASE_DB_URL =
+    'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
 
   // Load device preference from Firebase
   useEffect(() => {
@@ -79,7 +80,7 @@ export function StandaloneGames() {
             `${FIREBASE_DB_URL}/usersData/preferences/${user.uid}/device.json`
           )
           const dbPref = await response.json()
-          
+
           if (dbPref) {
             setDevicePreference(dbPref)
             setDevicePreferenceLoading(false)
@@ -101,51 +102,57 @@ export function StandaloneGames() {
   }, [user])
 
   // Build params object for fetching
-  const getQueryParams = useCallback(() => ({
-    page: currentPage,
-    limit: itemsPerPage,
-    sortBy,
-    sortOrder,
-    search: debouncedSearch,
-    device: devicePreference
-  }), [currentPage, itemsPerPage, sortBy, sortOrder, debouncedSearch, devicePreference])
+  const getQueryParams = useCallback(
+    () => ({
+      page: currentPage,
+      limit: itemsPerPage,
+      sortBy,
+      sortOrder,
+      search: debouncedSearch,
+      device: devicePreference
+    }),
+    [currentPage, itemsPerPage, sortBy, sortOrder, debouncedSearch, devicePreference]
+  )
 
   // Fetch games with caching from context
-  const loadGames = useCallback(async (forceRefresh = false) => {
-    const params = getQueryParams()
-    
-    // Try to get from cache first (instant load when switching tabs)
-    if (!forceRefresh) {
-      const cached = getCachedGames(params)
-      if (cached) {
-        setGames(cached.games)
-        if (cached.pagination) {
-          setTotalItems(cached.pagination.totalItems)
-          setTotalPages(cached.pagination.totalPages)
-        }
-        setIsLoading(false)
-        return
-      }
-    }
+  const loadGames = useCallback(
+    async (forceRefresh = false) => {
+      const params = getQueryParams()
 
-    setIsLoading(true)
-    setError(null)
-    
-    try {
-      const result = await fetchGamesFromContext(params, forceRefresh)
-      setGames(result.games)
-      
-      if (result.pagination) {
-        setTotalItems(result.pagination.totalItems)
-        setTotalPages(result.pagination.totalPages)
+      // Try to get from cache first (instant load when switching tabs)
+      if (!forceRefresh) {
+        const cached = getCachedGames(params)
+        if (cached) {
+          setGames(cached.games)
+          if (cached.pagination) {
+            setTotalItems(cached.pagination.totalItems)
+            setTotalPages(cached.pagination.totalPages)
+          }
+          setIsLoading(false)
+          return
+        }
       }
-    } catch (err) {
-      console.error('Error fetching games:', err)
-      setError(err.message)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [getQueryParams, getCachedGames, fetchGamesFromContext])
+
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const result = await fetchGamesFromContext(params, forceRefresh)
+        setGames(result.games)
+
+        if (result.pagination) {
+          setTotalItems(result.pagination.totalItems)
+          setTotalPages(result.pagination.totalPages)
+        }
+      } catch (err) {
+        console.error('Error fetching games:', err)
+        setError(err.message)
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [getQueryParams, getCachedGames, fetchGamesFromContext]
+  )
 
   // Initial load and when params change
   useEffect(() => {
@@ -209,7 +216,7 @@ export function StandaloneGames() {
       <div className="flex flex-col gap-3 border-b border-white/10 bg-[#191919] p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0081FB] to-[#00C2FF] shadow-lg shadow-[#0081FB]/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-[#0081FB] to-[#00C2FF] shadow-lg shadow-[#0081FB]/20">
               <Icon icon="mdi:gamepad-variant" className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -299,7 +306,10 @@ export function StandaloneGames() {
             <Icon icon="bi:headset-vr" className="h-4 w-4" />
             <span className="hidden sm:inline">
               {devicePreference
-                ? devicePreference.replace('quest', 'Quest ').replace('Pro', ' Pro').replace('3s', '3S')
+                ? devicePreference
+                    .replace('quest', 'Quest ')
+                    .replace('Pro', ' Pro')
+                    .replace('3s', '3S')
                 : t('all_devices') || 'All'}
             </span>
           </button>
@@ -373,8 +383,8 @@ export function StandaloneGames() {
                 {/* Page Info */}
                 <p className="text-xs text-white/40">
                   {t('showing') || 'Showing'} {(currentPage - 1) * itemsPerPage + 1}-
-                  {Math.min(currentPage * itemsPerPage, totalItems)} {t('of') || 'of'}{' '}
-                  {totalItems} {t('standalone_games_count')}
+                  {Math.min(currentPage * itemsPerPage, totalItems)} {t('of') || 'of'} {totalItems}{' '}
+                  {t('standalone_games_count')}
                 </p>
 
                 {/* Pagination Controls */}
@@ -445,6 +455,7 @@ export function StandaloneGames() {
         }}
         game={selectedGame}
         selectedDevice={devicePreference}
+        connectedDevice={connectedDevice}
       />
     </div>
   )
@@ -517,11 +528,11 @@ function GameCard({ game, selectedDevice, onClick }) {
   const getVersionDisplay = () => {
     if (versions.length > 0) {
       // Sort versions from highest to lowest
-      const sortedVersions = [...versions].sort((a, b) => 
+      const sortedVersions = [...versions].sort((a, b) =>
         compareVersions(a?.version || '', b?.version || '')
       )
       const highestVersion = sortedVersions[0]?.version || ''
-      
+
       if (versions.length > 1) {
         const lowestVersion = sortedVersions[sortedVersions.length - 1]?.version || ''
         if (highestVersion && lowestVersion && highestVersion !== lowestVersion) {
@@ -583,7 +594,7 @@ function GameCard({ game, selectedDevice, onClick }) {
         )}
 
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
 
         {/* Top Left: Status Badges */}
         <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
@@ -632,7 +643,7 @@ function GameCard({ game, selectedDevice, onClick }) {
       </div>
 
       {/* Footer Content */}
-      <div className="flex flex-col p-3 gap-2 bg-[#151515] flex-grow justify-between">
+      <div className="flex flex-col p-3 gap-2 bg-[#151515] grow justify-between">
         {/* Device Support Badges */}
         <div className="flex flex-wrap gap-1.5">
           {(() => {
@@ -729,5 +740,12 @@ GameCard.defaultProps = {
   onClick: () => {}
 }
 
-export default StandaloneGames
+StandaloneGames.propTypes = {
+  selectedDevice: PropTypes.string
+}
 
+StandaloneGames.defaultProps = {
+  selectedDevice: null
+}
+
+export default StandaloneGames
