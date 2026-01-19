@@ -219,31 +219,31 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
 
       {/* Storage Info Card */}
       {selectedSerial &&
+        devices.find((d) => d.serial === selectedSerial)?.storage?.total &&
         devices.find((d) => d.serial === selectedSerial)?.storage?.total !== '0' && (
           <div className="mt-3 rounded-lg border border-white/5 bg-white/5 p-3">
             <div className="flex items-center justify-between text-[10px] text-white/70 mb-1">
               <span>{t('storage_label')}</span>
               <span>
-                {devices.find((d) => d.serial === selectedSerial).storage.free}{' '}
+                {devices.find((d) => d.serial === selectedSerial)?.storage?.free}{' '}
                 {t('storage_free_of')}{' '}
-                {devices.find((d) => d.serial === selectedSerial).storage.total}
+                {devices.find((d) => d.serial === selectedSerial)?.storage?.total}
               </span>
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${(() => {
-                  const percent = parseInt(
-                    devices.find((d) => d.serial === selectedSerial).storage.percent
-                  )
+                  const device = devices.find((d) => d.serial === selectedSerial)
+                  const percent = parseInt(device?.storage?.percent || '0')
                   if (percent > 90) return 'bg-red-500' // Critical
                   if (percent > 70) return 'bg-yellow-500' // Warning
                   return 'bg-[#0081FB]' // Safe
                 })()}`}
-                style={{ width: devices.find((d) => d.serial === selectedSerial).storage.percent }}
+                style={{ width: devices.find((d) => d.serial === selectedSerial)?.storage?.percent || '0%' }}
               ></div>
             </div>
             <div className="mt-1 text-right text-[9px] text-white/40">
-              {devices.find((d) => d.serial === selectedSerial).storage.percent} {t('storage_used')}
+              {devices.find((d) => d.serial === selectedSerial)?.storage?.percent || '0%'} {t('storage_used')}
             </div>
           </div>
         )}
