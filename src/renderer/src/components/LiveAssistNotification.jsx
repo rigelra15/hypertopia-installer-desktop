@@ -120,7 +120,7 @@ export default function LiveAssistNotification({ onNavigateToLiveAssist, userEma
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, x: 100, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="flex items-start gap-3 rounded-xl border p-3 shadow-lg backdrop-blur-md pointer-events-auto bg-[#0081FB]/10 border-[#0081FB]/30"
+            className="flex items-start gap-3 rounded-xl border p-3 shadow-lg pointer-events-auto bg-[#1a3a5c] border-[#0081FB]/50"
           >
             {/* Icon */}
             <div className="rounded-lg p-2 bg-[#0081FB]/20">

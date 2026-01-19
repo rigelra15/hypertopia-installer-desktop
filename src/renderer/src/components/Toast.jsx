@@ -60,18 +60,18 @@ function ToastContainer({ toasts, onRemove }) {
   const getColors = (type) => {
     switch (type) {
       case 'success':
-        return 'border-green-500/30 bg-green-500/10 text-green-400'
+        return 'border-green-700 bg-[#0d2818] text-green-400'
       case 'error':
-        return 'border-red-500/30 bg-red-500/10 text-red-400'
+        return 'border-red-700 bg-[#2d1212] text-red-400'
       case 'warning':
-        return 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400'
+        return 'border-yellow-700 bg-[#2d2412] text-yellow-400'
       default:
-        return 'border-[#0081FB]/30 bg-[#0081FB]/10 text-[#0081FB]'
+        return 'border-[#0066cc] bg-[#0a1929] text-[#0081FB]'
     }
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-9999 flex flex-col gap-2 max-w-sm pointer-events-none">
+    <div className="fixed bottom-20 right-4 z-9999 flex flex-col gap-2 max-w-sm pointer-events-none">
       <AnimatePresence>
         {toasts.map((toast) => (
           <motion.div
@@ -80,7 +80,7 @@ function ToastContainer({ toasts, onRemove }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, x: 100, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className={`flex items-start gap-3 rounded-xl border p-3 shadow-lg backdrop-blur-md pointer-events-auto ${getColors(toast.type)}`}
+            className={`flex items-start gap-3 rounded-xl border p-3 shadow-lg pointer-events-auto ${getColors(toast.type)}`}
           >
             <Icon icon={getIcon(toast.type)} className="h-5 w-5 shrink-0 mt-0.5" />
             <p className="flex-1 text-sm font-medium">{toast.message}</p>
