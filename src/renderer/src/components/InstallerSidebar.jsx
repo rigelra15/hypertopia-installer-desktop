@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { DeviceSelector } from './DeviceSelector'
 import { ErrorModal } from './ErrorModal'
@@ -377,19 +378,27 @@ export function InstallerSidebar({
             )}
           </div>
 
-          {/* Minimal Device Indicator */}
-          <div
-            className={`rounded-lg p-2 ${selectedDevice ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-white/30'}`}
+          {/* Device Name - Rotated Text, Clickable to Expand */}
+          <button
+            onClick={() => setIsCollapsed(false)}
+            className={`group flex flex-col items-center gap-2 rounded-lg p-2 transition-all hover:bg-white/5 ${
+              selectedDevice ? 'text-green-400' : 'text-white/30'
+            }`}
+            title={t('expand_sidebar') || 'Expand Sidebar'}
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
+            <Icon 
+              icon={selectedDevice?.toLowerCase().includes('quest') ? 'ri:meta-fill' : 'fluent:phone-32-filled'} 
+              className="h-5 w-5 shrink-0" 
+            />
+            {selectedDevice && (
+              <span 
+                className="text-xs font-medium whitespace-nowrap group-hover:text-green-300"
+                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+              >
+                {selectedDevice}
+              </span>
+            )}
+          </button>
         </div>
       ) : (
         // Expanded View - Original content
