@@ -1,8 +1,11 @@
 import { resolve } from 'path'
-import { defineConfig } from 'electron-vite'
+import { defineConfig, loadEnv } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'child_process'
+
+// Load environment variables from .env
+const env = loadEnv('production', process.cwd(), '')
 
 // Get git commit count and changelog
 let commitCount = '0'
@@ -30,6 +33,10 @@ export default defineConfig({
       rollupOptions: {
         external: ['node-7z', '7zip-bin']
       }
+    },
+    define: {
+      'process.env.REACT_APP_GOOGLE_API_KEY': JSON.stringify(env.REACT_APP_GOOGLE_API_KEY || ''),
+      'process.env.REACT_APP_GOOGLE_CLIENT_ID': JSON.stringify(env.REACT_APP_GOOGLE_CLIENT_ID || '')
     }
   },
   preload: {},

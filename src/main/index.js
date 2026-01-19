@@ -4,10 +4,10 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { exec, spawn, execFile } from 'child_process'
 import { autoUpdater } from 'electron-updater'
-import { config as dotenvConfig } from 'dotenv'
 
-// Load environment variables from .env file
-dotenvConfig({ path: join(process.cwd(), '.env') })
+// Note: Environment variables (REACT_APP_GOOGLE_API_KEY, REACT_APP_GOOGLE_CLIENT_ID)
+// are injected at build time via electron.vite.config.mjs define option.
+// No need to load .env at runtime - values are already embedded in the bundle.
 
 // Configure auto-updater
 // autoDownload is false by default - user can control via settings
