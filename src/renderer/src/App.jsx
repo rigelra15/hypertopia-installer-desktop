@@ -28,6 +28,7 @@ function App() {
     isDownloading,
     downloadComplete,
     closeWidget,
+    cancelDownload,
     // Install states
     isInstalling,
     installComplete,
@@ -257,6 +258,7 @@ function App() {
         status={downloadInfo.status}
         isComplete={downloadComplete}
         onClose={closeWidget}
+        onCancel={cancelDownload}
       />
 
       {/* Global Install Widget - Shows in bottom right corner for Download & Install */}
