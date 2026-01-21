@@ -1,7 +1,7 @@
 {
   "name": "hypertopia-installer",
   "productName": "HyperTopia Installer",
-  "version": "1.0.192",
+  "version": "1.0.193",
   "description": "HyperTopia Installer - Advanced VR Sideloading Tool",
   "main": "./out/main/index.js",
   "author": "HyperTopia",
@@ -44,6 +44,7 @@
     "@tailwindcss/vite": "^4.1.17",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.22",
+    "dotenv": "^17.2.3",
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
