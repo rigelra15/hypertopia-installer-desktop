@@ -1,11 +1,42 @@
 import { resolve } from 'path'
-import { defineConfig, loadEnv } from 'electron-vite'
+import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'child_process'
+import { config } from 'dotenv'
+import { readFileSync, existsSync } from 'fs'
 
-// Load environment variables from .env
-const env = loadEnv('production', process.cwd(), '')
+// Load environment variables from .env file directly
+const envPath = resolve(process.cwd(), '.env')
+let env = {}
+
+// Try loading with dotenv first
+const dotenvResult = config({ path: envPath })
+if (dotenvResult.parsed) {
+  env = dotenvResult.parsed
+} else if (existsSync(envPath)) {
+  // Fallback: manually parse .env file
+  try {
+    const envContent = readFileSync(envPath, 'utf-8')
+    envContent.split('\n').forEach(line => {
+      const trimmed = line.trim()
+      if (trimmed && !trimmed.startsWith('#')) {
+        const [key, ...valueParts] = trimmed.split('=')
+        if (key) {
+          let value = valueParts.join('=')
+          // Remove quotes if present
+          value = value.replace(/^["']|["']$/g, '')
+          env[key.trim()] = value
+        }
+      }
+    })
+  } catch (e) {
+    console.warn('Failed to read .env file:', e.message)
+  }
+}
+
+console.log('[electron.vite.config] Loaded env keys:', Object.keys(env))
+console.log('[electron.vite.config] GOOGLE_API_KEY present:', !!env.REACT_APP_GOOGLE_API_KEY)
 
 // Get git commit count and changelog
 let commitCount = '0'
