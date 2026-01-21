@@ -1980,6 +1980,10 @@ const extractGoogleDriveFileId = (url) => {
 // Now automatically saves to HyperTopiaExtraction/Downloads folder
 ipcMain.handle('download-file', async (event, { url, fileName }) => {
   try {
+    // Reset download state first to ensure clean start
+    resetDownloadState()
+    console.log('[Download] Starting new download, state reset')
+    
     const fsNative = require('fs')
     const https = require('https')
     const fsExtra = require('fs-extra')
@@ -2038,6 +2042,12 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
             reject(new Error('Too many redirects'))
             return
           }
+          
+          // Check if cancelled before starting
+          if (downloadState.isCancelled) {
+            reject(new Error('Download cancelled'))
+            return
+          }
 
           const parsedUrl = new URL(downloadUrl)
           const httpModule = parsedUrl.protocol === 'https:' ? https : require('http')
@@ -2047,6 +2057,9 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
           }, (response) => {
+            // Store request for cancellation
+            downloadState.activeRequest = request
+            
             // Handle redirects
             if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
               console.log('[Download] Following redirect to:', response.headers.location)
@@ -2063,8 +2076,19 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
             console.log('[Download] Dropbox file size:', totalBytes, 'bytes')
 
             const dest = fsNative.createWriteStream(filePath)
+            
+            // Store stream and file path for cancellation
+            downloadState.activeStream = dest
+            downloadState.activeFilePath = filePath
 
             response.on('data', (chunk) => {
+              // Check if cancelled
+              if (downloadState.isCancelled) {
+                response.destroy()
+                dest.destroy()
+                return
+              }
+              
               downloadedBytes += chunk.length
               const progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0
 
@@ -2077,7 +2101,7 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
                 lastBytes = downloadedBytes
               }
 
-              if (event.sender && !event.sender.isDestroyed()) {
+              if (event.sender && !event.sender.isDestroyed() && !downloadState.isCancelled) {
                 event.sender.send('download-progress', {
                   fileName,
                   downloadedBytes,
@@ -2240,9 +2264,19 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
                 totalBytes = parseInt(response.headers['content-length'], 10)
                 console.log('[Download] Got file size from content-length:', totalBytes, 'bytes')
               }
+              
+              // Store stream for cancellation
+              downloadState.activeStream = dest
 
               response.data
                 .on('data', (chunk) => {
+                  // Check if cancelled
+                  if (downloadState.isCancelled) {
+                    response.data.destroy()
+                    dest.destroy()
+                    return
+                  }
+                  
                   downloadedBytes += chunk.length
                   const progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0
 
@@ -2255,8 +2289,8 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
                     lastBytes = downloadedBytes
                   }
 
-                  // Send progress to renderer
-                  if (event.sender && !event.sender.isDestroyed()) {
+                  // Send progress to renderer (only if not cancelled)
+                  if (event.sender && !event.sender.isDestroyed() && !downloadState.isCancelled) {
                     event.sender.send('download-progress', {
                       fileName,
                       downloadedBytes,
