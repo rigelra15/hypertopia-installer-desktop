@@ -226,11 +226,13 @@ export default function GameInstallWidget({
                 className="overflow-hidden"
               >
                 <div className="p-3 pt-2 border-t border-white/5">
-                  {/* Game title */}
-                  <div className="flex items-center gap-2 text-xs text-white/60 mb-2">
-                    <Icon icon="mdi:gamepad-variant" className="h-3.5 w-3.5" />
-                    <span className="truncate">{gameTitle}</span>
-                  </div>
+                  {/* Game title - only show when in progress, not when complete */}
+                  {!isComplete && (
+                    <div className="flex items-center gap-2 text-xs text-white/60 mb-2">
+                      <Icon icon="mdi:gamepad-variant" className="h-3.5 w-3.5" />
+                      <span className="truncate">{gameTitle}</span>
+                    </div>
+                  )}
 
                   {/* Download step details */}
                   {!isComplete && !isError && step === 'DOWNLOADING' && totalBytes > 0 && (
@@ -311,12 +313,12 @@ export default function GameInstallWidget({
                   {/* Complete state */}
                   {isComplete && (
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs text-green-400">
-                        <Icon icon="mdi:check-circle" className="h-4 w-4" />
-                        <span>
-                          {t('installation_success') || 'Game installed successfully!'}
-                        </span>
-                      </div>
+                      {totalBytes > 0 && (
+                        <div className="flex items-center gap-2 text-xs text-white/40">
+                          <Icon icon="mdi:harddisk" className="h-3.5 w-3.5" />
+                          <span>{formatSize(totalBytes)}</span>
+                        </div>
+                      )}
                       <button
                         onClick={() => onClose?.()}
                         className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 text-sm font-medium transition-colors"

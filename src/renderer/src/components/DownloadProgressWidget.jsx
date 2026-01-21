@@ -22,8 +22,6 @@ export default function DownloadProgressWidget({
   const { t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(true)
 
-  if (!isVisible) return null
-
   // Format file size
   const formatSize = (bytes) => {
     if (!bytes) return '0 MB'
@@ -63,14 +61,16 @@ export default function DownloadProgressWidget({
   const progressPercent = downloadProgress || 0
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 100, scale: 0.8 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 100, scale: 0.8 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="fixed bottom-4 right-4 z-50"
-      >
+    <AnimatePresence mode="wait">
+      {isVisible && (
+        <motion.div
+          key="download-progress-widget"
+          initial={{ opacity: 0, y: 100, scale: 0.8 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 100, scale: 0.8 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          className="fixed bottom-4 right-4 z-50"
+        >
         <div className="rounded-2xl border border-white/20 bg-[#111] shadow-2xl overflow-hidden min-w-[280px] max-w-[320px]">
           {/* Header - Always visible, clickable to expand/collapse */}
           <button
@@ -172,6 +172,7 @@ export default function DownloadProgressWidget({
           </AnimatePresence>
         </div>
       </motion.div>
+      )}
     </AnimatePresence>
   )
 }
