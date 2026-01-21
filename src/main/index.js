@@ -145,6 +145,66 @@ ipcMain.handle('cancel-installation', async () => {
   return { success: true, message: 'Installation cancelled' }
 })
 
+// Download cancellation state
+let downloadState = {
+  isCancelled: false,
+  activeRequest: null,        // HTTP request object (for abort)
+  activeStream: null,         // Write stream to close
+  activeFilePath: null,       // File path for cleanup
+  currentFileName: null       // For identifying current download
+}
+
+// Reset download state
+function resetDownloadState() {
+  downloadState.isCancelled = false
+  downloadState.activeRequest = null
+  downloadState.activeStream = null
+  downloadState.activeFilePath = null
+  downloadState.currentFileName = null
+}
+
+// Cancel download handler
+ipcMain.handle('cancel-download', async () => {
+  console.log('[CancelDownload] Cancellation requested')
+  downloadState.isCancelled = true
+
+  // Abort active HTTP request if exists
+  if (downloadState.activeRequest) {
+    try {
+      downloadState.activeRequest.destroy()
+      console.log('[CancelDownload] Destroyed active HTTP request')
+    } catch (err) {
+      console.warn('[CancelDownload] Failed to destroy request:', err.message)
+    }
+  }
+
+  // Close write stream if exists
+  if (downloadState.activeStream) {
+    try {
+      downloadState.activeStream.destroy()
+      console.log('[CancelDownload] Destroyed write stream')
+    } catch (err) {
+      console.warn('[CancelDownload] Failed to destroy stream:', err.message)
+    }
+  }
+
+  // Cleanup partial file if exists
+  if (downloadState.activeFilePath) {
+    try {
+      const fsNative = require('fs')
+      if (fsNative.existsSync(downloadState.activeFilePath)) {
+        fsNative.unlinkSync(downloadState.activeFilePath)
+        console.log('[CancelDownload] Cleaned up partial file:', downloadState.activeFilePath)
+      }
+    } catch (err) {
+      console.warn('[CancelDownload] Failed to cleanup file:', err.message)
+    }
+  }
+
+  resetDownloadState()
+  return { success: true, message: 'Download cancelled' }
+})
+
 function createWindow() {
   // Create the browser window.
   mainWindow = new BrowserWindow({

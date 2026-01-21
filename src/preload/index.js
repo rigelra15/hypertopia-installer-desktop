@@ -99,6 +99,8 @@ const api = {
     ipcRenderer.on('download-progress', subscription)
     return () => ipcRenderer.removeListener('download-progress', subscription)
   },
+  // Cancel download API
+  cancelDownload: () => ipcRenderer.invoke('cancel-download'),
   // Download and install APK to device
   downloadAndInstallApk: (url, fileName, deviceSerial) =>
     ipcRenderer.invoke('download-and-install-apk', { url, fileName, deviceSerial }),

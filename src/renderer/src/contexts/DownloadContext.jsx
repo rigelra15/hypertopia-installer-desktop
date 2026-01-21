@@ -224,6 +224,66 @@ export function DownloadProvider({ children }) {
     })
   }, [])
 
+  // Cancel download
+  const cancelDownload = useCallback(async () => {
+    console.log('[DownloadContext] Cancelling download...')
+    try {
+      if (window.api?.cancelDownload) {
+        await window.api.cancelDownload()
+      }
+      // Reset state
+      setIsDownloading(false)
+      setDownloadComplete(false)
+      setShowWidget(false)
+      setDownloadInfo({
+        fileName: '',
+        gameTitle: '',
+        progress: 0,
+        downloadedBytes: 0,
+        totalBytes: 0,
+        speed: 0,
+        status: 'idle'
+      })
+      console.log('[DownloadContext] Download cancelled successfully')
+      return { success: true }
+    } catch (error) {
+      console.error('[DownloadContext] Failed to cancel download:', error)
+      return { success: false, error: error.message }
+    }
+  }, [])
+
+  // Cancel install (Download & Install)
+  const cancelInstall = useCallback(async () => {
+    console.log('[DownloadContext] Cancelling install...')
+    try {
+      // Cancel both download and installation
+      if (window.api?.cancelDownload) {
+        await window.api.cancelDownload()
+      }
+      if (window.api?.cancelInstallation) {
+        await window.api.cancelInstallation()
+      }
+      // Reset state
+      setIsInstalling(false)
+      setInstallComplete(false)
+      setShowWidget(false)
+      setInstallInfo({
+        gameTitle: '',
+        step: '',
+        percent: 0,
+        detail: '',
+        downloadedBytes: 0,
+        totalBytes: 0,
+        speed: 0
+      })
+      console.log('[DownloadContext] Install cancelled successfully')
+      return { success: true }
+    } catch (error) {
+      console.error('[DownloadContext] Failed to cancel install:', error)
+      return { success: false, error: error.message }
+    }
+  }, [])
+
   const value = {
     isDownloading,
     downloadComplete,
@@ -232,12 +292,14 @@ export function DownloadProvider({ children }) {
     startDownload,
     closeWidget,
     showDownloadWidget,
+    cancelDownload,
     // Install states and functions
     isInstalling,
     installComplete,
     installInfo,
     startInstall,
-    closeInstallWidget
+    closeInstallWidget,
+    cancelInstall
   }
 
   return (
