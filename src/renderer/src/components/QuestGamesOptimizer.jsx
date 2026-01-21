@@ -7,6 +7,7 @@ import { useToast } from '../hooks/useToast'
 import PropTypes from 'prop-types'
 
 const API_BASE_URL = 'https://api.hypertopia.store'
+const FIREBASE_DB_URL = 'https://vrquest-id-default-rtdb.asia-southeast1.firebasedatabase.app'
 
 export function QuestGamesOptimizer({ selectedDevice }) {
   const { t } = useLanguage()
@@ -43,6 +44,12 @@ export function QuestGamesOptimizer({ selectedDevice }) {
     downloadedBytes: 0,
     totalBytes: 0,
     speed: 0
+  })
+
+  // Download stats from Firebase
+  const [downloadStats, setDownloadStats] = useState({
+    total: 0,
+    byVersion: {} // { version: count }
   })
 
   // QGO package name pattern
@@ -105,8 +112,33 @@ export function QuestGamesOptimizer({ selectedDevice }) {
     }
   }, [])
 
-  useEffect(() => {
-    fetchQgoLinks()
+// Fetch download stats from Firebase
+const fetchDownloadStats = useCallback(async () => {
+  try {
+    const statsRes = await fetch(`${FIREBASE_DB_URL}/qgo/downloadStats.json`)
+    const statsData = await statsRes.json()
+    
+    if (statsData) {
+      const total = statsData.totalDownloadCount || 0
+      const byVersion = {}
+      
+      // Extract version-specific counts
+      Object.keys(statsData).forEach((key) => {
+        if (key !== 'totalDownloadCount' && statsData[key]?.downloadCount) {
+          byVersion[key] = statsData[key].downloadCount
+        }
+      })
+      
+      setDownloadStats({ total, byVersion })
+    }
+  } catch (err) {
+    console.error('Error fetching download stats:', err)
+  }
+}, [])
+
+useEffect(() => {
+  fetchQgoLinks()
+  fetchDownloadStats()
 
     // Listen to install progress
     const removeInstallListener = window.api.onInstallApkProgress?.((progress) => {
@@ -282,6 +314,68 @@ export function QuestGamesOptimizer({ selectedDevice }) {
     return compareSemver(version, max) > 0 ? version : max
   }, null)
 
+  // Update QGO download count to Firebase
+  const updateQgoDownloadCount = async (version) => {
+    try {
+      // First get current download count for this version
+      const versionCountRes = await fetch(
+        `${FIREBASE_DB_URL}/qgo/downloadStats/${version}/downloadCount.json`
+      )
+      const currentVersionCount = (await versionCountRes.json()) || 0
+      const updatedVersionCount = currentVersionCount + 1
+
+      // Update version-specific download count
+      await fetch(
+        `${FIREBASE_DB_URL}/qgo/downloadStats/${version}/downloadCount.json`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedVersionCount)
+        }
+      )
+
+      // Get and update total download count
+      const totalCountRes = await fetch(
+        `${FIREBASE_DB_URL}/qgo/downloadStats/totalDownloadCount.json`
+      )
+      const currentTotalCount = (await totalCountRes.json()) || 0
+      const updatedTotalCount = currentTotalCount + 1
+
+      await fetch(
+        `${FIREBASE_DB_URL}/qgo/downloadStats/totalDownloadCount.json`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedTotalCount)
+        }
+      )
+
+      // Record download history for user
+      if (user) {
+        const historyEntry = {
+          appName: 'Quest Games Optimizer',
+          version: version || 'unknown',
+          downloadDate: new Date().toISOString(),
+          source: 'installer'
+        }
+
+        await fetch(
+          `${FIREBASE_DB_URL}/usersData/downloadHistory/${user.uid}/qgo.json`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(historyEntry)
+          }
+        )
+      }
+
+      console.log('[QGO] Download count updated successfully for version:', version)
+    } catch (error) {
+      console.error('[QGO] Failed to update download count:', error)
+      // Don't show error to user - download count update is non-critical
+    }
+  }
+
   const handleDownload = (item) => {
     setConfirmDownload(item)
   }
@@ -307,6 +401,8 @@ export function QuestGamesOptimizer({ selectedDevice }) {
         ...prev,
         [version || 'unknown']: { exists: true, path: result.filePath }
       }))
+      // Update download count to Firebase
+      await updateQgoDownloadCount(version)
       // Toast notification is handled by the download complete notification
     } else if (result.canceled) {
       setShowDownloadModal(false)
@@ -751,9 +847,16 @@ export function QuestGamesOptimizer({ selectedDevice }) {
                             )}
                           </div>
                           {version && (
-                            <div className="mt-1 flex items-center gap-1 text-xs text-white/50">
-                              <Icon icon="mdi:tag" className="h-3 w-3" />
-                              <span>v{version}</span>
+                            <div className="mt-1 flex items-center gap-3 text-xs text-white/50">
+                              <div className="flex items-center gap-1">
+                                <Icon icon="mdi:tag" className="h-3 w-3" />
+                                <span>v{version}</span>
+                              </div>
+                              <span className="text-white/30">•</span>
+                              <div className="flex items-center gap-1">
+                                <Icon icon="mdi:download" className="h-3 w-3" />
+                                <span>{(downloadStats.byVersion[version] || 0).toLocaleString()} {t('downloads') || 'downloads'}</span>
+                              </div>
                             </div>
                           )}
                         </div>
