@@ -24,8 +24,6 @@ export default function GameDownloadWidget({
   const { t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(true)
 
-  if (!isVisible) return null
-
   // Format file size
   const formatSize = (bytes) => {
     if (!bytes || bytes === 0) return '0 B'
@@ -73,14 +71,16 @@ export default function GameDownloadWidget({
   const progressPercent = downloadProgress || 0
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 100, scale: 0.8 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 100, scale: 0.8 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="fixed bottom-4 right-4 z-50"
-      >
+    <AnimatePresence mode="wait">
+      {isVisible && (
+        <motion.div
+          key="download-widget"
+          initial={{ opacity: 0, y: 100, scale: 0.8 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 100, scale: 0.8 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          className="fixed bottom-4 right-4 z-50"
+        >
         <div className="rounded-2xl border border-white/20 bg-[#111] shadow-2xl overflow-hidden min-w-[300px] max-w-[360px]">
           {/* Header - Always visible, clickable to expand/collapse */}
           <button
@@ -107,7 +107,7 @@ export default function GameDownloadWidget({
                 </p>
                 <p className="text-xs text-white/50 truncate">
                   {isComplete
-                    ? fileName
+                    ? gameTitle || fileName
                     : status === 'downloading' && totalBytes > 0
                       ? `${progressPercent.toFixed(0)}% • ${speedDisplay}`
                       : gameTitle || fileName}
@@ -156,11 +156,13 @@ export default function GameDownloadWidget({
                 className="overflow-hidden"
               >
                 <div className="p-3 pt-2 border-t border-white/5">
-                  {/* Game title */}
-                  <div className="flex items-center gap-2 text-xs text-white/60 mb-2">
-                    <Icon icon="mdi:gamepad-variant" className="h-3.5 w-3.5" />
-                    <span className="truncate">{gameTitle}</span>
-                  </div>
+                  {/* Game title - only show when downloading, not when complete */}
+                  {!isComplete && (
+                    <div className="flex items-center gap-2 text-xs text-white/60 mb-2">
+                      <Icon icon="mdi:gamepad-variant" className="h-3.5 w-3.5" />
+                      <span className="truncate">{gameTitle}</span>
+                    </div>
+                  )}
 
                   {/* Download details */}
                   {!isComplete && status === 'downloading' && totalBytes > 0 && (
@@ -195,10 +197,16 @@ export default function GameDownloadWidget({
                   {/* Complete state */}
                   {isComplete && (
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs text-green-400">
-                        <Icon icon="mdi:check-circle" className="h-4 w-4" />
-                        <span>{t('download_success') || 'Download completed successfully!'}</span>
+                      <div className="flex items-center gap-2 text-xs text-white/60">
+                        <Icon icon="mdi:file" className="h-4 w-4" />
+                        <span className="truncate">{fileName}</span>
                       </div>
+                      {totalBytes > 0 && (
+                        <div className="flex items-center gap-2 text-xs text-white/40">
+                          <Icon icon="mdi:harddisk" className="h-3.5 w-3.5" />
+                          <span>{formatSize(totalBytes)}</span>
+                        </div>
+                      )}
                       <button
                         onClick={() => onClose?.()}
                         className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 text-sm font-medium transition-colors"
@@ -220,6 +228,7 @@ export default function GameDownloadWidget({
           </AnimatePresence>
         </div>
       </motion.div>
+      )}
     </AnimatePresence>
   )
 }
