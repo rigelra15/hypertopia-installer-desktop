@@ -384,5 +384,9 @@
   "installation_complete": "Instalasi Selesai",
   "installation_success": "Game berhasil diinstal!",
   "installation_failed": "Instalasi gagal",
-  "install_background_info": "Instalasi berjalan di latar belakang"
+  "install_background_info": "Instalasi berjalan di latar belakang",
+  "download_cancelled": "Unduhan Dibatalkan",
+  "download_cancelling": "Membatalkan unduhan...",
+  "cancel_download": "Batalkan Unduhan",
+  "cancel_download_install": "Batal"
 }

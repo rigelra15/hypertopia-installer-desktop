@@ -385,5 +385,9 @@
   "installation_complete": "Installation Complete",
   "installation_success": "Game installed successfully!",
   "installation_failed": "Installation failed",
-  "install_background_info": "Installation running in background"
+  "install_background_info": "Installation running in background",
+  "download_cancelled": "Download Cancelled",
+  "download_cancelling": "Cancelling download...",
+  "cancel_download": "Cancel Download",
+  "cancel_download_install": "Cancel"
 }
