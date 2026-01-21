@@ -977,7 +977,6 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                               )}
                             </button>
                           )}
-                          </button>
 
                           {/* Download and Install button - always show, disabled if no device */}
                           {currentVersion.downloadLinks?.length === 1 && (
