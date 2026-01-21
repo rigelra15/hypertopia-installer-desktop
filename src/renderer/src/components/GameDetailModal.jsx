@@ -86,6 +86,8 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   const [confirmDownload, setConfirmDownload] = useState(null) // For confirmation modal
   const [showDownloadModal, setShowDownloadModal] = useState(false) // For progress modal
   const [deviceModel, setDeviceModel] = useState(null) // Device model name for display
+  const [downloadedFiles, setDownloadedFiles] = useState({}) // Track which files are already downloaded
+  const [confirmDelete, setConfirmDelete] = useState(null) // For delete confirmation modal
   
   // Download and install state
   const [isInstalling, setIsInstalling] = useState(false)
@@ -153,10 +155,48 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     setShowDownloadParts(false)
     setIsInstalling(false)
     setShowInstallModal(false)
+    setDownloadedFiles({})
     // Sync local download count with game data
     setLocalDownloadCount(game?.downloadCount || 0)
     setLocalVersions(versions)
   }, [game])
+
+  // Check which files are already downloaded when modal opens or version changes
+  useEffect(() => {
+    if (!isOpen || !game || !gameTitle) return
+    
+    const checkDownloaded = async () => {
+      try {
+        const currentVer = localVersions[selectedVersion] || { version: gameVersion, downloadLinks: [] }
+        const version = currentVer.version || gameVersion
+        const downloadLinks = (currentVer.downloadLinks || []).filter(link => link && link.trim())
+        
+        // Generate file names that would be created for each download link
+        const fileNames = downloadLinks.map((_, index) => {
+          let fileName = `${gameTitle.replace(/[<>:"/\\|?*]/g, '_')}_${version}`
+          if (downloadLinks.length > 1) {
+            fileName += `_Part${index + 1}`
+          }
+          fileName += '.zip'
+          return fileName
+        })
+        
+        if (fileNames.length === 0) {
+          setDownloadedFiles({})
+          return
+        }
+        
+        const result = await window.api.checkDownloadedFiles(fileNames)
+        if (result.success) {
+          setDownloadedFiles(result.downloadedFiles)
+        }
+      } catch (err) {
+        console.warn('Failed to check downloaded files:', err)
+      }
+    }
+    
+    checkDownloaded()
+  }, [isOpen, game, gameTitle, selectedVersion, localVersions, gameVersion])
 
   // Listen for install progress events
   useEffect(() => {
@@ -315,6 +355,125 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
       console.error('[GameDetailModal] Failed to update download count:', error)
       // Don't show error to user - download count update is non-critical
     }
+  }
+
+  // Generate file name for a download link
+  const getFileName = (partIndex = null) => {
+    const currentVer = getCurrentVersion()
+    const version = currentVer.version || gameVersion
+    const downloadLinks = (currentVer.downloadLinks || []).filter(link => link && link.trim())
+    
+    let fileName = `${gameTitle.replace(/[<>:"/\\|?*]/g, '_')}_${version}`
+    if (downloadLinks.length > 1 && partIndex !== null) {
+      fileName += `_Part${partIndex + 1}`
+    }
+    fileName += '.zip'
+    return fileName
+  }
+
+  // Check if a specific file (by part index) is downloaded
+  const isFileDownloaded = (partIndex = null) => {
+    const fileName = getFileName(partIndex)
+    return downloadedFiles[fileName]?.exists || false
+  }
+
+  // Check if ALL parts are downloaded (for multi-part games)
+  const areAllPartsDownloaded = () => {
+    const currentVer = getCurrentVersion()
+    const downloadLinks = (currentVer.downloadLinks || []).filter(link => link && link.trim())
+    
+    if (downloadLinks.length === 0) return false
+    if (downloadLinks.length === 1) return isFileDownloaded(null)
+    
+    return downloadLinks.every((_, index) => isFileDownloaded(index))
+  }
+
+  // Check if ANY parts are downloaded (for multi-part games)
+  const areAnyPartsDownloaded = () => {
+    const currentVer = getCurrentVersion()
+    const downloadLinks = (currentVer.downloadLinks || []).filter(link => link && link.trim())
+    
+    if (downloadLinks.length === 0) return false
+    if (downloadLinks.length === 1) return isFileDownloaded(null)
+    
+    return downloadLinks.some((_, index) => isFileDownloaded(index))
+  }
+
+  // Handle delete file
+  const handleDeleteFile = async (partIndex = null) => {
+    const fileName = getFileName(partIndex)
+    setConfirmDelete({ fileName, partIndex })
+  }
+
+  // Confirm and execute delete
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete) return
+    
+    try {
+      const result = await window.api.deleteDownloadedFile(confirmDelete.fileName)
+      if (result.success) {
+        // Update local state to reflect deletion
+        setDownloadedFiles(prev => ({
+          ...prev,
+          [confirmDelete.fileName]: { exists: false }
+        }))
+        toast.success(`${t('file_deleted') || 'File deleted:'} ${confirmDelete.fileName}`)
+      } else {
+        toast.error(`${t('delete_failed') || 'Delete failed:'} ${result.error}`)
+      }
+    } catch (err) {
+      toast.error(`${t('delete_failed') || 'Delete failed:'} ${err.message}`)
+    }
+    
+    setConfirmDelete(null)
+  }
+
+  // Handle delete all parts
+  const handleDeleteAllParts = async () => {
+    const currentVer = getCurrentVersion()
+    const downloadLinks = (currentVer.downloadLinks || []).filter(link => link && link.trim())
+    
+    const filesToDelete = downloadLinks
+      .map((_, index) => getFileName(index))
+      .filter(fileName => downloadedFiles[fileName]?.exists)
+    
+    if (filesToDelete.length === 0) return
+    
+    setConfirmDelete({ fileName: filesToDelete.join(', '), isMultiple: true, files: filesToDelete })
+  }
+
+  // Confirm and execute delete all
+  const handleConfirmDeleteAll = async () => {
+    if (!confirmDelete?.isMultiple || !confirmDelete.files) return
+    
+    let successCount = 0
+    let failCount = 0
+    
+    for (const fileName of confirmDelete.files) {
+      try {
+        const result = await window.api.deleteDownloadedFile(fileName)
+        if (result.success) {
+          successCount++
+          setDownloadedFiles(prev => ({
+            ...prev,
+            [fileName]: { exists: false }
+          }))
+        } else {
+          failCount++
+        }
+      } catch {
+        failCount++
+      }
+    }
+    
+    if (successCount > 0) {
+      toast.success(`${successCount} ${t('files_deleted') || 'file(s) deleted'}`)
+    }
+    if (failCount > 0) {
+      toast.error(`${failCount} ${t('files_failed_delete') || 'file(s) failed to delete'}`)
+    }
+    
+    setConfirmDelete(null)
   }
 
   // Get supported Quest devices
@@ -748,23 +907,76 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                     <div className="flex flex-col gap-3 mt-4">
                       {gameStatus !== 'coming_soon' ? (
                         <>
-                          {/* Download only button */}
-                          <button
-                            onClick={handleDownload}
-                            disabled={!currentVersion.downloadLinks?.length || isDownloading || showWidget || isInstalling}
-                            className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
-                          >
-                            {isDownloading || showWidget ? (
-                              <>
-                                <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
-                                {t('downloading') || 'Downloading...'}
-                              </>
+                          {/* Download only button - OR Delete button if already downloaded */}
+                          {currentVersion.downloadLinks?.length === 1 && isFileDownloaded(null) ? (
+                            // Single file already downloaded - show delete button
+                            <button
+                              onClick={() => handleDeleteFile(null)}
+                              disabled={isDownloading || showWidget || isInstalling}
+                              className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-red-500/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                            >
+                              <Icon icon="mdi:delete" className="w-5 h-5" />
+                              {t('delete_file') || 'Delete Downloaded File'}
+                            </button>
+                          ) : currentVersion.downloadLinks?.length > 1 ? (
+                            // Multi-part game - show download/delete based on status
+                            areAllPartsDownloaded() ? (
+                              // All parts downloaded - show delete all button
+                              <button
+                                onClick={handleDeleteAllParts}
+                                disabled={isDownloading || showWidget || isInstalling}
+                                className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-red-500/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                              >
+                                <Icon icon="mdi:delete-sweep" className="w-5 h-5" />
+                                {t('delete_all_files') || 'Delete All Downloaded Files'}
+                              </button>
                             ) : (
-                              <>
-                                <Icon icon="mdi:download" className="w-5 h-5" />
-                                {t('download') || 'Download'}
-                              </>
-                            )}
+                              // Some or no parts downloaded - show download with indicator
+                              <button
+                                onClick={handleDownload}
+                                disabled={!currentVersion.downloadLinks?.length || isDownloading || showWidget || isInstalling}
+                                className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-1"
+                              >
+                                {isDownloading || showWidget ? (
+                                  <div className="flex items-center gap-2">
+                                    <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
+                                    {t('downloading') || 'Downloading...'}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center gap-2">
+                                      <Icon icon="mdi:download" className="w-5 h-5" />
+                                      {t('download') || 'Download'}
+                                    </div>
+                                    {areAnyPartsDownloaded() && (
+                                      <span className="text-xs text-white/70 font-normal">
+                                        {t('some_parts_downloaded') || 'Some parts already downloaded'}
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+                              </button>
+                            )
+                          ) : (
+                            // Single file not downloaded - show download button
+                            <button
+                              onClick={handleDownload}
+                              disabled={!currentVersion.downloadLinks?.length || isDownloading || showWidget || isInstalling}
+                              className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                            >
+                              {isDownloading || showWidget ? (
+                                <>
+                                  <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
+                                  {t('downloading') || 'Downloading...'}
+                                </>
+                              ) : (
+                                <>
+                                  <Icon icon="mdi:download" className="w-5 h-5" />
+                                  {t('download') || 'Download'}
+                                </>
+                              )}
+                            </button>
+                          )}
                           </button>
 
                           {/* Download and Install button - always show, disabled if no device */}
@@ -911,25 +1123,132 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                       
                       {(currentVersion.downloadLinks || [])
                         .filter((l) => l && l.trim())
-                        .map((link, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => openDownloadLink(link, idx)}
-                            disabled={isDownloading}
-                            className="w-full flex items-center justify-between p-3 border border-white/10 rounded-xl hover:bg-[#0081FB]/10 hover:border-[#0081FB]/30 transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-[#0081FB]/20 text-[#0081FB] flex items-center justify-center font-bold text-sm group-hover:bg-[#0081FB] group-hover:text-white transition-colors">
-                                {idx + 1}
+                        .map((link, idx) => {
+                          const partDownloaded = isFileDownloaded(idx)
+                          const fileName = getFileName(idx)
+                          const fileInfo = downloadedFiles[fileName]
+                          
+                          return (
+                            <div
+                              key={idx}
+                              className={`w-full flex items-center justify-between p-3 border rounded-xl transition-colors ${
+                                partDownloaded 
+                                  ? 'border-green-500/30 bg-green-500/5' 
+                                  : 'border-white/10 hover:bg-[#0081FB]/10 hover:border-[#0081FB]/30'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm transition-colors ${
+                                  partDownloaded 
+                                    ? 'bg-green-500/20 text-green-400' 
+                                    : 'bg-[#0081FB]/20 text-[#0081FB]'
+                                }`}>
+                                  {partDownloaded ? (
+                                    <Icon icon="mdi:check" className="w-5 h-5" />
+                                  ) : (
+                                    idx + 1
+                                  )}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-white">Part {idx + 1}</span>
+                                  {partDownloaded && fileInfo?.size && (
+                                    <span className="text-[10px] text-green-400/70">
+                                      {formatBytes(fileInfo.size)} - {t('downloaded') || 'Downloaded'}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                              <span className="font-medium text-white">Part {idx + 1}</span>
+                              <div className="flex items-center gap-2">
+                                {partDownloaded ? (
+                                  <button
+                                    onClick={() => handleDeleteFile(idx)}
+                                    disabled={isDownloading}
+                                    className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
+                                    title={t('delete_file') || 'Delete file'}
+                                  >
+                                    <Icon icon="mdi:delete" className="w-4 h-4" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => openDownloadLink(link, idx)}
+                                    disabled={isDownloading}
+                                    className="p-2 rounded-lg bg-[#0081FB]/20 hover:bg-[#0081FB]/30 text-[#0081FB] transition-colors disabled:opacity-50"
+                                    title={t('download') || 'Download'}
+                                  >
+                                    <Icon icon="mdi:download" className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                            <Icon
-                              icon="mdi:download"
-                              className="w-5 h-5 text-white/40 group-hover:text-[#0081FB]"
-                            />
-                          </button>
-                        ))}
+                          )
+                        })}
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Delete Confirmation Modal */}
+            <AnimatePresence>
+              {confirmDelete && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
+                  onClick={() => setConfirmDelete(null)}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="relative w-full max-w-md rounded-2xl border border-red-500/30 bg-[#111] p-6 shadow-2xl"
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-3 rounded-full bg-red-500/20">
+                        <Icon icon="mdi:delete-alert" className="w-6 h-6 text-red-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-white">
+                        {t('delete_confirm_title') || 'Delete Downloaded File?'}
+                      </h3>
+                    </div>
+                    <p className="text-sm text-white/60">
+                      {confirmDelete.isMultiple 
+                        ? (t('delete_confirm_desc_multiple') || 'You are about to delete the following files:')
+                        : (t('delete_confirm_desc') || 'You are about to delete:')}
+                    </p>
+                    <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                      {confirmDelete.isMultiple ? (
+                        <div className="space-y-1">
+                          {confirmDelete.files.map((file, idx) => (
+                            <p key={idx} className="font-mono text-sm text-white/80 truncate">
+                              {file}
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="font-mono text-sm text-white/80 truncate">
+                          {confirmDelete.fileName}
+                        </p>
+                      )}
+                    </div>
+                    <p className="mt-3 text-xs text-red-400/70">
+                      {t('delete_warning') || 'This action cannot be undone.'}
+                    </p>
+                    <div className="mt-6 flex justify-end gap-2">
+                      <button
+                        onClick={() => setConfirmDelete(null)}
+                        className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white/70 transition-all hover:bg-white/5"
+                      >
+                        {t('cancel') || 'Cancel'}
+                      </button>
+                      <button
+                        onClick={confirmDelete.isMultiple ? handleConfirmDeleteAll : handleConfirmDelete}
+                        className="rounded-lg bg-red-600 hover:bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-red-500/20 transition-all"
+                      >
+                        {t('delete') || 'Delete'}
+                      </button>
                     </div>
                   </motion.div>
                 </motion.div>

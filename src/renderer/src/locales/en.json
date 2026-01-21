@@ -409,5 +409,18 @@
   "network_downloaded_files": "Previously downloaded files",
   "network_retry": "Retry Connection",
   "network_back_online": "Back Online",
-  "network_connection_restored": "Connection restored"
+  "network_connection_restored": "Connection restored",
+  "delete_file": "Delete Downloaded File",
+  "delete_all_files": "Delete All Downloaded Files",
+  "delete_confirm_title": "Delete Downloaded File?",
+  "delete_confirm_desc": "You are about to delete:",
+  "delete_confirm_desc_multiple": "You are about to delete the following files:",
+  "delete_warning": "This action cannot be undone.",
+  "delete": "Delete",
+  "file_deleted": "File deleted:",
+  "delete_failed": "Delete failed:",
+  "files_deleted": "file(s) deleted",
+  "files_failed_delete": "file(s) failed to delete",
+  "downloaded": "Downloaded",
+  "some_parts_downloaded": "Some parts already downloaded"
 }
