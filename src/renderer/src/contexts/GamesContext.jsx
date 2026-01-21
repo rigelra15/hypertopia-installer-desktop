@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react'
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 
 const API_BASE_URL = 'https://api.hypertopia.store'
@@ -15,8 +15,15 @@ export function GamesProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
   
+  // QGO data cache
+  const [qgoLinks, setQgoLinks] = useState([])
+  const [qgoDownloadStats, setQgoDownloadStats] = useState({ total: 0, byVersion: {} })
+  const [qgoLoading, setQgoLoading] = useState(false)
+  const [qgoLastFetch, setQgoLastFetch] = useState(0)
+  
   // Track last fetch time per cache key
   const lastFetchTimeRef = useRef({})
+  const hasPreloaded = useRef(false)
 
   /**
    * Generate a cache key from query parameters
@@ -134,14 +141,118 @@ export function GamesProvider({ children }) {
     return null
   }, [getCacheKey, isCacheValid, gamesCache, paginationCache])
 
+  /**
+   * Fetch QGO links from API
+   */
+  const fetchQgoLinks = useCallback(async (forceRefresh = false) => {
+    // Return cached data if valid
+    if (!forceRefresh && qgoLinks.length > 0 && (Date.now() - qgoLastFetch) < CACHE_TTL_MS) {
+      return { links: qgoLinks, stats: qgoDownloadStats, fromCache: true }
+    }
+
+    setQgoLoading(true)
+
+    try {
+      const [linksResponse, statsResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/v1/qgo`),
+        fetch(`${API_BASE_URL}/api/v1/qgo/download-stats`)
+      ])
+
+      // Parse QGO links
+      let links = []
+      if (linksResponse.ok) {
+        const data = await linksResponse.json()
+        if (Array.isArray(data)) {
+          links = data
+        } else if (Array.isArray(data.linkDownload)) {
+          links = data.linkDownload
+        } else if (Array.isArray(data.downloads)) {
+          links = data.downloads
+        }
+      }
+
+      // Parse download stats
+      let stats = { total: 0, byVersion: {} }
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json()
+        if (statsData.success) {
+          stats = {
+            total: statsData.total || 0,
+            byVersion: statsData.byVersion || {}
+          }
+        }
+      }
+
+      setQgoLinks(links)
+      setQgoDownloadStats(stats)
+      setQgoLastFetch(Date.now())
+
+      return { links, stats, fromCache: false }
+    } catch (err) {
+      console.error('Error fetching QGO:', err)
+      throw err
+    } finally {
+      setQgoLoading(false)
+    }
+  }, [qgoLinks, qgoDownloadStats, qgoLastFetch])
+
+  /**
+   * Preload all data in background when app starts
+   */
+  const preloadData = useCallback(async () => {
+    if (hasPreloaded.current) return
+    hasPreloaded.current = true
+
+    console.log('[GamesContext] Preloading data in background...')
+
+    try {
+      // Fetch first page of games (default params)
+      const gamesPromise = fetchGames({
+        page: 1,
+        limit: 24,
+        sortBy: 'added',
+        sortOrder: 'asc',
+        search: ''
+      }).catch(err => console.warn('[Preload] Games fetch failed:', err))
+
+      // Fetch QGO links
+      const qgoPromise = fetchQgoLinks().catch(err => console.warn('[Preload] QGO fetch failed:', err))
+
+      await Promise.all([gamesPromise, qgoPromise])
+
+      console.log('[GamesContext] Preload complete!')
+    } catch (err) {
+      console.warn('[GamesContext] Preload error:', err)
+    }
+  }, [fetchGames, fetchQgoLinks])
+
+  // Preload data when provider mounts
+  useEffect(() => {
+    // Small delay to not block initial render
+    const timer = setTimeout(() => {
+      preloadData()
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [preloadData])
+
   const value = {
+    // Games
     fetchGames,
     clearCache,
     getCachedGames,
     isLoading,
     error,
-    // Expose cache stats for debugging
-    cacheSize: Object.keys(gamesCache).length
+    cacheSize: Object.keys(gamesCache).length,
+    
+    // QGO
+    qgoLinks,
+    qgoDownloadStats,
+    qgoLoading,
+    fetchQgoLinks,
+    
+    // Preload
+    preloadData
   }
 
   return (

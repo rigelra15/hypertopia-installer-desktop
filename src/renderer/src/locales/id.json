@@ -158,6 +158,7 @@
   "not_supported": "Tidak diketahui",
   "showing": "Menampilkan",
   "of": "dari",
+  "downloads": "unduhan",
   "login_btn": "Masuk",
   "login_google": "Masuk dengan Google",
   "logout_btn": "Keluar",
@@ -388,5 +389,24 @@
   "download_cancelled": "Unduhan Dibatalkan",
   "download_cancelling": "Membatalkan unduhan...",
   "cancel_download": "Batalkan Unduhan",
-  "cancel_download_install": "Batal"
+  "cancel_download_install": "Batal",
+
+  "network_offline": "Tidak Ada Koneksi Internet",
+  "network_api_unreachable": "Server Tidak Dapat Dijangkau",
+  "network_check_connection": "Periksa koneksi internet Anda",
+  "network_server_issue": "Tidak dapat terhubung ke server HyperTopia",
+  "network_status": "Status",
+  "network_connected": "Terhubung",
+  "network_disconnected": "Terputus",
+  "network_affected_features": "Fitur yang terpengaruh:",
+  "network_games_list": "Daftar game",
+  "network_downloads": "Unduhan",
+  "network_login": "Login & akses akun",
+  "network_offline_available": "Masih tersedia offline:",
+  "network_local_install": "Install dari file lokal",
+  "network_app_manager": "Manajer Aplikasi & OBB",
+  "network_downloaded_files": "File yang sudah diunduh",
+  "network_retry": "Coba Hubungkan Lagi",
+  "network_back_online": "Kembali Online",
+  "network_connection_restored": "Koneksi berhasil dipulihkan"
 }

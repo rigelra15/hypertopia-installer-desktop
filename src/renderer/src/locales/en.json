@@ -157,6 +157,7 @@
   "badge_coming_soon": "SOON",
   "not_supported": "Unknown",
   "downloaded": "Downloads",
+  "downloads": "downloads",
   "showing": "Showing",
   "of": "of",
   "login_btn": "Login",
@@ -389,5 +390,24 @@
   "download_cancelled": "Download Cancelled",
   "download_cancelling": "Cancelling download...",
   "cancel_download": "Cancel Download",
-  "cancel_download_install": "Cancel"
+  "cancel_download_install": "Cancel",
+
+  "network_offline": "No Internet Connection",
+  "network_api_unreachable": "Server Unreachable",
+  "network_check_connection": "Please check your internet connection",
+  "network_server_issue": "Unable to reach HyperTopia servers",
+  "network_status": "Status",
+  "network_connected": "Connected",
+  "network_disconnected": "Disconnected",
+  "network_affected_features": "Affected features:",
+  "network_games_list": "Games list loading",
+  "network_downloads": "Downloads",
+  "network_login": "Login & account access",
+  "network_offline_available": "Still available offline:",
+  "network_local_install": "Install from local files",
+  "network_app_manager": "Apps & OBB Manager",
+  "network_downloaded_files": "Previously downloaded files",
+  "network_retry": "Retry Connection",
+  "network_back_online": "Back Online",
+  "network_connection_restored": "Connection restored"
 }
