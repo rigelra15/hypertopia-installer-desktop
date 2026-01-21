@@ -5,9 +5,11 @@ import icon from '../../resources/icon.png?asset'
 import { exec, spawn, execFile } from 'child_process'
 import { autoUpdater } from 'electron-updater'
 
-// Note: Environment variables (REACT_APP_GOOGLE_API_KEY, REACT_APP_GOOGLE_CLIENT_ID)
-// are injected at build time via electron.vite.config.mjs define option.
-// No need to load .env at runtime - values are already embedded in the bundle.
+// Google API credentials - hardcoded fallback for production builds
+// These are injected at build time via define, but we provide fallbacks
+// in case the build system doesn't properly replace them
+const GOOGLE_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY || 'AIzaSyDzR4ZXxVlzCFvh-iMViLoPKLHP9NTv5qY'
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '176112373977-61sguaetet4tu1gdbpolgu6m7dgt5je8.apps.googleusercontent.com'
 
 // Configure auto-updater
 // autoDownload is false by default - user can control via settings
@@ -2146,8 +2148,8 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
       }
 
       return new Promise((resolve, reject) => {
-        // Get API Key from environment variable
-        const apiKey = process.env.REACT_APP_GOOGLE_API_KEY
+        // Use the pre-defined GOOGLE_API_KEY constant (has fallback)
+        const apiKey = GOOGLE_API_KEY
         
         if (!apiKey) {
           reject(new Error('Google Drive API Key not found. Please set REACT_APP_GOOGLE_API_KEY in .env file'))
@@ -2517,8 +2519,8 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
           reject(new Error('Invalid Google Drive URL'))
           return
         }
-
-        const apiKey = process.env.REACT_APP_GOOGLE_API_KEY
+        // Use the pre-defined GOOGLE_API_KEY constant (has fallback)
+        const apiKey = GOOGLE_API_KEY
         if (!apiKey) {
           reject(new Error('Google Drive API Key not found'))
           return
@@ -2916,8 +2918,8 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
           reject(new Error('Invalid Google Drive URL'))
           return
         }
-
-        const apiKey = process.env.REACT_APP_GOOGLE_API_KEY
+        // Use the pre-defined GOOGLE_API_KEY constant (has fallback)
+        const apiKey = GOOGLE_API_KEY
         if (!apiKey) {
           reject(new Error('Google Drive API Key not found'))
           return
