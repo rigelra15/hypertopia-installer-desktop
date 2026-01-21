@@ -5,7 +5,7 @@ const NetworkContext = createContext(null)
 
 // API endpoint to check connectivity
 const CONNECTIVITY_CHECK_URL = 'https://api.hypertopia.store/api/v1/health'
-const CHECK_INTERVAL = 30000 // Check every 30 seconds
+const PING_INTERVAL = 10000 // Ping every 10 seconds for latency display (like mobile games)
 const RETRY_INTERVAL = 5000 // Retry every 5 seconds when offline
 
 export function NetworkProvider({ children }) {
@@ -149,9 +149,9 @@ export function NetworkProvider({ children }) {
     }
   }, [handleOnline, handleOffline, updateConnectionType, checkApiConnectivity])
 
-  // Periodic connectivity check
+  // Periodic connectivity/ping check - runs continuously like mobile game network indicators
   useEffect(() => {
-    const interval = isOnline && isApiReachable ? CHECK_INTERVAL : RETRY_INTERVAL
+    const interval = isOnline && isApiReachable ? PING_INTERVAL : RETRY_INTERVAL
 
     checkIntervalRef.current = setInterval(() => {
       checkApiConnectivity()
