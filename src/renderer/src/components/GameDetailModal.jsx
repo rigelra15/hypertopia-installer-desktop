@@ -11,6 +11,9 @@ import coverImages from '../utils/coverImages'
 // Firebase Database URL (same as website for game data)
 const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
 
+// HyperTopia API URL
+const API_BASE_URL = 'https://api.hypertopia.store'
+
 // Helper function to compare versions (from highest to lowest)
 const compareVersions = (versionA, versionB) => {
   const parseVersion = (version) => {
@@ -538,6 +541,33 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     }
   }
 
+  // Update standalone game file size to API (only if not already set)
+  const updateStandaloneFileSize = async (identifier, fileSize) => {
+    if (!identifier || !fileSize || fileSize <= 0) return
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/game-size`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'standalone',
+          identifier: identifier,
+          fileSize: fileSize
+        })
+      })
+      
+      if (response.ok) {
+        console.log(`[GameDetailModal] File size updated for ${identifier}: ${fileSize} bytes`)
+      } else {
+        console.warn('[GameDetailModal] Failed to update file size:', await response.text())
+      }
+    } catch (error) {
+      console.error('[GameDetailModal] Error updating file size:', error)
+    }
+  }
+
   // Download file in-app using global context (supports Google Drive and Dropbox)
   const downloadInApp = async (url, partIndex = null) => {
     const currentVer = getCurrentVersion()
@@ -558,6 +588,10 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
 
     if (result.success) {
       setShowDownloadModal(false)
+      // Update file size to database (only if not already set)
+      if (downloadInfo.totalBytes > 0) {
+        await updateStandaloneFileSize(gameTitle, downloadInfo.totalBytes)
+      }
       // Only show toast if widget is NOT visible (to avoid duplicate notification)
       // Widget already shows completion status with game info
       if (!showWidget) {

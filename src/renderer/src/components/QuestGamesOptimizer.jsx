@@ -341,6 +341,36 @@ export function QuestGamesOptimizer({ selectedDevice }) {
     }
   }
 
+  // Update QGO file size via API (only if not already set)
+  const updateQgoFileSize = async (version, fileSize) => {
+    if (!version || !fileSize || fileSize <= 0) return
+    
+    try {
+      console.log('[QGO] Updating file size for version:', version, 'size:', fileSize)
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/game-size`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          type: 'qgo',
+          identifier: version,
+          fileSize 
+        })
+      })
+      
+      const result = await response.json()
+      
+      if (response.ok && result.success) {
+        console.log('[QGO] File size update result:', result)
+      } else {
+        console.error('[QGO] Failed to update file size:', result)
+      }
+    } catch (error) {
+      console.error('[QGO] Failed to update file size:', error)
+      // Don't show error to user - file size update is non-critical
+    }
+  }
+
   const handleDownload = (item) => {
     setConfirmDownload(item)
   }
@@ -368,6 +398,10 @@ export function QuestGamesOptimizer({ selectedDevice }) {
       }))
       // Update download count to Firebase
       await updateQgoDownloadCount(version)
+      // Update file size to database (only if not already set)
+      if (downloadInfo.totalBytes > 0) {
+        await updateQgoFileSize(version, downloadInfo.totalBytes)
+      }
       // Refresh download stats to show updated count
       await handleRefresh()
       // Toast notification is handled by the download complete notification
