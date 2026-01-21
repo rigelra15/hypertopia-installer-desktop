@@ -13,6 +13,12 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
   const [hasScannedOnce, setHasScannedOnce] = useState(false)
   const authHelpDismissed = useRef(false)
   const dropdownRef = useRef(null)
+  
+  // Store onSelect in ref to avoid dependency issues in useCallback
+  const onSelectRef = useRef(onSelect)
+  useEffect(() => {
+    onSelectRef.current = onSelect
+  }, [onSelect])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -68,16 +74,16 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
       }
       // Note: We no longer auto-close the modal. The user must click "Mengerti" button.
 
-      // Auto-select logic
+      // Auto-select logic - use ref to avoid dependency issues
       if (!selectedSerial && result.length > 0) {
         // Select first available (prefer authorized)
         const valid = result.find((d) => d.state === 'device') || result[0]
-        onSelect(valid.serial)
+        onSelectRef.current?.(valid.serial)
       } else if (selectedSerial && !result.find((d) => d.serial === selectedSerial)) {
         // Verify selected still exists, if not, reset or select new
         const valid =
           result.length > 0 ? result.find((d) => d.state === 'device') || result[0] : null
-        onSelect(valid ? valid.serial : null)
+        onSelectRef.current?.(valid ? valid.serial : null)
       }
     } catch (err) {
       console.error('Failed to list devices', err)
@@ -85,7 +91,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
       setIsLoading(false)
       setHasScannedOnce(true)
     }
-  }, [selectedSerial, onSelect])
+  }, [selectedSerial]) // Remove onSelect from dependencies, use ref instead
 
   useEffect(() => {
     fetchDevices()
@@ -99,7 +105,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
   }
 
   const handleSelectDevice = (serial) => {
-    onSelect(serial)
+    onSelectRef.current?.(serial)
     setIsOpen(false)
   }
 
