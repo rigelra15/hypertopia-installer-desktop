@@ -8,6 +8,9 @@ import { useDownload } from '../contexts/DownloadContext'
 import { useToast } from '../hooks/useToast'
 import coverImages from '../utils/coverImages'
 
+// Firebase Database URL (same as website for game data)
+const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
+
 // Helper function to compare versions (from highest to lowest)
 const compareVersions = (versionA, versionB) => {
   const parseVersion = (version) => {
@@ -67,10 +70,10 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     startDownload, 
     showWidget, 
     showDownloadWidget,
+    cancelDownload,
     // Install context
     startInstall: startInstallWidget,
-    isInstalling: isWidgetInstalling,
-    installComplete: isWidgetComplete
+    cancelInstall
   } = useDownload()
   const toast = useToast()
   const isEligible = accessTypes.includes('standalone')
@@ -97,12 +100,16 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   const [confirmInstall, setConfirmInstall] = useState(null) // For install confirmation modal
   const [showInstallModal, setShowInstallModal] = useState(false) // For install progress modal
   
-  // Safely extract game properties with fallbacks
+  // Safely extract game properties with fallbacks (must be before state that uses them)
   const gameTitle = game?.gameTitle || game?.name || game?.id?.replace(/!/g, '') || 'Unknown Game'
   const gameStatus = game?.gameStatus || ''
   const isSupportedV76 = game?.isSupportedV76 || false
   const versions = Array.isArray(game?.versions) ? game.versions.filter((v) => v !== null) : []
   const gameVersion = game?.version || game?.gameVersion || 'v1.0'
+  
+  // Local download count state for UI updates
+  const [localDownloadCount, setLocalDownloadCount] = useState(game?.downloadCount || 0)
+  const [localVersions, setLocalVersions] = useState(versions)
 
   // Fetch cover image
   useEffect(() => {
@@ -146,6 +153,9 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     setShowDownloadParts(false)
     setIsInstalling(false)
     setShowInstallModal(false)
+    // Sync local download count with game data
+    setLocalDownloadCount(game?.downloadCount || 0)
+    setLocalVersions(versions)
   }, [game])
 
   // Listen for install progress events
@@ -204,23 +214,107 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
 
   // Get current version data
   const getCurrentVersion = () => {
-    if (versions.length > 0) {
-      return versions[selectedVersion] || versions[0]
+    if (localVersions && localVersions.length > 0) {
+      return localVersions[selectedVersion] || localVersions[0]
     }
     return {
       version: gameVersion,
       downloadLinks: game.linkDownload ? [game.linkDownload] : [],
       isSupportedV76: isSupportedV76,
-      downloadCount: game.downloadCount || 0
+      downloadCount: localDownloadCount || 0
     }
   }
 
   // Get total download count
   const getTotalDownloadCount = () => {
-    if (versions.length > 0) {
-      return versions.reduce((total, version) => total + (version?.downloadCount || 0), 0)
+    if (localVersions && localVersions.length > 0) {
+      return localVersions.reduce((total, version) => total + (version?.downloadCount || 0), 0)
     }
-    return game.downloadCount || 0
+    return localDownloadCount || 0
+  }
+
+  // Update download count to Firebase (same as website)
+  const updateDownloadCount = async (partIndex = null) => {
+    try {
+      let versionText = ''
+      
+      if (localVersions && localVersions.length > 0) {
+        // Update version-specific download count
+        const currentVersionDownloadCount = localVersions[selectedVersion]?.downloadCount || 0
+        const updatedVersionCount = currentVersionDownloadCount + 1
+        
+        // Update local state
+        const updatedVersions = [...localVersions]
+        updatedVersions[selectedVersion] = {
+          ...updatedVersions[selectedVersion],
+          downloadCount: updatedVersionCount
+        }
+        setLocalVersions(updatedVersions)
+        
+        // Update Firebase - version specific count
+        await fetch(
+          `${FIREBASE_DB_URL}/vrGames/standalone/${gameTitle}/versions/${selectedVersion}/downloadCount.json`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedVersionCount)
+          }
+        )
+        
+        // Update Firebase - total download count
+        const totalDownloadCount = getTotalDownloadCount() + 1
+        await fetch(
+          `${FIREBASE_DB_URL}/vrGames/standalone/${gameTitle}/downloadCount.json`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(totalDownloadCount)
+          }
+        )
+        
+        versionText = localVersions[selectedVersion]?.version || gameVersion
+      } else {
+        // Single version - just update total count
+        const updatedCount = localDownloadCount + 1
+        setLocalDownloadCount(updatedCount)
+        
+        await fetch(
+          `${FIREBASE_DB_URL}/vrGames/standalone/${gameTitle}/downloadCount.json`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedCount)
+          }
+        )
+        
+        versionText = gameVersion || 'v1.0'
+      }
+      
+      // Record download history for user
+      if (user) {
+        const historyEntry = {
+          gameTitle: gameTitle,
+          version: versionText,
+          downloadDate: new Date().toISOString(),
+          source: 'installer', // Mark as downloaded from installer
+          ...(partIndex !== null && { partNumber: partIndex + 1 })
+        }
+        
+        await fetch(
+          `${FIREBASE_DB_URL}/usersData/downloadHistory/${user.uid}/standalone.json`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(historyEntry)
+          }
+        )
+      }
+      
+      console.log('[GameDetailModal] Download count updated successfully')
+    } catch (error) {
+      console.error('[GameDetailModal] Failed to update download count:', error)
+      // Don't show error to user - download count update is non-critical
+    }
   }
 
   // Get supported Quest devices
@@ -296,6 +390,9 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     fileName += '.zip'
 
     setShowDownloadModal(true)
+    
+    // Update download count when download starts
+    await updateDownloadCount(partIndex)
 
     const result = await startDownload(url, fileName, gameTitle)
 
@@ -407,6 +504,9 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     startInstallWidget(gameTitle)
 
     try {
+      // Update download count when install starts
+      await updateDownloadCount()
+      
       // Use downloadAndInstallArchive for ZIP/RAR files (handles APK + OBB)
       const result = await window.api.downloadAndInstallArchive(
         confirmInstall.link,
@@ -795,6 +895,17 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                               <span className="ml-2 text-sm text-white/60">{t('qgo_preparing') || 'Preparing...'}</span>
                             </div>
                           )}
+                          {/* Cancel Download Button */}
+                          <button
+                            onClick={async () => {
+                              await cancelDownload()
+                              toast.info(t('download_cancelled') || 'Download Cancelled')
+                            }}
+                            className="mt-3 w-full py-2 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                          >
+                            <Icon icon="mdi:close-circle" className="w-4 h-4" />
+                            {t('cancel_download') || 'Cancel Download'}
+                          </button>
                         </div>
                       )}
                       
@@ -1088,6 +1199,22 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                             {formatBytes(installProgress.downloadedBytes)} / {formatBytes(installProgress.totalBytes)}
                           </span>
                         </div>
+                      )}
+                      
+                      {/* Cancel Install Button - only during download phase */}
+                      {installProgress.step === 'DOWNLOADING' && (
+                        <button
+                          onClick={async () => {
+                            await cancelInstall()
+                            setIsInstalling(false)
+                            setShowInstallModal(false)
+                            toast.info(t('download_cancelled') || 'Download Cancelled')
+                          }}
+                          className="mt-3 w-full py-2 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Icon icon="mdi:close-circle" className="w-4 h-4" />
+                          {t('cancel_download_install') || 'Cancel Download & Install'}
+                        </button>
                       )}
                     </div>
 
