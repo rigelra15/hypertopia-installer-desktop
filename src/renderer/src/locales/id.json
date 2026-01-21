@@ -408,5 +408,18 @@
   "network_downloaded_files": "File yang sudah diunduh",
   "network_retry": "Coba Hubungkan Lagi",
   "network_back_online": "Kembali Online",
-  "network_connection_restored": "Koneksi berhasil dipulihkan"
+  "network_connection_restored": "Koneksi berhasil dipulihkan",
+  "delete_file": "Hapus File",
+  "delete_all_files": "Hapus Semua File",
+  "delete_confirm_title": "Hapus File yang Diunduh?",
+  "delete_confirm_desc": "Kamu akan menghapus file:",
+  "delete_confirm_desc_multiple": "Kamu akan menghapus file-file berikut:",
+  "delete_warning": "Tindakan ini tidak dapat dibatalkan.",
+  "delete": "Hapus",
+  "file_deleted": "File dihapus:",
+  "delete_failed": "Gagal menghapus:",
+  "files_deleted": "file berhasil dihapus",
+  "files_failed_delete": "file gagal dihapus",
+  "downloaded": "Terunduh",
+  "some_parts_downloaded": "Beberapa part sudah terunduh"
 }
