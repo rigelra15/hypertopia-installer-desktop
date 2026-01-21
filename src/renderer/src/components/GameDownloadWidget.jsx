@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -19,10 +19,41 @@ export default function GameDownloadWidget({
   totalBytes,
   status,
   isComplete,
-  onClose
+  onClose,
+  onCancel
 }) {
   const { t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(true)
+  const [autoCloseCountdown, setAutoCloseCountdown] = useState(null)
+  
+  // Store onClose in ref to avoid dependency issues
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  // Auto-close after 5 seconds when download completes
+  useEffect(() => {
+    if (isComplete && isVisible) {
+      // Start countdown
+      setAutoCloseCountdown(5)
+      
+      const interval = setInterval(() => {
+        setAutoCloseCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval)
+            onCloseRef.current?.()
+            return null
+          }
+          return prev - 1
+        })
+      }, 1000)
+
+      return () => clearInterval(interval)
+    } else {
+      setAutoCloseCountdown(null)
+    }
+  }, [isComplete, isVisible])
 
   // Format file size
   const formatSize = (bytes) => {
@@ -117,6 +148,19 @@ export default function GameDownloadWidget({
               </div>
             </div>
             <div className="flex items-center gap-1">
+              {/* Cancel button - show when downloading */}
+              {!isComplete && status === 'downloading' && onCancel && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onCancel?.()
+                  }}
+                  className="p-1 rounded-lg hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
+                  title={t('cancel_download') || 'Cancel download'}
+                >
+                  <Icon icon="mdi:close-circle" className="h-5 w-5" />
+                </button>
+              )}
               {isComplete && (
                 <button
                   onClick={(e) => {
@@ -128,10 +172,13 @@ export default function GameDownloadWidget({
                   <Icon icon="mdi:close" className="h-4 w-4" />
                 </button>
               )}
-              <Icon
-                icon="mdi:chevron-down"
-                className={`h-5 w-5 text-white/50 transition-transform ${isExpanded ? '' : 'rotate-180'}`}
-              />
+              {/* Only show chevron when not complete */}
+              {!isComplete && (
+                <Icon
+                  icon="mdi:chevron-down"
+                  className={`h-5 w-5 text-white/50 transition-transform ${isExpanded ? '' : 'rotate-180'}`}
+                />
+              )}
             </div>
           </div>
 
@@ -205,7 +252,9 @@ export default function GameDownloadWidget({
                         onClick={() => onClose?.()}
                         className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 text-sm font-medium transition-colors"
                       >
-                        {t('close') || 'Close'}
+                        {autoCloseCountdown
+                          ? `${t('close') || 'Tutup'} (${autoCloseCountdown})`
+                          : t('close') || 'Tutup'}
                       </button>
                     </div>
                   )}
@@ -237,5 +286,6 @@ GameDownloadWidget.propTypes = {
   totalBytes: PropTypes.number,
   status: PropTypes.string,
   isComplete: PropTypes.bool,
-  onClose: PropTypes.func
+  onClose: PropTypes.func,
+  onCancel: PropTypes.func
 }
