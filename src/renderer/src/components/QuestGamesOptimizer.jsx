@@ -14,7 +14,7 @@ const API_BASE_URL = 'https://api.hypertopia.store'
 export function QuestGamesOptimizer({ selectedDevice }) {
   const { t } = useLanguage()
   const { user, accessTypes } = useAuth()
-  const { isDownloading, downloadInfo, startDownload, showWidget, showDownloadWidget } = useDownload()
+  const { isDownloading, downloadInfo, startDownload, showWidget, showDownloadWidget, cancelDownload } = useDownload()
   const { qgoLinks: cachedQgoLinks, qgoDownloadStats: cachedQgoStats, qgoLoading, fetchQgoLinks } = useGames()
   const toast = useToast()
 
@@ -1092,6 +1092,19 @@ export function QuestGamesOptimizer({ selectedDevice }) {
             <p className="mt-4 text-center text-xs text-white/40">
               {t('download_minimize_hint') || 'Click the arrow to minimize and continue in background'}
             </p>
+
+            {/* Cancel Download Button */}
+            <button
+              onClick={async () => {
+                await cancelDownload()
+                setShowDownloadModal(false)
+                toast.info(t('download_cancelled') || 'Download Cancelled')
+              }}
+              className="mt-3 w-full py-2 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <Icon icon="mdi:close-circle" className="w-4 h-4" />
+              {t('cancel_download') || 'Cancel Download'}
+            </button>
           </motion.div>
         </motion.div>
         )}

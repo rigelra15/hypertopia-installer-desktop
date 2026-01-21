@@ -200,7 +200,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     }
     
     checkDownloaded()
-  }, [isOpen, game, gameTitle, selectedVersion, localVersions, gameVersion, downloadComplete])
+  }, [isOpen, game, gameTitle, selectedVersion, gameVersion, downloadComplete])
 
   // Listen for install progress events
   useEffect(() => {
@@ -947,7 +947,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                             // Single file already downloaded - show delete button
                             <button
                               onClick={() => handleDeleteFile(null)}
-                              disabled={isDownloading || showWidget || isInstalling}
+                              disabled={isDownloading || (showWidget && !downloadComplete) || isInstalling}
                               className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-red-500/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
                             >
                               <Icon icon="mdi:delete" className="w-5 h-5" />
@@ -959,7 +959,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                               // All parts downloaded - show delete all button
                               <button
                                 onClick={handleDeleteAllParts}
-                                disabled={isDownloading || showWidget || isInstalling}
+                                disabled={isDownloading || isInstalling}
                                 className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-red-500/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
                               >
                                 <Icon icon="mdi:delete-sweep" className="w-5 h-5" />
@@ -969,10 +969,10 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                               // Some or no parts downloaded - show download with indicator
                               <button
                                 onClick={handleDownload}
-                                disabled={!currentVersion.downloadLinks?.length || isDownloading || showWidget || isInstalling}
+                                disabled={!currentVersion.downloadLinks?.length || isDownloading || isInstalling}
                                 className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-1"
                               >
-                                {isDownloading || showWidget ? (
+                                {isDownloading ? (
                                   <div className="flex items-center gap-2">
                                     <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
                                     {t('downloading') || 'Downloading...'}
@@ -996,10 +996,10 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                             // Single file not downloaded - show download button
                             <button
                               onClick={handleDownload}
-                              disabled={!currentVersion.downloadLinks?.length || isDownloading || showWidget || isInstalling}
+                              disabled={!currentVersion.downloadLinks?.length || isDownloading || isInstalling}
                               className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
                             >
-                              {isDownloading || showWidget ? (
+                              {isDownloading ? (
                                 <>
                                   <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
                                   {t('downloading') || 'Downloading...'}
@@ -1017,7 +1017,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                           {currentVersion.downloadLinks?.length === 1 && (
                             <button
                               onClick={handleDownloadAndInstall}
-                              disabled={!connectedDevice || !currentVersion.downloadLinks?.length || isDownloading || showWidget || isInstalling}
+                              disabled={!connectedDevice || !currentVersion.downloadLinks?.length || isDownloading || isInstalling}
                               className="w-full py-3.5 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 disabled:from-white/10 disabled:to-white/10 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-green-500/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-0.5"
                             >
                               {isInstalling ? (
@@ -1379,22 +1379,22 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                     {downloadInfo.status === 'downloading' && downloadInfo.totalBytes > 0 ? (
                       <div className="mt-4">
                         {(() => {
-                          // Calculate progress from bytes for accuracy
-                          const calculatedProgress = downloadInfo.totalBytes > 0 
-                            ? Math.min(100, Math.max(0, (downloadInfo.downloadedBytes / downloadInfo.totalBytes) * 100))
-                            : 0
+                          // Use progress from context directly (already calculated by main process)
+                          const progressPercent = downloadInfo.progress || 0
                           return (
                             <>
                               <div className="mb-2 flex items-center justify-between text-xs text-white/50">
                                 <span>
                                   {formatBytes(downloadInfo.downloadedBytes)} / {formatBytes(downloadInfo.totalBytes)}
                                 </span>
-                                <span>{Math.round(calculatedProgress)}%</span>
+                                <span>{Math.round(progressPercent)}%</span>
                               </div>
                               <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                                <div
-                                  className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
-                                  style={{ width: `${calculatedProgress}%` }}
+                                <motion.div
+                                  className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF]"
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${progressPercent}%` }}
+                                  transition={{ duration: 0.3 }}
                                 />
                               </div>
                             </>
@@ -1433,6 +1433,19 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                     <p className="mt-4 text-center text-xs text-white/40">
                       {t('download_minimize_hint') || 'Click the arrow to minimize and continue in background'}
                     </p>
+
+                    {/* Cancel Download Button */}
+                    <button
+                      onClick={async () => {
+                        await cancelDownload()
+                        setShowDownloadModal(false)
+                        toast.info(t('download_cancelled') || 'Download Cancelled')
+                      }}
+                      className="mt-3 w-full py-2 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Icon icon="mdi:close-circle" className="w-4 h-4" />
+                      {t('cancel_download') || 'Cancel Download'}
+                    </button>
                   </motion.div>
                 </motion.div>
               )}
