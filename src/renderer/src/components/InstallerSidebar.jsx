@@ -12,6 +12,7 @@ import PropTypes from 'prop-types'
 /**
  * Network Status Indicator Component
  * Shows WiFi icon with signal strength, color, and latency
+ * Auto-updates every 10 seconds like mobile game network indicators
  */
 function NetworkIndicator({ compact = false }) {
   const { isConnected, isOnline, latency, getSignalStrength, retryConnection } = useNetwork()
@@ -47,7 +48,9 @@ function NetworkIndicator({ compact = false }) {
     return 'text-orange-400'
   }
   
+  // Manual retry only when offline
   const handleRetry = async () => {
+    if (isConnected) return // Don't need manual retry when connected
     setIsRetrying(true)
     await retryConnection()
     setTimeout(() => setIsRetrying(false), 500)
@@ -55,35 +58,39 @@ function NetworkIndicator({ compact = false }) {
   
   if (compact) {
     return (
-      <button
-        onClick={handleRetry}
-        disabled={isRetrying}
-        className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-all hover:bg-white/5 ${getColor()}`}
-        title={isConnected ? `${latency}ms` : 'Offline - Click to retry'}
+      <div
+        onClick={!isConnected ? handleRetry : undefined}
+        className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-all ${
+          !isConnected ? 'cursor-pointer hover:bg-white/5' : ''
+        } ${getColor()}`}
+        title={isConnected ? `Ping: ${latency}ms (auto-refresh)` : 'Offline - Click to retry'}
       >
         <Icon 
           icon={isRetrying ? 'svg-spinners:ring-resize' : getWifiIcon()} 
           className="h-4 w-4" 
         />
-        {latency !== null && isConnected && (
+        {isConnected ? (
           <span className={`text-[8px] font-mono ${getLatencyColor()}`}>
-            {latency}ms
+            {latency || '...'}ms
+          </span>
+        ) : (
+          <span className="text-[8px] font-mono text-red-400">
+            !
           </span>
         )}
-      </button>
+      </div>
     )
   }
   
   return (
-    <button
-      onClick={handleRetry}
-      disabled={isRetrying}
+    <div
+      onClick={!isConnected ? handleRetry : undefined}
       className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border transition-all ${
         isConnected 
-          ? 'border-white/10 bg-white/5 hover:bg-white/10' 
-          : 'border-red-500/30 bg-red-500/10 hover:bg-red-500/20'
+          ? 'border-white/10 bg-white/5' 
+          : 'border-red-500/30 bg-red-500/10 cursor-pointer hover:bg-red-500/20'
       }`}
-      title={isConnected ? `Latency: ${latency}ms - Click to refresh` : 'Offline - Click to retry'}
+      title={isConnected ? `Ping: ${latency}ms (auto-refresh every 10s)` : 'Offline - Click to retry'}
     >
       <Icon 
         icon={isRetrying ? 'svg-spinners:ring-resize' : getWifiIcon()} 
@@ -92,7 +99,7 @@ function NetworkIndicator({ compact = false }) {
       <span className={`text-[10px] font-mono ${getLatencyColor()}`}>
         {!isOnline ? 'Offline' : !isConnected ? 'No API' : `${latency || '...'}ms`}
       </span>
-    </button>
+    </div>
   )
 }
 
