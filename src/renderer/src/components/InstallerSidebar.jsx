@@ -1,12 +1,100 @@
 import { useState, useRef, useEffect } from 'react'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useNetwork } from '../contexts/NetworkContext'
 import { DeviceSelector } from './DeviceSelector'
 import { ErrorModal } from './ErrorModal'
 import { SettingsModal } from './SettingsModal'
 import UpdateNotification from './UpdateNotification'
 import BrowseMethodModal from './BrowseMethodModal'
 import PropTypes from 'prop-types'
+
+/**
+ * Network Status Indicator Component
+ * Shows WiFi icon with signal strength, color, and latency
+ */
+function NetworkIndicator({ compact = false }) {
+  const { isConnected, isOnline, latency, getSignalStrength, retryConnection } = useNetwork()
+  const [isRetrying, setIsRetrying] = useState(false)
+  
+  const signalStrength = getSignalStrength()
+  
+  // Get icon based on signal strength
+  const getWifiIcon = () => {
+    if (!isOnline) return 'bx:wifi-off'
+    if (!isConnected) return 'bx:wifi-0'
+    if (signalStrength === 1) return 'bx:wifi-1'
+    if (signalStrength === 2) return 'bx:wifi-2'
+    return 'bx:wifi' // 3-4 = full signal
+  }
+  
+  // Get color based on status
+  const getColor = () => {
+    if (!isOnline) return 'text-red-500'
+    if (!isConnected) return 'text-orange-500'
+    if (signalStrength === 1) return 'text-orange-400'
+    if (signalStrength === 2) return 'text-yellow-400'
+    if (signalStrength === 3) return 'text-green-400'
+    return 'text-green-500' // Excellent
+  }
+  
+  // Get latency color
+  const getLatencyColor = () => {
+    if (!latency) return 'text-white/30'
+    if (latency < 100) return 'text-green-400'
+    if (latency < 200) return 'text-green-300'
+    if (latency < 500) return 'text-yellow-400'
+    return 'text-orange-400'
+  }
+  
+  const handleRetry = async () => {
+    setIsRetrying(true)
+    await retryConnection()
+    setTimeout(() => setIsRetrying(false), 500)
+  }
+  
+  if (compact) {
+    return (
+      <button
+        onClick={handleRetry}
+        disabled={isRetrying}
+        className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-all hover:bg-white/5 ${getColor()}`}
+        title={isConnected ? `${latency}ms` : 'Offline - Click to retry'}
+      >
+        <Icon 
+          icon={isRetrying ? 'svg-spinners:ring-resize' : getWifiIcon()} 
+          className="h-4 w-4" 
+        />
+        {latency !== null && isConnected && (
+          <span className={`text-[8px] font-mono ${getLatencyColor()}`}>
+            {latency}ms
+          </span>
+        )}
+      </button>
+    )
+  }
+  
+  return (
+    <button
+      onClick={handleRetry}
+      disabled={isRetrying}
+      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border transition-all ${
+        isConnected 
+          ? 'border-white/10 bg-white/5 hover:bg-white/10' 
+          : 'border-red-500/30 bg-red-500/10 hover:bg-red-500/20'
+      }`}
+      title={isConnected ? `Latency: ${latency}ms - Click to refresh` : 'Offline - Click to retry'}
+    >
+      <Icon 
+        icon={isRetrying ? 'svg-spinners:ring-resize' : getWifiIcon()} 
+        className={`h-4 w-4 ${getColor()}`} 
+      />
+      <span className={`text-[10px] font-mono ${getLatencyColor()}`}>
+        {!isOnline ? 'Offline' : !isConnected ? 'No API' : `${latency || '...'}ms`}
+      </span>
+    </button>
+  )
+}
 
 export function InstallerSidebar({
   selectedDevice,
@@ -366,6 +454,9 @@ export function InstallerSidebar({
               </svg>
             </div>
 
+            {/* Network Status Indicator - Compact */}
+            <NetworkIndicator compact />
+
             {/* Status Indicator */}
             {file && (
               <div className="rounded-full bg-green-500/20 p-1">
@@ -446,6 +537,9 @@ export function InstallerSidebar({
               )}
             </div>
             <div className="flex items-start gap-2 flex-none">
+              {/* Network Status Indicator */}
+              <NetworkIndicator />
+              
               <button
                 onClick={handleOpenSettings}
                 className="relative rounded-lg bg-white/5 border border-white/10 p-1.5 text-white/50 hover:text-white hover:bg-white/10 transition-all"
