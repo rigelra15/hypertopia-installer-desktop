@@ -9,6 +9,7 @@ import { LanguageProvider } from './contexts/LanguageContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { GamesProvider } from './contexts/GamesContext'
 import { DownloadProvider } from './contexts/DownloadContext'
+import { NetworkProvider } from './contexts/NetworkContext'
 
 import { ToastProvider } from './components/Toast'
 
@@ -16,15 +17,17 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider>
       <LanguageProvider>
-        <AuthProvider>
-          <GamesProvider>
-            <DownloadProvider>
-              <ToastProvider>
-                <App />
-              </ToastProvider>
-            </DownloadProvider>
-          </GamesProvider>
-        </AuthProvider>
+        <NetworkProvider>
+          <AuthProvider>
+            <GamesProvider>
+              <DownloadProvider>
+                <ToastProvider>
+                  <App />
+                </ToastProvider>
+              </DownloadProvider>
+            </GamesProvider>
+          </AuthProvider>
+        </NetworkProvider>
       </LanguageProvider>
     </ThemeProvider>
   </StrictMode>

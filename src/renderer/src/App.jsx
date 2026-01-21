@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react'
 import { useLanguage } from './contexts/LanguageContext'
 import { useToast } from './hooks/useToast'
 import { useDownload } from './contexts/DownloadContext'
+import { useNetwork } from './contexts/NetworkContext'
 import { InstallerSidebar } from './components/InstallerSidebar'
 import { DeviceManager } from './components/DeviceManager'
 import { StandaloneGames } from './components/StandaloneGames'
@@ -14,6 +15,7 @@ import { UserMenu } from './components/UserMenu'
 import LiveAssistNotification from './components/LiveAssistNotification'
 import GameDownloadWidget from './components/GameDownloadWidget'
 import GameInstallWidget from './components/GameInstallWidget'
+import NetworkStatusWidget from './components/NetworkStatusWidget'
 import { useAuth } from './contexts/AuthContext'
 
 function App() {
@@ -270,6 +272,9 @@ function App() {
         isComplete={installComplete}
         onClose={closeInstallWidget}
       />
+
+      {/* Network Status Widget - Shows when offline or API unreachable */}
+      <NetworkStatusWidget />
     </>
   )
 }

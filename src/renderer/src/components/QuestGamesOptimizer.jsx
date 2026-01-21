@@ -1,18 +1,21 @@
 import { useState, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useDownload } from '../contexts/DownloadContext'
+import { useGames } from '../contexts/GamesContext'
 import { useToast } from '../hooks/useToast'
 import PropTypes from 'prop-types'
+import QGOLogo from '../assets/images/qgo-logo.png'
 
 const API_BASE_URL = 'https://api.hypertopia.store'
-const FIREBASE_DB_URL = 'https://vrquest-id-default-rtdb.asia-southeast1.firebasedatabase.app'
 
 export function QuestGamesOptimizer({ selectedDevice }) {
   const { t } = useLanguage()
   const { user, accessTypes } = useAuth()
   const { isDownloading, downloadInfo, startDownload, showWidget, showDownloadWidget } = useDownload()
+  const { qgoLinks: cachedQgoLinks, qgoDownloadStats: cachedQgoStats, qgoLoading, fetchQgoLinks } = useGames()
   const toast = useToast()
 
   // Check if user has QGO access
@@ -45,6 +48,13 @@ export function QuestGamesOptimizer({ selectedDevice }) {
     totalBytes: 0,
     speed: 0
   })
+
+  // Auto-close download modal when download actually starts (status changes to 'downloading')
+  useEffect(() => {
+    if (showDownloadModal && downloadInfo.status === 'downloading') {
+      setShowDownloadModal(false)
+    }
+  }, [downloadInfo.status, showDownloadModal])
 
   // Download stats from Firebase
   const [downloadStats, setDownloadStats] = useState({
@@ -84,63 +94,56 @@ export function QuestGamesOptimizer({ selectedDevice }) {
     return 0
   }
 
-  // Fetch QGO links from API
-  const fetchQgoLinks = useCallback(async () => {
+  // Use cached data from GamesContext, or fetch if needed
+  useEffect(() => {
+    if (cachedQgoLinks.length > 0) {
+      setQgoLinks(cachedQgoLinks)
+      setDownloadStats(cachedQgoStats)
+      setIsLoading(false)
+    } else if (!qgoLoading) {
+      // Fetch if not already loading and no cached data
+      setIsLoading(true)
+      fetchQgoLinks().then(result => {
+        if (result) {
+          setQgoLinks(result.links || [])
+          setDownloadStats(result.stats || { total: 0, byVersion: {} })
+        }
+        setIsLoading(false)
+      }).catch(err => {
+        console.error('Error fetching QGO:', err)
+        setError(err.message)
+        setIsLoading(false)
+      })
+    }
+  }, [cachedQgoLinks, cachedQgoStats, qgoLoading, fetchQgoLinks])
+
+  // Sync loading state with context
+  useEffect(() => {
+    if (qgoLoading && qgoLinks.length === 0) {
+      setIsLoading(true)
+    }
+  }, [qgoLoading, qgoLinks.length])
+
+  // Refresh QGO data (manual refresh button)
+  const handleRefresh = useCallback(async () => {
     setIsLoading(true)
     setError(null)
-
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/qgo`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch QGO links')
-      }
-
-      const data = await response.json()
-
-      // Data is array of QGO links
-      if (Array.isArray(data)) {
-        setQgoLinks(data)
-      } else {
-        setQgoLinks([])
+      const result = await fetchQgoLinks(true) // force refresh
+      if (result) {
+        setQgoLinks(result.links || [])
+        setDownloadStats(result.stats || { total: 0, byVersion: {} })
       }
     } catch (err) {
-      console.error('Error fetching QGO:', err)
+      console.error('Error refreshing QGO:', err)
       setError(err.message)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [fetchQgoLinks])
 
-// Fetch download stats from Firebase
-const fetchDownloadStats = useCallback(async () => {
-  try {
-    const statsRes = await fetch(`${FIREBASE_DB_URL}/qgo/downloadStats.json`)
-    const statsData = await statsRes.json()
-    
-    if (statsData) {
-      const total = statsData.totalDownloadCount || 0
-      const byVersion = {}
-      
-      // Extract version-specific counts
-      Object.keys(statsData).forEach((key) => {
-        if (key !== 'totalDownloadCount' && statsData[key]?.downloadCount) {
-          byVersion[key] = statsData[key].downloadCount
-        }
-      })
-      
-      setDownloadStats({ total, byVersion })
-    }
-  } catch (err) {
-    console.error('Error fetching download stats:', err)
-  }
-}, [])
-
-useEffect(() => {
-  fetchQgoLinks()
-  fetchDownloadStats()
-
-    // Listen to install progress
+  // Install progress listener
+  useEffect(() => {
     const removeInstallListener = window.api.onInstallApkProgress?.((progress) => {
       setInstallProgress({
         step: progress.step || '',
@@ -155,7 +158,7 @@ useEffect(() => {
     return () => {
       removeInstallListener?.()
     }
-  }, [fetchQgoLinks])
+  }, [])
 
   // Check which QGO files are already downloaded
   useEffect(() => {
@@ -314,62 +317,24 @@ useEffect(() => {
     return compareSemver(version, max) > 0 ? version : max
   }, null)
 
-  // Update QGO download count to Firebase
+  // Update QGO download count via API
   const updateQgoDownloadCount = async (version) => {
     try {
-      // First get current download count for this version
-      const versionCountRes = await fetch(
-        `${FIREBASE_DB_URL}/qgo/downloadStats/${version}/downloadCount.json`
-      )
-      const currentVersionCount = (await versionCountRes.json()) || 0
-      const updatedVersionCount = currentVersionCount + 1
-
-      // Update version-specific download count
-      await fetch(
-        `${FIREBASE_DB_URL}/qgo/downloadStats/${version}/downloadCount.json`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedVersionCount)
-        }
-      )
-
-      // Get and update total download count
-      const totalCountRes = await fetch(
-        `${FIREBASE_DB_URL}/qgo/downloadStats/totalDownloadCount.json`
-      )
-      const currentTotalCount = (await totalCountRes.json()) || 0
-      const updatedTotalCount = currentTotalCount + 1
-
-      await fetch(
-        `${FIREBASE_DB_URL}/qgo/downloadStats/totalDownloadCount.json`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedTotalCount)
-        }
-      )
-
-      // Record download history for user
-      if (user) {
-        const historyEntry = {
-          appName: 'Quest Games Optimizer',
-          version: version || 'unknown',
-          downloadDate: new Date().toISOString(),
-          source: 'installer'
-        }
-
-        await fetch(
-          `${FIREBASE_DB_URL}/usersData/downloadHistory/${user.uid}/qgo.json`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(historyEntry)
-          }
-        )
+      console.log('[QGO] Updating download count for version:', version)
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/qgo/download-stats`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version })
+      })
+      
+      const result = await response.json()
+      
+      if (response.ok && result.success) {
+        console.log('[QGO] Download count updated:', result)
+      } else {
+        console.error('[QGO] Failed to update download count:', result)
       }
-
-      console.log('[QGO] Download count updated successfully for version:', version)
     } catch (error) {
       console.error('[QGO] Failed to update download count:', error)
       // Don't show error to user - download count update is non-critical
@@ -403,6 +368,8 @@ useEffect(() => {
       }))
       // Update download count to Firebase
       await updateQgoDownloadCount(version)
+      // Refresh download stats to show updated count
+      await handleRefresh()
       // Toast notification is handled by the download complete notification
     } else if (result.canceled) {
       setShowDownloadModal(false)
@@ -704,8 +671,12 @@ useEffect(() => {
       <div className="border-b border-white/10 bg-[#111] p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0081FB] to-[#00C2FF] shadow-lg shadow-[#0081FB]/20">
-              <Icon icon="mdi:tune-variant" className="h-5 w-5 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1.5 shadow-lg">
+              <img 
+                src={QGOLogo} 
+                alt="QGO Logo" 
+                className="h-full w-full object-contain"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -728,7 +699,7 @@ useEffect(() => {
             </div>
           </div>
           <button
-            onClick={fetchQgoLinks}
+            onClick={handleRefresh}
             disabled={isLoading}
             className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm text-white/70 transition-all hover:bg-white/10 hover:text-white disabled:opacity-50"
           >
@@ -784,7 +755,7 @@ useEffect(() => {
             <p className="mt-4 text-sm text-white/70">{t('qgo_error') || 'Failed to load QGO'}</p>
             <p className="mt-1 text-xs text-white/40">{error}</p>
             <button
-              onClick={fetchQgoLinks}
+              onClick={handleRefresh}
               className="mt-4 flex items-center gap-2 rounded-lg bg-[#0081FB] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0081FB]/80"
             >
               <Icon icon="mdi:refresh" className="h-4 w-4" />
@@ -871,7 +842,7 @@ useEffect(() => {
                           <button
                             onClick={() => handleDeleteFile(item)}
                             disabled={isDownloading || installing}
-                            className="flex-shrink-0 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-600 to-amber-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-orange-500/20 transition-all hover:shadow-xl hover:shadow-orange-500/30 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            className="flex-shrink-0 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-red-500/20 transition-all hover:shadow-xl hover:shadow-red-500/30 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                           >
                             <Icon icon="mdi:file-remove" className="h-4 w-4" />
                             <span className="hidden sm:inline">{t('delete_file') || 'Delete File'}</span>
@@ -950,9 +921,23 @@ useEffect(() => {
       </div>
 
       {/* Download Confirmation Modal */}
-      {confirmDownload && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-          <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl">
+      <AnimatePresence mode="wait">
+        {confirmDownload && (
+          <motion.div
+            key="confirm-download-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: 50 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 50 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+            >
             <h3 className="text-lg font-semibold text-white">
               {t('qgo_confirm_title') || 'Download Confirmation'}
             </h3>
@@ -984,14 +969,29 @@ useEffect(() => {
                 {t('qgo_download') || 'Download'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Download Progress Modal */}
-      {showDownloadModal && isDownloading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-          <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl">
+      <AnimatePresence mode="wait">
+        {showDownloadModal && isDownloading && (
+          <motion.div
+            key="download-progress-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: 50 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 50 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+            >
             <div className="flex items-start justify-between">
               <h3 className="text-lg font-semibold text-white">
                 {t('qgo_downloading') || 'Downloading...'}
@@ -1058,14 +1058,29 @@ useEffect(() => {
             <p className="mt-4 text-center text-xs text-white/40">
               {t('download_minimize_hint') || 'Click the arrow to minimize and continue in background'}
             </p>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Install Confirmation Modal */}
-      {confirmInstall && !installing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-          <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl">
+      <AnimatePresence mode="wait">
+        {confirmInstall && !installing && (
+          <motion.div
+            key="confirm-install-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: 50 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 50 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+            >
             <h3 className="text-lg font-semibold text-white">
               {t('install_confirm_title') || 'Download & Install'}
             </h3>
@@ -1100,14 +1115,29 @@ useEffect(() => {
                 {t('install') || 'Install'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Install Progress Modal */}
-      {installing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-          <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl">
+      <AnimatePresence mode="wait">
+        {installing && (
+          <motion.div
+            key="install-progress-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: 50 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 50 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+            >
             <h3 className="text-lg font-semibold text-white">
               {installProgress.step === 'DOWNLOADING' 
                 ? (t('qgo_downloading') || 'Downloading...')
@@ -1167,9 +1197,10 @@ useEffect(() => {
                 </>
               )}
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

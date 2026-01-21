@@ -83,9 +83,9 @@ export default function GameDownloadWidget({
         >
         <div className="rounded-2xl border border-white/20 bg-[#111] shadow-2xl overflow-hidden min-w-[300px] max-w-[360px]">
           {/* Header - Always visible, clickable to expand/collapse */}
-          <button
+          <div
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center justify-between p-3 hover:bg-white/5 transition-colors"
+            className="w-full flex items-center justify-between p-3 hover:bg-white/5 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className={`shrink-0 rounded-full p-2 ${isComplete ? 'bg-green-500/20' : 'bg-[#0081FB]/20'}`}>
@@ -108,9 +108,11 @@ export default function GameDownloadWidget({
                 <p className="text-xs text-white/50 truncate">
                   {isComplete
                     ? gameTitle || fileName
-                    : status === 'downloading' && totalBytes > 0
-                      ? `${progressPercent.toFixed(0)}% • ${speedDisplay}`
-                      : gameTitle || fileName}
+                    : status === 'preparing'
+                      ? gameTitle || fileName
+                      : status === 'downloading' && totalBytes > 0
+                        ? `${progressPercent.toFixed(0)}% • ${speedDisplay}`
+                        : gameTitle || fileName}
                 </p>
               </div>
             </div>
@@ -131,7 +133,7 @@ export default function GameDownloadWidget({
                 className={`h-5 w-5 text-white/50 transition-transform ${isExpanded ? '' : 'rotate-180'}`}
               />
             </div>
-          </button>
+          </div>
 
           {/* Progress bar - Always visible in collapsed state too */}
           {!isComplete && status === 'downloading' && (
@@ -156,14 +158,6 @@ export default function GameDownloadWidget({
                 className="overflow-hidden"
               >
                 <div className="p-3 pt-2 border-t border-white/5">
-                  {/* Game title - only show when downloading, not when complete */}
-                  {!isComplete && (
-                    <div className="flex items-center gap-2 text-xs text-white/60 mb-2">
-                      <Icon icon="mdi:gamepad-variant" className="h-3.5 w-3.5" />
-                      <span className="truncate">{gameTitle}</span>
-                    </div>
-                  )}
-
                   {/* Download details */}
                   {!isComplete && status === 'downloading' && totalBytes > 0 && (
                     <div className="space-y-2 mb-3">
@@ -186,11 +180,11 @@ export default function GameDownloadWidget({
                     </div>
                   )}
 
-                  {/* Preparing state */}
+                  {/* Preparing state - show filename */}
                   {!isComplete && status === 'preparing' && (
-                    <div className="flex items-center justify-center gap-2 py-2 text-sm text-white/60">
-                      <Icon icon="mdi:loading" className="h-4 w-4 animate-spin" />
-                      <span>{t('qgo_preparing') || 'Preparing download...'}</span>
+                    <div className="flex items-center gap-2 py-2 text-xs text-white/50">
+                      <Icon icon="mdi:file-download-outline" className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{fileName}</span>
                     </div>
                   )}
 
