@@ -16,6 +16,7 @@ export function NetworkProvider({ children }) {
   const [showOfflineNotification, setShowOfflineNotification] = useState(false)
   const [wasOffline, setWasOffline] = useState(false)
   const [showBackOnlineNotification, setShowBackOnlineNotification] = useState(false)
+  const [latency, setLatency] = useState(null) // Ping in ms
   
   const checkIntervalRef = useRef(null)
   const retryTimeoutRef = useRef(null)
@@ -36,15 +37,19 @@ export function NetworkProvider({ children }) {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
 
+        const startTime = performance.now()
         const response = await fetch(url, {
           method: 'GET',
           signal: controller.signal,
           cache: 'no-store'
         })
+        const endTime = performance.now()
 
         clearTimeout(timeoutId)
 
         if (response.ok) {
+          const pingMs = Math.round(endTime - startTime)
+          setLatency(pingMs)
           setIsApiReachable(true)
           setLastChecked(new Date())
 
@@ -70,6 +75,7 @@ export function NetworkProvider({ children }) {
 
     // All endpoints failed
     setIsApiReachable(false)
+    setLatency(null)
     setLastChecked(new Date())
     return false
   }, [wasOffline])
@@ -178,12 +184,26 @@ export function NetworkProvider({ children }) {
   // Computed overall connectivity status
   const isConnected = isOnline && isApiReachable
 
+  /**
+   * Get signal strength based on latency
+   * 0 = offline, 1 = poor (<1000ms), 2 = fair (<500ms), 3 = good (<200ms), 4 = excellent (<100ms)
+   */
+  const getSignalStrength = useCallback(() => {
+    if (!isConnected || latency === null) return 0
+    if (latency < 100) return 4
+    if (latency < 200) return 3
+    if (latency < 500) return 2
+    return 1
+  }, [isConnected, latency])
+
   const value = {
     isOnline,
     isApiReachable,
     isConnected,
     connectionType,
     lastChecked,
+    latency,
+    getSignalStrength,
     showOfflineNotification,
     showBackOnlineNotification,
     dismissOfflineNotification,
