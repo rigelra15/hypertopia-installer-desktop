@@ -67,6 +67,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   const { 
     isDownloading, 
     downloadInfo, 
+    downloadComplete,
     startDownload, 
     showWidget, 
     showDownloadWidget,
@@ -161,7 +162,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     setLocalVersions(versions)
   }, [game])
 
-  // Check which files are already downloaded when modal opens or version changes
+  // Check which files are already downloaded when modal opens, version changes, or download completes
   useEffect(() => {
     if (!isOpen || !game || !gameTitle) return
     
@@ -196,7 +197,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     }
     
     checkDownloaded()
-  }, [isOpen, game, gameTitle, selectedVersion, localVersions, gameVersion])
+  }, [isOpen, game, gameTitle, selectedVersion, localVersions, gameVersion, downloadComplete])
 
   // Listen for install progress events
   useEffect(() => {
@@ -1081,12 +1082,12 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                                 <span>
                                   {formatBytes(downloadInfo.downloadedBytes)} / {formatBytes(downloadInfo.totalBytes)}
                                 </span>
-                                <span>{Math.round(downloadInfo.progress)}%</span>
+                                <span>{Math.round((downloadInfo.downloadedBytes / downloadInfo.totalBytes) * 100)}%</span>
                               </div>
                               <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
                                 <div
                                   className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
-                                  style={{ width: `${downloadInfo.progress}%` }}
+                                  style={{ width: `${Math.min(100, (downloadInfo.downloadedBytes / downloadInfo.totalBytes) * 100)}%` }}
                                 />
                               </div>
                               <div className="mt-2 flex items-center justify-between text-xs text-white/40">
@@ -1332,7 +1333,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                         className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
                         title={t('minimize_to_background') || 'Minimize to background'}
                       >
-                        <Icon icon="mdi:arrow-collapse-down" className="h-5 w-5" />
+                        <Icon icon="material-symbols:close-fullscreen-rounded" className="h-5 w-5" />
                       </button>
                     </div>
                     
@@ -1343,18 +1344,28 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                     {/* Progress Bar */}
                     {downloadInfo.status === 'downloading' && downloadInfo.totalBytes > 0 ? (
                       <div className="mt-4">
-                        <div className="mb-2 flex items-center justify-between text-xs text-white/50">
-                          <span>
-                            {formatBytes(downloadInfo.downloadedBytes)} / {formatBytes(downloadInfo.totalBytes)}
-                          </span>
-                          <span>{Math.round(downloadInfo.progress)}%</span>
-                        </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                          <div
-                            className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
-                            style={{ width: `${downloadInfo.progress}%` }}
-                          />
-                        </div>
+                        {(() => {
+                          // Calculate progress from bytes for accuracy
+                          const calculatedProgress = downloadInfo.totalBytes > 0 
+                            ? Math.min(100, Math.max(0, (downloadInfo.downloadedBytes / downloadInfo.totalBytes) * 100))
+                            : 0
+                          return (
+                            <>
+                              <div className="mb-2 flex items-center justify-between text-xs text-white/50">
+                                <span>
+                                  {formatBytes(downloadInfo.downloadedBytes)} / {formatBytes(downloadInfo.totalBytes)}
+                                </span>
+                                <span>{Math.round(calculatedProgress)}%</span>
+                              </div>
+                              <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                                <div
+                                  className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
+                                  style={{ width: `${calculatedProgress}%` }}
+                                />
+                              </div>
+                            </>
+                          )
+                        })()}
 
                         {/* Speed and ETA */}
                         <div className="mt-2 flex items-center justify-between text-xs text-white/40">
