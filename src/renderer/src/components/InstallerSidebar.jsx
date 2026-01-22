@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
-import { useNetwork } from '../contexts/NetworkContext'
 import { DeviceSelector } from './DeviceSelector'
 import { ErrorModal } from './ErrorModal'
 import { SettingsModal } from './SettingsModal'
@@ -9,99 +8,6 @@ import UpdateNotification from './UpdateNotification'
 import BrowseMethodModal from './BrowseMethodModal'
 import PropTypes from 'prop-types'
 
-/**
- * Network Status Indicator Component
- * Shows WiFi icon with signal strength, color, and latency
- * Auto-updates every 10 seconds like mobile game network indicators
- */
-function NetworkIndicator({ compact = false }) {
-  const { isConnected, isOnline, latency, getSignalStrength, retryConnection } = useNetwork()
-  const [isRetrying, setIsRetrying] = useState(false)
-  
-  const signalStrength = getSignalStrength()
-  
-  // Get icon based on signal strength
-  const getWifiIcon = () => {
-    if (!isOnline) return 'bx:wifi-off'
-    if (!isConnected) return 'bx:wifi-0'
-    if (signalStrength === 1) return 'bx:wifi-1'
-    if (signalStrength === 2) return 'bx:wifi-2'
-    return 'bx:wifi' // 3-4 = full signal
-  }
-  
-  // Get color based on status
-  const getColor = () => {
-    if (!isOnline) return 'text-red-500'
-    if (!isConnected) return 'text-orange-500'
-    if (signalStrength === 1) return 'text-orange-400'
-    if (signalStrength === 2) return 'text-yellow-400'
-    if (signalStrength === 3) return 'text-green-400'
-    return 'text-green-500' // Excellent
-  }
-  
-  // Get latency color
-  const getLatencyColor = () => {
-    if (!latency) return 'text-white/30'
-    if (latency < 100) return 'text-green-400'
-    if (latency < 200) return 'text-green-300'
-    if (latency < 500) return 'text-yellow-400'
-    return 'text-orange-400'
-  }
-  
-  // Manual retry only when offline
-  const handleRetry = async () => {
-    if (isConnected) return // Don't need manual retry when connected
-    setIsRetrying(true)
-    await retryConnection()
-    setTimeout(() => setIsRetrying(false), 500)
-  }
-  
-  if (compact) {
-    return (
-      <div
-        onClick={!isConnected ? handleRetry : undefined}
-        className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-all ${
-          !isConnected ? 'cursor-pointer hover:bg-white/5' : ''
-        } ${getColor()}`}
-        title={isConnected ? `Ping: ${latency}ms (auto-refresh)` : 'Offline - Click to retry'}
-      >
-        <Icon 
-          icon={isRetrying ? 'svg-spinners:ring-resize' : getWifiIcon()} 
-          className="h-4 w-4" 
-        />
-        {isConnected ? (
-          <span className={`text-[8px] font-mono ${getLatencyColor()}`}>
-            {latency || '...'}ms
-          </span>
-        ) : (
-          <span className="text-[8px] font-mono text-red-400">
-            !
-          </span>
-        )}
-      </div>
-    )
-  }
-  
-  return (
-    <div
-      onClick={!isConnected ? handleRetry : undefined}
-      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border transition-all ${
-        isConnected 
-          ? 'border-white/10 bg-white/5' 
-          : 'border-red-500/30 bg-red-500/10 cursor-pointer hover:bg-red-500/20'
-      }`}
-      title={isConnected ? `Ping: ${latency}ms (auto-refresh every 10s)` : 'Offline - Click to retry'}
-    >
-      <Icon 
-        icon={isRetrying ? 'svg-spinners:ring-resize' : getWifiIcon()} 
-        className={`h-4 w-4 ${getColor()}`} 
-      />
-      <span className={`text-[10px] font-mono ${getLatencyColor()}`}>
-        {!isOnline ? 'Offline' : !isConnected ? 'No API' : `${latency || '...'}ms`}
-      </span>
-    </div>
-  )
-}
 
 export function InstallerSidebar({
   selectedDevice,
@@ -445,26 +351,6 @@ export function InstallerSidebar({
         // Collapsed View - Only show minimal info
         <div className="flex h-full flex-col items-center justify-between p-4">
           <div className="flex flex-col items-center gap-4">
-            {/* Logo Icon */}
-            <div className="rounded-lg bg-[#0081FB]/20 p-2">
-              <svg
-                className="h-6 w-6 text-[#0081FB]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                />
-              </svg>
-            </div>
-
-            {/* Network Status Indicator - Compact */}
-            <NetworkIndicator compact />
-
             {/* Status Indicator */}
             {file && (
               <div className="rounded-full bg-green-500/20 p-1">
@@ -518,7 +404,7 @@ export function InstallerSidebar({
           <div className="flex-none p-6 pb-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-4">
             <div className="flex-1 min-w-[140px]">
               <h1 className="text-xl font-bold tracking-tight">
-                HyperTopia <span className="text-[#0081FB]">Installer</span>
+                HyperTopia <span className="text-[#0081FB]\">Installer</span>
               </h1>
               <p className="mt-1 text-xs font-light text-white/50">
                 v{appVersion.version} <span className="opacity-50">({appVersion.build})</span>
@@ -545,9 +431,6 @@ export function InstallerSidebar({
               )}
             </div>
             <div className="flex items-start gap-2 flex-none">
-              {/* Network Status Indicator */}
-              <NetworkIndicator />
-              
               <button
                 onClick={handleOpenSettings}
                 className="relative rounded-lg bg-white/5 border border-white/10 p-1.5 text-white/50 hover:text-white hover:bg-white/10 transition-all"
