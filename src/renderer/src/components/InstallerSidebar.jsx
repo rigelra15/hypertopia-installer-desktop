@@ -108,7 +108,8 @@ export function InstallerSidebar({
   onDeviceSelect,
   extractPath,
   onExtractPathChange,
-  onCollapsedChange
+  onCollapsedChange,
+  onNavigateToTab
 }) {
   const { t, language, setLanguage } = useLanguage()
   const [file, setFile] = useState(null)
@@ -658,7 +659,41 @@ export function InstallerSidebar({
               </button>
             </div>
 
-            {/* File Info Card */}
+            {/* Quick Access Buttons */}
+            <div className="mb-6 grid grid-cols-2 gap-3">
+              <button
+                onClick={() => onNavigateToTab && onNavigateToTab('games')}
+                className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-4 transition-all hover:border-[#0081FB]/50 hover:bg-[#0081FB]/10"
+              >
+                <div className="rounded-lg bg-[#0081FB]/20 p-2 text-[#0081FB] transition-all group-hover:bg-[#0081FB]/30">
+                  <Icon icon="mdi:gamepad-variant" className="h-6 w-6" />
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-semibold text-white/90 group-hover:text-white">
+                    {language === 'id' ? 'Standalone Games' : 'Standalone Games'}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-white/50 group-hover:text-white/70">
+                    {language === 'id' ? 'Download game langsung' : 'Download games directly'}
+                  </p>
+                </div>
+              </button>
+              <button
+                onClick={() => onNavigateToTab && onNavigateToTab('qgo')}
+                className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-4 transition-all hover:border-purple-500/50 hover:bg-purple-500/10"
+              >
+                <div className="rounded-lg bg-purple-500/20 p-2 text-purple-400 transition-all group-hover:bg-purple-500/30">
+                  <Icon icon="mdi:rocket-launch" className="h-6 w-6" />
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-semibold text-white/90 group-hover:text-white">
+                    Quest Games Optimizer
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-white/50 group-hover:text-white/70">
+                    {language === 'id' ? 'Optimize VR games' : 'Optimize VR games'}
+                  </p>
+                </div>
+              </button>
+            </div>
             {file && (
               <div className="mb-6 rounded-xl border border-white/10 bg-[#111] p-4">
                 <div className="flex items-start gap-3">
@@ -920,5 +955,6 @@ InstallerSidebar.propTypes = {
   onDeviceSelect: PropTypes.func,
   extractPath: PropTypes.string,
   onExtractPathChange: PropTypes.func,
-  onCollapsedChange: PropTypes.func
+  onCollapsedChange: PropTypes.func,
+  onNavigateToTab: PropTypes.func
 }
