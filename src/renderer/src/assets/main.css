@@ -13,6 +13,86 @@ body {
   font-family: 'Poppins', sans-serif;
 }
 
+#root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Custom Title Bar Styles */
+.title-bar {
+  position: relative;
+  height: 32px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 9999;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+}
+
+.title-bar-drag-region {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  -webkit-app-region: drag;
+  padding-left: 12px;
+}
+
+.title-bar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e2e8f0;
+  user-select: none;
+}
+
+.title-bar-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.title-bar-controls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.title-bar-button {
+  width: 46px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 16px;
+}
+
+.title-bar-button:hover {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.title-bar-button-close:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.title-bar-button:active {
+  opacity: 0.7;
+}
+
 code {
   font-weight: 600;
   padding: 3px 5px;
@@ -27,14 +107,6 @@ code {
     Liberation Mono,
     monospace;
   font-size: 85%;
-}
-
-#root {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  margin-bottom: 80px;
 }
 
 .logo {

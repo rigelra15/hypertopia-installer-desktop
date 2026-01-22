@@ -12,6 +12,7 @@ import { LiveAssist } from './components/LiveAssist'
 import { QuestGamesOptimizer } from './components/QuestGamesOptimizer'
 import { SetupModal } from './components/SetupModal'
 import { UserMenu } from './components/UserMenu'
+import { TitleBar } from './components/TitleBar'
 import LiveAssistNotification from './components/LiveAssistNotification'
 import GameDownloadWidget from './components/GameDownloadWidget'
 import GameInstallWidget from './components/GameInstallWidget'
@@ -137,6 +138,7 @@ function App() {
 
   return (
     <>
+      <TitleBar />
       <SetupModal isOpen={showSetupModal} onComplete={handleSetupComplete} />
 
       {/* Live Assist Notification - Shows from any tab except Live Assist */}
@@ -145,7 +147,7 @@ function App() {
         isOnLiveAssistTab={activeTab === 'liveassist'}
         onNavigateToLiveAssist={() => setActiveTab('liveassist')}
       />
-      <div className="flex h-screen w-full flex-col overflow-hidden bg-[#0a0a0a] text-white selection:bg-[#0081FB]/30 md:flex-row">
+      <div className="flex flex-1 w-full flex-col overflow-hidden bg-[#0a0a0a] text-white selection:bg-[#0081FB]/30 md:flex-row">
         {/* Sidebar */}
         <div
           className="flex flex-none flex-col border-b border-white/10 md:h-full md:border-b-0 md:border-r relative transition-all duration-300"
