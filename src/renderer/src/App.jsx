@@ -159,6 +159,7 @@ function App() {
             extractPath={extractPath}
             onExtractPathChange={setExtractPath}
             onCollapsedChange={setIsSidebarCollapsed}
+            onNavigateToTab={setActiveTab}
           />
 
           {/* Resize Handle (Desktop Only) */}
