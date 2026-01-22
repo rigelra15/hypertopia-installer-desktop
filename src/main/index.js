@@ -213,6 +213,7 @@ function createWindow() {
     width: 900,
     height: 670,
     show: false,
+    frame: false, // Remove default title bar
     autoHideMenuBar: true,
     title: 'HyperTopia Installer',
     icon: icon, // Explicitly set icon for Windows dev mode
@@ -241,6 +242,39 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+}
+
+// IPC: Window Controls
+ipcMain.on('minimize-window', () => {
+  if (mainWindow) mainWindow.minimize()
+})
+
+ipcMain.on('maximize-window', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize()
+    } else {
+      mainWindow.maximize()
+    }
+  }
+})
+
+ipcMain.on('close-window', () => {
+  if (mainWindow) mainWindow.close()
+})
+
+ipcMain.handle('is-window-maximized', () => {
+  return mainWindow ? mainWindow.isMaximized() : false
+})
+
+// Send maximize/unmaximize events to renderer
+if (mainWindow) {
+  mainWindow.on('maximize', () => {
+    mainWindow.webContents.send('window-maximized')
+  })
+  mainWindow.on('unmaximize', () => {
+    mainWindow.webContents.send('window-unmaximized')
+  })
 }
 
 // IPC: Get App Version (Git Commit Count & Date)
