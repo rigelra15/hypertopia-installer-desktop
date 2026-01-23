@@ -35,7 +35,7 @@ const compareVersions = (versionA, versionB) => {
   return b.build - a.build
 }
 
-export function StandaloneGames({ selectedDevice: connectedDevice }) {
+export function StandaloneGames({ selectedDevice: connectedDevice, pendingDeepLinkDownload, onDeepLinkProcessed }) {
   const { t } = useLanguage()
   const { user, accessTypes } = useAuth()
   const { fetchGames: fetchGamesFromContext, getCachedGames } = useGames()
@@ -165,6 +165,34 @@ export function StandaloneGames({ selectedDevice: connectedDevice }) {
   useEffect(() => {
     setCurrentPage(1)
   }, [debouncedSearch, sortBy, sortOrder, itemsPerPage, devicePreference])
+
+  // Handle deep link download from website
+  useEffect(() => {
+    if (pendingDeepLinkDownload && pendingDeepLinkDownload.game && games.length > 0) {
+      console.log('[DeepLinkDownload] Looking for game:', pendingDeepLinkDownload.game)
+      
+      // Find the game that matches the name
+      const matchingGame = games.find(game => {
+        const gameTitle = game.gameTitle || game.name || ''
+        return gameTitle.toLowerCase() === pendingDeepLinkDownload.game.toLowerCase()
+      })
+      
+      if (matchingGame) {
+        console.log('[DeepLinkDownload] Found matching game:', matchingGame.gameTitle)
+        setSelectedGame(matchingGame)
+        setShowGameDetail(true)
+        // Clear the pending download
+        if (onDeepLinkProcessed) {
+          onDeepLinkProcessed()
+        }
+      } else {
+        console.log('[DeepLinkDownload] Game not found in current page, searching...')
+        // Set search query to find the game
+        setSearchQuery(pendingDeepLinkDownload.game)
+        setDebouncedSearch(pendingDeepLinkDownload.game)
+      }
+    }
+  }, [pendingDeepLinkDownload, games, onDeepLinkProcessed])
 
   const handleRefresh = () => {
     loadGames(true) // Force refresh, bypass cache
@@ -741,11 +769,20 @@ GameCard.defaultProps = {
 }
 
 StandaloneGames.propTypes = {
-  selectedDevice: PropTypes.string
+  selectedDevice: PropTypes.string,
+  pendingDeepLinkDownload: PropTypes.shape({
+    game: PropTypes.string,
+    version: PropTypes.string,
+    url: PropTypes.string,
+    type: PropTypes.string
+  }),
+  onDeepLinkProcessed: PropTypes.func
 }
 
 StandaloneGames.defaultProps = {
-  selectedDevice: null
+  selectedDevice: null,
+  pendingDeepLinkDownload: null,
+  onDeepLinkProcessed: null
 }
 
 export default StandaloneGames
