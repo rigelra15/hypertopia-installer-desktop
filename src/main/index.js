@@ -63,6 +63,7 @@ function handleDeepLink(url) {
 
   try {
     // Parse URL: hypertopia://auth-callback?token=xxx&email=xxx&name=xxx&photo=xxx
+    // Or: hypertopia://download?game=xxx&version=xxx&url=xxx&type=standalone|qgo
     const urlObj = new URL(url)
 
     if (urlObj.hostname === 'auth-callback' || urlObj.pathname.includes('auth-callback')) {
@@ -97,6 +98,25 @@ function handleDeepLink(url) {
             photoURL: photo ? decodeURIComponent(photo) : null
           })
         }
+      }
+    } else if (urlObj.hostname === 'download' || urlObj.pathname.includes('download')) {
+      // Handle download deep link from website
+      const params = new URLSearchParams(urlObj.search || urlObj.pathname.split('?')[1])
+      const game = params.get('game')
+      const version = params.get('version')
+      const downloadUrl = params.get('url')
+      const type = params.get('type') // 'standalone' or 'qgo'
+
+      console.log('[DeepLink] Download request:', { game, version, type })
+
+      if (game && mainWindow) {
+        // Send download request to renderer
+        mainWindow.webContents.send('deep-link-download', {
+          game: decodeURIComponent(game),
+          version: version ? decodeURIComponent(version) : null,
+          url: downloadUrl ? decodeURIComponent(downloadUrl) : null,
+          type: type || 'standalone'
+        })
       }
     }
   } catch (err) {

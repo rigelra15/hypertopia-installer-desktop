@@ -120,7 +120,13 @@ const api = {
   installLocalApk: (filePath, deviceSerial) => 
     ipcRenderer.invoke('install-local-apk', { filePath, deviceSerial }),
   // Desktop capturer for screen sharing
-  getDesktopSources: () => ipcRenderer.invoke('get-desktop-sources')
+  getDesktopSources: () => ipcRenderer.invoke('get-desktop-sources'),
+  // Deep link download from website
+  onDeepLinkDownload: (callback) => {
+    const subscription = (_event, data) => callback(data)
+    ipcRenderer.on('deep-link-download', subscription)
+    return () => ipcRenderer.removeListener('deep-link-download', subscription)
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
