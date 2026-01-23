@@ -49,6 +49,8 @@ function App() {
     return !savedPath
   })
   const [tabScrollIndex, setTabScrollIndex] = useState(0)
+  // Deep link download pending info (from website)
+  const [pendingDeepLinkDownload, setPendingDeepLinkDownload] = useState(null)
 
   // Resize Handlers
   const startResizing = (e) => {
@@ -135,6 +137,30 @@ function App() {
       removeListener()
     }
   }, [t, toast])
+
+  // Listen for deep link download from website
+  useEffect(() => {
+    const removeDeepLinkListener = window.api.onDeepLinkDownload((data) => {
+      console.log('[DeepLinkDownload] Received from website:', data)
+      
+      // Navigate to the correct tab based on type
+      if (data.type === 'qgo') {
+        setActiveTab('qgo')
+      } else {
+        setActiveTab('games')
+      }
+      
+      // Store pending download info
+      setPendingDeepLinkDownload(data)
+      
+      // Show toast notification
+      toast.info(`Opening ${data.game}...`)
+    })
+
+    return () => {
+      removeDeepLinkListener()
+    }
+  }, [toast])
 
   return (
     <>
@@ -238,11 +264,19 @@ function App() {
           {activeTab === 'manager' ? (
             <DeviceManager selectedDevice={selectedDevice} />
           ) : activeTab === 'games' ? (
-            <StandaloneGames selectedDevice={selectedDevice} />
+            <StandaloneGames 
+              selectedDevice={selectedDevice}
+              pendingDeepLinkDownload={pendingDeepLinkDownload?.type === 'standalone' ? pendingDeepLinkDownload : null}
+              onDeepLinkProcessed={() => setPendingDeepLinkDownload(null)}
+            />
           ) : activeTab === 'liveassist' ? (
             <LiveAssist />
           ) : activeTab === 'qgo' ? (
-            <QuestGamesOptimizer selectedDevice={selectedDevice} />
+            <QuestGamesOptimizer 
+              selectedDevice={selectedDevice}
+              pendingDeepLinkDownload={pendingDeepLinkDownload?.type === 'qgo' ? pendingDeepLinkDownload : null}
+              onDeepLinkProcessed={() => setPendingDeepLinkDownload(null)}
+            />
           ) : (
             <Tutorials />
           )}
