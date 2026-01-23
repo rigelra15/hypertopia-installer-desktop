@@ -117,42 +117,6 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
     }
   }, [cachedQgoLinks, cachedQgoStats, qgoLoading, fetchQgoLinks])
 
-  // Handle deep link download from website
-  useEffect(() => {
-    if (pendingDeepLinkDownload && pendingDeepLinkDownload.game && qgoLinks.length > 0) {
-      console.log('[DeepLinkDownload] QGO - Looking for version:', pendingDeepLinkDownload.version)
-      
-      // Find the QGO version that matches
-      const matchingItem = qgoLinks.find((item) => {
-        const itemVersion = extractVersion(item.description)
-        return itemVersion === pendingDeepLinkDownload.version
-      })
-      
-      if (matchingItem) {
-        console.log('[DeepLinkDownload] QGO - Found matching version:', matchingItem.description)
-        // Open download confirmation modal
-        setConfirmDownload(matchingItem)
-        // Clear the pending download
-        if (onDeepLinkProcessed) {
-          onDeepLinkProcessed()
-        }
-      } else {
-        console.log('[DeepLinkDownload] QGO - Version not found, showing latest')
-        // If version not found, just open the latest version modal
-        const latestItem = qgoLinks.find((item) => {
-          const itemVersion = extractVersion(item.description)
-          return itemVersion === maxVersion
-        })
-        if (latestItem) {
-          setConfirmDownload(latestItem)
-        }
-        if (onDeepLinkProcessed) {
-          onDeepLinkProcessed()
-        }
-      }
-    }
-  }, [pendingDeepLinkDownload, qgoLinks, maxVersion, onDeepLinkProcessed])
-
   // Sync loading state with context
   useEffect(() => {
     if (qgoLoading && qgoLinks.length === 0) {
@@ -352,6 +316,42 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
     if (!max) return version
     return compareSemver(version, max) > 0 ? version : max
   }, null)
+
+  // Handle deep link download from website
+  useEffect(() => {
+    if (pendingDeepLinkDownload && pendingDeepLinkDownload.game && qgoLinks.length > 0) {
+      console.log('[DeepLinkDownload] QGO - Looking for version:', pendingDeepLinkDownload.version)
+      
+      // Find the QGO version that matches
+      const matchingItem = qgoLinks.find((item) => {
+        const itemVersion = extractVersion(item.description)
+        return itemVersion === pendingDeepLinkDownload.version
+      })
+      
+      if (matchingItem) {
+        console.log('[DeepLinkDownload] QGO - Found matching version:', matchingItem.description)
+        // Open download confirmation modal
+        setConfirmDownload(matchingItem)
+        // Clear the pending download
+        if (onDeepLinkProcessed) {
+          onDeepLinkProcessed()
+        }
+      } else {
+        console.log('[DeepLinkDownload] QGO - Version not found, showing latest')
+        // If version not found, just open the latest version modal
+        const latestItem = qgoLinks.find((item) => {
+          const itemVersion = extractVersion(item.description)
+          return itemVersion === maxVersion
+        })
+        if (latestItem) {
+          setConfirmDownload(latestItem)
+        }
+        if (onDeepLinkProcessed) {
+          onDeepLinkProcessed()
+        }
+      }
+    }
+  }, [pendingDeepLinkDownload, qgoLinks, maxVersion, onDeepLinkProcessed])
 
   // Update QGO download count via API
   const updateQgoDownloadCount = async (version) => {
