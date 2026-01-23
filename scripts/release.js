@@ -40,14 +40,46 @@ if (status && !status.includes('package.json')) {
 console.log('Calculating new version...')
 const commitCount = runOutput('git rev-list --count HEAD')
 
-// 2. Read package.json
+// 2. Get last tag to find commits since last release
+let lastTag = ''
+try {
+  lastTag = runOutput('git describe --tags --abbrev=0 2>/dev/null || echo ""')
+} catch {
+  lastTag = ''
+}
+
+// 3. Parse commits since last tag to detect if it's a fix-only release
+console.log('Analyzing commits for release type...')
+let hasFeatures = false
+let hasFixes = false
+
+const commitRange = lastTag ? `${lastTag}..HEAD` : 'HEAD'
+const commits = runOutput(`git log ${commitRange} --pretty=format:"%s"`)
+
+if (commits) {
+  const commitLines = commits.split('\n').filter(line => line.trim())
+  commitLines.forEach(commit => {
+    if (commit.startsWith('feat')) {
+      hasFeatures = true
+    }
+    if (commit.startsWith('fix')) {
+      hasFixes = true
+    }
+  })
+}
+
+const releaseType = hasFeatures ? 'release' : hasFixes ? 'fix-only' : 'release'
+const suffix = releaseType === 'fix-only' ? '-fix' : ''
+
+// 4. Read package.json
 const packageJson = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf8'))
 const [major, minor] = packageJson.version.split('.')
 
-const newVersion = `${major}.${minor}.${commitCount}`
+const newVersion = `${major}.${minor}.${commitCount}${suffix}`
 const tagName = `v${newVersion}`
 
 console.log(`Current Version: ${packageJson.version}`)
+console.log(`Release Type:    ${releaseType}`)
 console.log(`New Version:     ${newVersion}`)
 console.log(`Tag Name:        ${tagName}`)
 
