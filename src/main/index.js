@@ -900,13 +900,18 @@ function get7zPath() {
   return sevenZipPath
 }
 
-// Helper: Get UnRAR binary path
+// Helper: Get UnRAR binary path (cross-platform)
 function getUnrarPath() {
   const isDev = !app.isPackaged
+  const platform = process.platform // 'win32', 'darwin', 'linux'
+  
+  // Determine binary name based on platform
+  const unrarBinary = platform === 'win32' ? 'unrar.exe' : 'unrar'
+  
   if (isDev) {
-    return path.join(__dirname, '../../resources/unrar.exe')
+    return path.join(__dirname, `../../resources/${unrarBinary}`)
   }
-  return path.join(process.resourcesPath, 'unrar.exe')
+  return path.join(process.resourcesPath, unrarBinary)
 }
 
 // Auto Cleanup: Bersihkan folder temporary lama
@@ -981,13 +986,26 @@ async function cleanupAllTempFolders(customExtractPath = null) {
   }
 }
 
-// Helper: Get ADB Path
+// Helper: Get ADB Path (cross-platform)
 function getAdbPath() {
   const isDev = !app.isPackaged
-  if (isDev) {
-    return path.join(__dirname, '../../resources/platform-tools/adb')
+  const platform = process.platform // 'win32', 'darwin', 'linux'
+  
+  // Determine binary name based on platform
+  const adbBinary = platform === 'win32' ? 'adb.exe' : 'adb'
+  
+  // Determine platform-tools folder based on OS
+  let platformToolsFolder = 'platform-tools' // Default for Windows
+  if (platform === 'darwin') {
+    platformToolsFolder = 'platform-tools-darwin'
+  } else if (platform === 'linux') {
+    platformToolsFolder = 'platform-tools-linux'
   }
-  return path.join(process.resourcesPath, 'platform-tools/adb')
+  
+  if (isDev) {
+    return path.join(__dirname, `../../resources/${platformToolsFolder}/${adbBinary}`)
+  }
+  return path.join(process.resourcesPath, `${platformToolsFolder}/${adbBinary}`)
 }
 
 // Helper: Scan RAR for APK and OBB using UnRAR command-line (no memory limit)

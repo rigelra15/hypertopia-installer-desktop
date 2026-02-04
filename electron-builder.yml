@@ -13,18 +13,23 @@ asarUnpack:
   - resources/**
   - node_modules/7zip-bin/**
 extraResources:
-  - from: resources/platform-tools
-    to: platform-tools
-    filter:
-      - '**/*'
+  # Windows uses platform-tools, macOS uses platform-tools-darwin, Linux uses platform-tools-linux
+  # unrar.exe for Windows, unrar for macOS/Linux (must be added manually)
   - from: resources/unrar.exe
     to: unrar.exe
+    filter:
+      - '**/*'
 win:
   executableName: hypertopia-installer
   icon: build/icon.ico
   target:
     - nsis
     - portable
+  extraResources:
+    - from: resources/platform-tools
+      to: platform-tools
+      filter:
+        - '**/*'
 nsis:
   oneClick: true
   allowToChangeInstallationDirectory: false
@@ -48,6 +53,15 @@ mac:
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
+  extraResources:
+    - from: resources/platform-tools-darwin
+      to: platform-tools-darwin
+      filter:
+        - '**/*'
+    - from: resources/unrar
+      to: unrar
+      filter:
+        - '**/*'
 dmg:
   artifactName: ${name}-${version}-${arch}.${ext}
 linux:
@@ -60,6 +74,15 @@ linux:
   maintainer: HyperTopia
   category: Utility
   icon: build/icons
+  extraResources:
+    - from: resources/platform-tools-linux
+      to: platform-tools-linux
+      filter:
+        - '**/*'
+    - from: resources/unrar
+      to: unrar
+      filter:
+        - '**/*'
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
