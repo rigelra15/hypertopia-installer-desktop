@@ -49,6 +49,10 @@ mac:
       arch:
         - x64
         - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
   extendInfo:
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
