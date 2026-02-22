@@ -8,6 +8,7 @@ export function Tutorials({ onNavigate }) {
   const { t } = useLanguage()
   const [selectedTutorial, setSelectedTutorial] = useState(null)
   const [previewImage, setPreviewImage] = useState(null)
+  const [activeTabId, setActiveTabId] = useState(null)
 
   if (selectedTutorial) {
     return (
@@ -15,7 +16,10 @@ export function Tutorials({ onNavigate }) {
         {/* Detail Header */}
         <div className="flex items-center gap-4 border-b border-white/10 bg-[#111] p-4">
           <button
-            onClick={() => setSelectedTutorial(null)}
+            onClick={() => {
+              setSelectedTutorial(null)
+              setActiveTabId(null)
+            }}
             className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition-all hover:bg-white/10 hover:text-white"
           >
             <Icon icon="mdi:arrow-left" className="h-4 w-4" />
@@ -88,11 +92,32 @@ export function Tutorials({ onNavigate }) {
                   {t('tutorial_steps')}
                 </h3>
 
-                {selectedTutorial.steps.map((step, index) => (
+                {selectedTutorial.tabs && (
+                  <div className="flex flex-wrap gap-2 p-1 bg-white/5 rounded-xl border border-white/10 w-fit">
+                    {selectedTutorial.tabs.map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTabId(tab.id)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          activeTabId === tab.id
+                            ? 'bg-[#0081FB] text-white shadow-lg shadow-[#0081FB]/20'
+                            : 'text-white/60 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {t(tab.titleKey)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {(selectedTutorial.tabs
+                  ? selectedTutorial.tabs.find((t) => t.id === activeTabId)?.steps || []
+                  : selectedTutorial.steps
+                ).map((step, index, array) => (
                   <div key={index} className="relative pl-8">
                     {/* Step Connector Line */}
-                    {index !== selectedTutorial.steps.length - 1 && (
-                      <div className="absolute left-[11px] top-8 bottom-[-24px] w-0.5 bg-white/10"></div>
+                    {index !== array.length - 1 && (
+                      <div className="absolute left-[11px] top-8 -bottom-6 w-0.5 bg-white/10"></div>
                     )}
 
                     {/* Step Number Bubble */}
@@ -224,33 +249,39 @@ export function Tutorials({ onNavigate }) {
           {tutorials.map((tutorial) => (
             <button
               key={tutorial.id}
-              onClick={() => setSelectedTutorial(tutorial)}
+              onClick={() => {
+                setSelectedTutorial(tutorial)
+                setActiveTabId(tutorial.tabs?.[0]?.id || null)
+              }}
               className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-left transition-all duration-300 hover:border-[#0081FB]/50 hover:bg-white/10 flex flex-col"
             >
               {/* Gradient Top Accent - Always Visible */}
-              <div className="h-1 w-full rounded-t-2xl bg-gradient-to-r from-[#0081FB] to-[#00D4FF] shrink-0" />
-              
+              <div className="h-1 w-full rounded-t-2xl bg-linear-to-r from-[#0081FB] to-[#00D4FF] shrink-0" />
+
               {/* Card Content */}
               <div className="p-4 flex flex-col flex-1">
                 {/* Icon */}
                 <div className="mb-3 w-10 h-10 rounded-lg bg-[#0081FB]/10 flex items-center justify-center text-[#0081FB] group-hover:bg-[#0081FB] group-hover:text-white transition-all duration-300 shrink-0">
                   <Icon icon={tutorial.icon} className="h-5 w-5" />
                 </div>
-                
+
                 {/* Title */}
                 <h3 className="font-semibold text-sm text-white mb-1.5 line-clamp-2">
                   {t(tutorial.titleKey)}
                 </h3>
-                
+
                 {/* Description */}
                 <p className="text-xs text-white/50 line-clamp-2 flex-1">
                   {t(tutorial.descriptionKey)}
                 </p>
-                
+
                 {/* Read More */}
                 <div className="flex items-center text-xs font-medium text-[#0081FB] mt-3">
                   <span>{t('tutorial_read_guide')}</span>
-                  <Icon icon="mdi:arrow-right" className="ml-1 h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
+                  <Icon
+                    icon="mdi:arrow-right"
+                    className="ml-1 h-3.5 w-3.5 group-hover:translate-x-1 transition-transform"
+                  />
                 </div>
               </div>
             </button>
