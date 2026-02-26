@@ -651,7 +651,29 @@ function GameCard({ game, selectedDevice, onClick }) {
           )}
         </div>
 
-        {/* Bottom Content: Title & v76 Warning */}
+        {/* Top Right: v76+ Badge with Tooltip */}
+        {(isSupportedV76 || versions.some((v) => v?.isSupportedV76)) && (
+          <div className="absolute top-3 right-3 z-20 group/v76">
+            <span className="px-2 py-1 text-[10px] font-bold text-white bg-red-500 rounded-md shadow-sm flex items-center gap-1 cursor-help">
+              <Icon icon="mdi:alert-circle" className="w-3 h-3" />
+              v76+
+            </span>
+            {/* Tooltip */}
+            <div className="absolute right-0 top-full mt-1.5 w-48 px-3 py-2 bg-[#1a1a1a] border border-white/15 rounded-lg shadow-xl opacity-0 invisible group-hover/v76:opacity-100 group-hover/v76:visible transition-all duration-200 pointer-events-none">
+              <p className="text-[10px] text-white/90 font-semibold mb-0.5">
+                {t('v76_tooltip_title') || 'Firmware v76+ Required'}
+              </p>
+              <p className="text-[10px] text-white/50 leading-relaxed">
+                {t('v76_tooltip_desc') ||
+                  'Game ini membutuhkan Quest firmware versi 76 ke atas untuk bisa dimainkan.'}
+              </p>
+              {/* Arrow */}
+              <div className="absolute -top-1 right-3 w-2 h-2 bg-[#1a1a1a] border-l border-t border-white/15 rotate-45" />
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Content: Title */}
         <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
           {/* Title */}
           <h3
@@ -660,13 +682,6 @@ function GameCard({ game, selectedDevice, onClick }) {
           >
             {gameTitle}
           </h3>
-
-          {/* v76+ Badge (if applicable) */}
-          {isSupportedV76 && (
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/80 text-white text-[10px] font-bold">
-              <span>v76+ Only</span>
-            </div>
-          )}
         </div>
       </div>
 
