@@ -6,6 +6,10 @@ const path = require('path')
 const PACKAGE_JSON_PATH = path.join(__dirname, '../package.json')
 const DRY_RUN = process.argv.includes('--dry-run')
 
+// Parse custom suffix from CLI args (e.g. "npm run release rev1" => suffix = "rev1")
+// Skip arguments that start with "--" (those are flags like --dry-run)
+const customSuffix = process.argv.slice(2).find(arg => !arg.startsWith('--')) || ''
+
 function run(command) {
   console.log(`> ${command}`)
   if (!DRY_RUN) {
@@ -68,8 +72,16 @@ if (commits) {
   })
 }
 
-const releaseType = hasFeatures ? 'release' : hasFixes ? 'fix-only' : 'release'
-const suffix = releaseType === 'fix-only' ? '-fix' : ''
+// Determine suffix: custom suffix takes priority, then auto-detect from commits
+let suffix = ''
+if (customSuffix) {
+  suffix = `-${customSuffix}`
+  console.log(`Custom suffix:   -${customSuffix}`)
+} else {
+  const releaseType = hasFeatures ? 'release' : hasFixes ? 'fix-only' : 'release'
+  suffix = releaseType === 'fix-only' ? '-fix' : ''
+  console.log(`Release Type:    ${releaseType}`)
+}
 
 // 4. Read package.json
 const packageJson = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf8'))
@@ -79,7 +91,6 @@ const newVersion = `${major}.${minor}.${commitCount}${suffix}`
 const tagName = `v${newVersion}`
 
 console.log(`Current Version: ${packageJson.version}`)
-console.log(`Release Type:    ${releaseType}`)
 console.log(`New Version:     ${newVersion}`)
 console.log(`Tag Name:        ${tagName}`)
 

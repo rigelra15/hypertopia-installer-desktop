@@ -2660,7 +2660,8 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
         )
           .then((metadata) => {
             totalBytes = parseInt(metadata.data.size || '0', 10)
-            console.log('[Install Archive] Google Drive file name:', metadata.data.name)
+            const gdFileName = metadata.data.name || ''
+            console.log('[Install Archive] Google Drive file name:', gdFileName)
             console.log('[Install Archive] Google Drive file size:', totalBytes, 'bytes')
 
             const dest = fs.createWriteStream(archivePath)
@@ -2704,7 +2705,8 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
                   sendProgress('DOWNLOADING', Math.round(progress), 'Downloading game archive...', {
                     downloadedBytes,
                     totalBytes,
-                    speed
+                    speed,
+                    gdFileName
                   })
                 })
 
@@ -2955,25 +2957,51 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
 
     sendProgress('COMPLETED', 100, 'Installation complete!')
 
-    return { success: true, hasObb: !!obbPath }
-  } catch (error) {
-    console.error('[Install Archive] Error:', error)
-    sendProgress('ERROR', 0, error.message)
-    return { success: false, error: error.message }
-  } finally {
-    // Cleanup temp directory
-    console.log(`[Install Archive] Cleaning up temp folder: ${tempDir}`)
+    // Cleanup temp directory on success
+    console.log(`[Install Archive] Install successful, cleaning up temp folder: ${tempDir}`)
     try {
       await fs.remove(tempDir)
       console.log(`[Install Archive] Successfully removed: ${tempDir}`)
     } catch (cleanupErr) {
       console.warn(`[Install Archive] Cleanup failed: ${cleanupErr.message}`)
-      setTimeout(() => {
-        fs.remove(tempDir).catch((err) =>
-          console.warn(`[Install Archive] Delayed cleanup also failed: ${err.message}`)
-        )
-      }, 1000)
     }
+
+    return { success: true, hasObb: !!obbPath }
+  } catch (error) {
+    console.error('[Install Archive] Error:', error)
+    sendProgress('ERROR', 0, error.message)
+
+    // On cancellation, clean up everything
+    if (error.message === 'Installation cancelled') {
+      console.log(`[Install Archive] Cancelled, cleaning up temp folder: ${tempDir}`)
+      try {
+        await fs.remove(tempDir)
+        console.log(`[Install Archive] Successfully removed: ${tempDir}`)
+      } catch (cleanupErr) {
+        console.warn(`[Install Archive] Cleanup failed: ${cleanupErr.message}`)
+        setTimeout(() => {
+          fs.remove(tempDir).catch((err) =>
+            console.warn(`[Install Archive] Delayed cleanup also failed: ${err.message}`)
+          )
+        }, 1000)
+      }
+    } else {
+      // On install failure, only clean up extracted files but KEEP the downloaded archive
+      // so the user doesn't have to re-download a large file
+      const extractDir = path.join(tempDir, 'extracted')
+      try {
+        if (await fs.pathExists(extractDir)) {
+          await fs.remove(extractDir)
+          console.log(`[Install Archive] Cleaned up extracted files: ${extractDir}`)
+        }
+      } catch (cleanupErr) {
+        console.warn(`[Install Archive] Extract cleanup failed: ${cleanupErr.message}`)
+      }
+      console.log(`[Install Archive] Downloaded archive kept at: ${tempDir}`)
+      console.log(`[Install Archive] Archive file: ${archivePath}`)
+    }
+
+    return { success: false, error: error.message }
   }
 })
 

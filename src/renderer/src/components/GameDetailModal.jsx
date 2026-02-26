@@ -107,7 +107,8 @@ export default function GameDetailModal({
     detail: '',
     downloadedBytes: 0,
     totalBytes: 0,
-    speed: 0
+    speed: 0,
+    gdFileName: ''
   })
   const [confirmInstall, setConfirmInstall] = useState(null) // For install confirmation modal
   const [showInstallModal, setShowInstallModal] = useState(false) // For install progress modal
@@ -229,7 +230,8 @@ export default function GameDetailModal({
         detail: progress.detail || '',
         downloadedBytes: progress.downloadedBytes || 0,
         totalBytes: progress.totalBytes || 0,
-        speed: progress.speed || 0
+        speed: progress.speed || 0,
+        gdFileName: progress.gdFileName || ''
       })
     })
 
@@ -1446,16 +1448,29 @@ export default function GameDetailModal({
                         className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
                         title={t('minimize_to_background') || 'Minimize to background'}
                       >
-                        <Icon
-                          icon="material-symbols:close-fullscreen-rounded"
+                      <Icon
+                          icon="octicon:minimize-16"
                           className="h-5 w-5"
                         />
                       </button>
                     </div>
 
-                    <p className="mt-2 text-sm text-white/60">
-                      {downloadInfo.fileName || gameTitle}
-                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <p className="text-sm text-white/60 truncate flex-1">
+                        {downloadInfo.fileName || gameTitle}
+                      </p>
+                      {downloadInfo.fileName && (
+                        <span className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
+                          downloadInfo.fileName.toLowerCase().endsWith('.rar')
+                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                            : downloadInfo.fileName.toLowerCase().endsWith('.7z')
+                              ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                              : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                        }`}>
+                          {downloadInfo.fileName.split('.').pop()?.toUpperCase() || 'ZIP'}
+                        </span>
+                      )}
+                    </div>
 
                     {/* Progress Bar */}
                     {downloadInfo.status === 'downloading' && downloadInfo.totalBytes > 0 ? (
@@ -1634,11 +1649,29 @@ export default function GameDetailModal({
                         className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
                         title={t('minimize') || 'Minimize to widget'}
                       >
-                        <Icon icon="mdi:arrow-collapse-down" className="h-5 w-5" />
+                        <Icon icon="octicon:minimize-16" className="h-5 w-5" />
                       </button>
                     </div>
 
                     <p className="text-sm text-white/60">{gameTitle}</p>
+
+                    {/* Show actual filename from Google Drive with extension badge */}
+                    {installProgress.gdFileName && (
+                      <div className="mt-1 flex items-center gap-2">
+                        <p className="text-xs text-white/40 truncate flex-1">
+                          {installProgress.gdFileName}
+                        </p>
+                        <span className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
+                          installProgress.gdFileName.toLowerCase().endsWith('.rar')
+                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                            : installProgress.gdFileName.toLowerCase().endsWith('.7z')
+                              ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                              : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                        }`}>
+                          {installProgress.gdFileName.split('.').pop()?.toUpperCase() || 'ZIP'}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Progress */}
                     <div className="mt-4">

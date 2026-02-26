@@ -136,15 +136,22 @@ export default function GameDownloadWidget({
                       ? t('qgo_preparing') || 'Preparing...'
                       : t('downloading') || 'Downloading...'}
                 </p>
-                <p className="text-xs text-white/50 truncate">
-                  {isComplete
-                    ? gameTitle || fileName
-                    : status === 'preparing'
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs text-white/50 truncate">
+                    {isComplete
                       ? gameTitle || fileName
-                      : status === 'downloading' && totalBytes > 0
-                        ? `${progressPercent.toFixed(0)}% • ${speedDisplay}`
-                        : gameTitle || fileName}
-                </p>
+                      : status === 'preparing'
+                        ? gameTitle || fileName
+                        : status === 'downloading' && totalBytes > 0
+                          ? `${progressPercent.toFixed(0)}% • ${speedDisplay}`
+                          : gameTitle || fileName}
+                  </p>
+                  {fileName && !isComplete && status !== 'downloading' && (
+                    <span className={`shrink-0 px-1 py-0 text-[9px] font-bold rounded ${fileName.toLowerCase().endsWith('.rar') ? 'bg-purple-500/20 text-purple-400' : fileName.toLowerCase().endsWith('.7z') ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                      {fileName.split('.').pop()?.toUpperCase()}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -227,11 +234,16 @@ export default function GameDownloadWidget({
                     </div>
                   )}
 
-                  {/* Preparing state - show filename */}
+                  {/* Preparing state - show filename with extension badge */}
                   {!isComplete && status === 'preparing' && (
                     <div className="flex items-center gap-2 py-2 text-xs text-white/50">
                       <Icon icon="mdi:file-download-outline" className="h-4 w-4 flex-shrink-0" />
                       <span className="truncate">{fileName}</span>
+                      {fileName && (
+                        <span className={`shrink-0 px-1 py-0 text-[9px] font-bold rounded ${fileName.toLowerCase().endsWith('.rar') ? 'bg-purple-500/20 text-purple-400' : fileName.toLowerCase().endsWith('.7z') ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                          {fileName.split('.').pop()?.toUpperCase()}
+                        </span>
+                      )}
                     </div>
                   )}
 
@@ -240,7 +252,12 @@ export default function GameDownloadWidget({
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-xs text-white/60">
                         <Icon icon="mdi:file" className="h-4 w-4" />
-                        <span className="truncate">{fileName}</span>
+                        <span className="truncate flex-1">{fileName}</span>
+                        {fileName && (
+                          <span className={`shrink-0 px-1 py-0 text-[9px] font-bold rounded ${fileName.toLowerCase().endsWith('.rar') ? 'bg-purple-500/20 text-purple-400' : fileName.toLowerCase().endsWith('.7z') ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                            {fileName.split('.').pop()?.toUpperCase()}
+                          </span>
+                        )}
                       </div>
                       {totalBytes > 0 && (
                         <div className="flex items-center gap-2 text-xs text-white/40">
