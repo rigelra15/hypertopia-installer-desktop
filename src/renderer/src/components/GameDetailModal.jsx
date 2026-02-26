@@ -1474,7 +1474,7 @@ export default function GameDetailModal({
                               </div>
                               <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
                                 <motion.div
-                                  className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF]"
+                                  className="h-full bg-linear-to-r from-[#0081FB] to-[#00C2FF]"
                                   initial={{ width: 0 }}
                                   animate={{ width: `${progressPercent}%` }}
                                   transition={{ duration: 0.3 }}

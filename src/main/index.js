@@ -2264,7 +2264,8 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
         // Create custom HTTP agent and options with referer header
         const customHeaders = {
           'Referer': 'https://hypertopia.store/',
-          'Origin': 'https://hypertopia.store'
+          'Origin': 'https://hypertopia.store',
+          'Accept-Encoding': 'identity'
         }
 
         // Initialize Google Drive API with API Key and custom headers
@@ -2320,7 +2321,8 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
             {
               fileId: fileId,
               alt: 'media',
-              supportsAllDrives: true
+              supportsAllDrives: true,
+              acknowledgeAbuse: true
             },
             {
               responseType: 'stream',
@@ -2514,7 +2516,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
   }
 
   const tempDir = path.join(extractBasePath, 'hypertopia_install_' + Date.now())
-  const archivePath = path.join(tempDir, fileName)
+  let archivePath = path.join(tempDir, fileName)
   
   // Store temp directory for cleanup on cancel
   installationState.tempDir = tempDir
@@ -2641,7 +2643,8 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
 
         const customHeaders = {
           'Referer': 'https://hypertopia.store/',
-          'Origin': 'https://hypertopia.store'
+          'Origin': 'https://hypertopia.store',
+          'Accept-Encoding': 'identity'
         }
 
         const drive = google.drive({ 
@@ -2657,13 +2660,14 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
         )
           .then((metadata) => {
             totalBytes = parseInt(metadata.data.size || '0', 10)
+            console.log('[Install Archive] Google Drive file name:', metadata.data.name)
             console.log('[Install Archive] Google Drive file size:', totalBytes, 'bytes')
 
             const dest = fs.createWriteStream(archivePath)
 
-            // Download the file
+            // Download the file (acknowledgeAbuse bypasses virus scan confirmation for large files)
             drive.files.get(
-              { fileId, alt: 'media', supportsAllDrives: true },
+              { fileId, alt: 'media', supportsAllDrives: true, acknowledgeAbuse: true },
               { responseType: 'stream', headers: customHeaders },
               (err, response) => {
                 if (err) {
@@ -2706,16 +2710,22 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
 
                 response.data.pipe(dest)
 
-                dest.on('finish', () => {
+                dest.on('finish', () =>
                   dest.close(() => {
                     const stats = fs.statSync(archivePath)
+                    console.log('[Install Archive] Download complete. File on disk:', stats.size, 'bytes, expected:', totalBytes, 'bytes')
                     if (stats.size === 0) {
                       reject(new Error('Downloaded file is empty'))
+                    } else if (totalBytes > 0 && Math.abs(stats.size - totalBytes) > 1024) {
+                      // File size mismatch - likely encoding/decompression issue
+                      console.warn('[Install Archive] WARNING: File size mismatch! On disk:', stats.size, 'expected:', totalBytes)
+                      // Still resolve but log warning - the file may still work
+                      resolve({ success: true, filePath: archivePath })
                     } else {
                       resolve({ success: true, filePath: archivePath })
                     }
                   })
-                })
+                )
 
                 dest.on('error', (err) => {
                   fs.unlink(archivePath, () => {})
@@ -2738,6 +2748,56 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
     // Check for cancellation
     if (installationState.isCancelled) {
       throw new Error('Installation cancelled')
+    }
+
+    // Validate the downloaded file and fix extension if needed
+    // (Google Drive files may have different format than the extension we gave them)
+    try {
+      const fsNode = require('fs')
+      const fd = fsNode.openSync(archivePath, 'r')
+      const headerBuf = Buffer.alloc(16)
+      fsNode.readSync(fd, headerBuf, 0, 16, 0)
+      fsNode.closeSync(fd)
+
+      // Check magic bytes for common archive formats
+      const isZipMagic = headerBuf[0] === 0x50 && headerBuf[1] === 0x4B // PK (ZIP)
+      const is7zMagic = headerBuf[0] === 0x37 && headerBuf[1] === 0x7A && headerBuf[2] === 0xBC && headerBuf[3] === 0xAF // 7z
+      const isRarMagic = headerBuf[0] === 0x52 && headerBuf[1] === 0x61 && headerBuf[2] === 0x72 && headerBuf[3] === 0x21 // Rar!
+
+      if (!isZipMagic && !is7zMagic && !isRarMagic) {
+        // Check if it's HTML (Google Drive virus scan page)
+        const headerStr = headerBuf.toString('utf8').trim().toLowerCase()
+        if (headerStr.startsWith('<!doc') || headerStr.startsWith('<html') || headerStr.startsWith('<head')) {
+          console.error('[Install Archive] Downloaded file is an HTML page (likely Google Drive virus scan confirmation)')
+          throw new Error('Download gagal: Google Drive mengembalikan halaman konfirmasi, bukan file arsip. Coba lagi atau gunakan link download langsung.')
+        }
+        console.warn('[Install Archive] Unknown archive format, magic bytes:', headerBuf.slice(0, 8).toString('hex'))
+      } else {
+        const detectedFormat = isZipMagic ? 'ZIP' : is7zMagic ? '7Z' : 'RAR'
+        console.log('[Install Archive] Archive format validated:', detectedFormat)
+
+        // Fix file extension if it doesn't match the actual format
+        // This happens when Google Drive file is e.g. .rar but we saved it as .zip
+        const currentExt = path.extname(archivePath).toLowerCase()
+        const correctExt = isRarMagic ? '.rar' : is7zMagic ? '.7z' : '.zip'
+        
+        if (currentExt !== correctExt) {
+          const newArchivePath = archivePath.replace(/\.[^.]+$/, correctExt)
+          console.log(`[Install Archive] Extension mismatch! File is ${detectedFormat} but saved as ${currentExt}. Renaming to ${correctExt}`)
+          fsNode.renameSync(archivePath, newArchivePath)
+          archivePath = newArchivePath
+          console.log('[Install Archive] Renamed to:', archivePath)
+        }
+      }
+
+      // Also verify file size matches expected
+      const stats = fs.statSync(archivePath)
+      console.log('[Install Archive] Downloaded file size:', stats.size, 'bytes')
+    } catch (validationErr) {
+      if (validationErr.message.includes('Download gagal')) {
+        throw validationErr
+      }
+      console.warn('[Install Archive] Could not validate archive:', validationErr.message)
     }
 
     // 2. EXTRACTION
@@ -3041,7 +3101,8 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
         // Custom headers required for API key restrictions
         const customHeaders = {
           'Referer': 'https://hypertopia.store/',
-          'Origin': 'https://hypertopia.store'
+          'Origin': 'https://hypertopia.store',
+          'Accept-Encoding': 'identity'
         }
 
         const drive = google.drive({ 
@@ -3061,9 +3122,9 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
 
             const dest = fs.createWriteStream(tempFilePath)
 
-            // Download the file
+            // Download the file (acknowledgeAbuse bypasses virus scan confirmation for large files)
             drive.files.get(
-              { fileId, alt: 'media', supportsAllDrives: true },
+              { fileId, alt: 'media', supportsAllDrives: true, acknowledgeAbuse: true },
               { responseType: 'stream', headers: customHeaders },
               (err, response) => {
                 if (err) {

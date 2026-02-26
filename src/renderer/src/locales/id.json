@@ -428,5 +428,7 @@
   "files_deleted": "file berhasil dihapus",
   "files_failed_delete": "file gagal dihapus",
   "downloaded": "Terunduh",
-  "some_parts_downloaded": "Beberapa part sudah terunduh"
+  "some_parts_downloaded": "Beberapa part sudah terunduh",
+  "v76_tooltip_title": "Firmware v76+ Diperlukan",
+  "v76_tooltip_desc": "Game ini membutuhkan Quest firmware versi 76 ke atas untuk bisa dimainkan."
 }
