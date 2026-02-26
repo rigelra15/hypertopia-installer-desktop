@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
@@ -64,15 +64,21 @@ const getQuestInfo = (questKey) => {
   )
 }
 
-export default function GameDetailModal({ isOpen, onClose, game, selectedDevice, connectedDevice }) {
+export default function GameDetailModal({
+  isOpen,
+  onClose,
+  game,
+  selectedDevice,
+  connectedDevice
+}) {
   const { t } = useLanguage()
   const { user, accessTypes } = useAuth()
-  const { 
-    isDownloading, 
-    downloadInfo, 
+  const {
+    isDownloading,
+    downloadInfo,
     downloadComplete,
-    startDownload, 
-    showWidget, 
+    startDownload,
+    showWidget,
     showDownloadWidget,
     cancelDownload,
     // Install context
@@ -92,7 +98,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   const [deviceModel, setDeviceModel] = useState(null) // Device model name for display
   const [downloadedFiles, setDownloadedFiles] = useState({}) // Track which files are already downloaded
   const [confirmDelete, setConfirmDelete] = useState(null) // For delete confirmation modal
-  
+
   // Download and install state
   const [isInstalling, setIsInstalling] = useState(false)
   const [installProgress, setInstallProgress] = useState({
@@ -105,14 +111,28 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   })
   const [confirmInstall, setConfirmInstall] = useState(null) // For install confirmation modal
   const [showInstallModal, setShowInstallModal] = useState(false) // For install progress modal
-  
+
   // Safely extract game properties with fallbacks (must be before state that uses them)
   const gameTitle = game?.gameTitle || game?.name || game?.id?.replace(/!/g, '') || 'Unknown Game'
   const gameStatus = game?.gameStatus || ''
   const isSupportedV76 = game?.isSupportedV76 || false
-  const versions = Array.isArray(game?.versions) ? game.versions.filter((v) => v !== null) : []
+  const versions = useMemo(
+    () => (Array.isArray(game?.versions) ? game.versions.filter((v) => v !== null) : []),
+    [game?.versions]
+  )
   const gameVersion = game?.version || game?.gameVersion || 'v1.0'
-  
+
+  // Compute initial selected version index (newest first) without using setState inside effect
+  const initialSelectedVersion = useMemo(() => {
+    if (versions.length > 0) {
+      const sorted = versions
+        .map((version, originalIndex) => ({ ...version, originalIndex }))
+        .sort((a, b) => compareVersions(a.version, b.version))
+      return sorted[0]?.originalIndex || 0
+    }
+    return 0
+  }, [versions])
+
   // Local download count state for UI updates
   const [localDownloadCount, setLocalDownloadCount] = useState(game?.downloadCount || 0)
   const [localVersions, setLocalVersions] = useState(versions)
@@ -143,15 +163,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   // Reset state when game changes
   useEffect(() => {
     if (!game) return
-    if (versions.length > 0) {
-      // Sort versions and select the newest one
-      const sortedVersionsWithIndex = versions
-        .map((version, originalIndex) => ({ ...version, originalIndex }))
-        .sort((a, b) => compareVersions(a.version, b.version))
-      setSelectedVersion(sortedVersionsWithIndex[0]?.originalIndex || 0)
-    } else {
-      setSelectedVersion(0)
-    }
+    setSelectedVersion(initialSelectedVersion)
     // Reset other states when game changes
     setCoverUrl(null)
     setLoadingImage(true)
@@ -163,18 +175,22 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     // Sync local download count with game data
     setLocalDownloadCount(game?.downloadCount || 0)
     setLocalVersions(versions)
-  }, [game])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game, initialSelectedVersion])
 
   // Check which files are already downloaded when modal opens, version changes, or download completes
   useEffect(() => {
     if (!isOpen || !game || !gameTitle) return
-    
+
     const checkDownloaded = async () => {
       try {
-        const currentVer = localVersions[selectedVersion] || { version: gameVersion, downloadLinks: [] }
+        const currentVer = localVersions[selectedVersion] || {
+          version: gameVersion,
+          downloadLinks: []
+        }
         const version = currentVer.version || gameVersion
-        const downloadLinks = (currentVer.downloadLinks || []).filter(link => link && link.trim())
-        
+        const downloadLinks = (currentVer.downloadLinks || []).filter((link) => link && link.trim())
+
         // Generate file names that would be created for each download link
         const fileNames = downloadLinks.map((_, index) => {
           let fileName = `${gameTitle.replace(/[<>:"/\\|?*]/g, '_')}_${version}`
@@ -184,12 +200,12 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
           fileName += '.zip'
           return fileName
         })
-        
+
         if (fileNames.length === 0) {
           setDownloadedFiles({})
           return
         }
-        
+
         const result = await window.api.checkDownloadedFiles(fileNames)
         if (result.success) {
           setDownloadedFiles(result.downloadedFiles)
@@ -198,9 +214,9 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
         console.warn('Failed to check downloaded files:', err)
       }
     }
-    
+
     checkDownloaded()
-  }, [isOpen, game, gameTitle, selectedVersion, gameVersion, downloadComplete])
+  }, [isOpen, game, gameTitle, selectedVersion, gameVersion, downloadComplete, localVersions])
 
   // Listen for install progress events
   useEffect(() => {
@@ -255,7 +271,6 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   // Early return AFTER all hooks
   if (!game) return null
 
-
   // Get current version data
   const getCurrentVersion = () => {
     if (localVersions && localVersions.length > 0) {
@@ -281,12 +296,12 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   const updateDownloadCount = async (partIndex = null) => {
     try {
       let versionText = ''
-      
+
       if (localVersions && localVersions.length > 0) {
         // Update version-specific download count
         const currentVersionDownloadCount = localVersions[selectedVersion]?.downloadCount || 0
         const updatedVersionCount = currentVersionDownloadCount + 1
-        
+
         // Update local state
         const updatedVersions = [...localVersions]
         updatedVersions[selectedVersion] = {
@@ -294,7 +309,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
           downloadCount: updatedVersionCount
         }
         setLocalVersions(updatedVersions)
-        
+
         // Update Firebase - version specific count
         await fetch(
           `${FIREBASE_DB_URL}/vrGames/standalone/${gameTitle}/versions/${selectedVersion}/downloadCount.json`,
@@ -304,36 +319,30 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
             body: JSON.stringify(updatedVersionCount)
           }
         )
-        
+
         // Update Firebase - total download count
         const totalDownloadCount = getTotalDownloadCount() + 1
-        await fetch(
-          `${FIREBASE_DB_URL}/vrGames/standalone/${gameTitle}/downloadCount.json`,
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(totalDownloadCount)
-          }
-        )
-        
+        await fetch(`${FIREBASE_DB_URL}/vrGames/standalone/${gameTitle}/downloadCount.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(totalDownloadCount)
+        })
+
         versionText = localVersions[selectedVersion]?.version || gameVersion
       } else {
         // Single version - just update total count
         const updatedCount = localDownloadCount + 1
         setLocalDownloadCount(updatedCount)
-        
-        await fetch(
-          `${FIREBASE_DB_URL}/vrGames/standalone/${gameTitle}/downloadCount.json`,
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedCount)
-          }
-        )
-        
+
+        await fetch(`${FIREBASE_DB_URL}/vrGames/standalone/${gameTitle}/downloadCount.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedCount)
+        })
+
         versionText = gameVersion || 'v1.0'
       }
-      
+
       // Record download history for user
       if (user) {
         const historyEntry = {
@@ -343,17 +352,14 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
           source: 'installer', // Mark as downloaded from installer
           ...(partIndex !== null && { partNumber: partIndex + 1 })
         }
-        
-        await fetch(
-          `${FIREBASE_DB_URL}/usersData/downloadHistory/${user.uid}/standalone.json`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(historyEntry)
-          }
-        )
+
+        await fetch(`${FIREBASE_DB_URL}/usersData/downloadHistory/${user.uid}/standalone.json`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(historyEntry)
+        })
       }
-      
+
       console.log('[GameDetailModal] Download count updated successfully')
     } catch (error) {
       console.error('[GameDetailModal] Failed to update download count:', error)
@@ -365,8 +371,8 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   const getFileName = (partIndex = null) => {
     const currentVer = getCurrentVersion()
     const version = currentVer.version || gameVersion
-    const downloadLinks = (currentVer.downloadLinks || []).filter(link => link && link.trim())
-    
+    const downloadLinks = (currentVer.downloadLinks || []).filter((link) => link && link.trim())
+
     let fileName = `${gameTitle.replace(/[<>:"/\\|?*]/g, '_')}_${version}`
     if (downloadLinks.length > 1 && partIndex !== null) {
       fileName += `_Part${partIndex + 1}`
@@ -384,22 +390,22 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   // Check if ALL parts are downloaded (for multi-part games)
   const areAllPartsDownloaded = () => {
     const currentVer = getCurrentVersion()
-    const downloadLinks = (currentVer.downloadLinks || []).filter(link => link && link.trim())
-    
+    const downloadLinks = (currentVer.downloadLinks || []).filter((link) => link && link.trim())
+
     if (downloadLinks.length === 0) return false
     if (downloadLinks.length === 1) return isFileDownloaded(null)
-    
+
     return downloadLinks.every((_, index) => isFileDownloaded(index))
   }
 
   // Check if ANY parts are downloaded (for multi-part games)
   const areAnyPartsDownloaded = () => {
     const currentVer = getCurrentVersion()
-    const downloadLinks = (currentVer.downloadLinks || []).filter(link => link && link.trim())
-    
+    const downloadLinks = (currentVer.downloadLinks || []).filter((link) => link && link.trim())
+
     if (downloadLinks.length === 0) return false
     if (downloadLinks.length === 1) return isFileDownloaded(null)
-    
+
     return downloadLinks.some((_, index) => isFileDownloaded(index))
   }
 
@@ -412,12 +418,12 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   // Confirm and execute delete
   const handleConfirmDelete = async () => {
     if (!confirmDelete) return
-    
+
     try {
       const result = await window.api.deleteDownloadedFile(confirmDelete.fileName)
       if (result.success) {
         // Update local state to reflect deletion
-        setDownloadedFiles(prev => ({
+        setDownloadedFiles((prev) => ({
           ...prev,
           [confirmDelete.fileName]: { exists: false }
         }))
@@ -428,37 +434,37 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     } catch (err) {
       toast.error(`${t('delete_failed') || 'Delete failed:'} ${err.message}`)
     }
-    
+
     setConfirmDelete(null)
   }
 
   // Handle delete all parts
   const handleDeleteAllParts = async () => {
     const currentVer = getCurrentVersion()
-    const downloadLinks = (currentVer.downloadLinks || []).filter(link => link && link.trim())
-    
+    const downloadLinks = (currentVer.downloadLinks || []).filter((link) => link && link.trim())
+
     const filesToDelete = downloadLinks
       .map((_, index) => getFileName(index))
-      .filter(fileName => downloadedFiles[fileName]?.exists)
-    
+      .filter((fileName) => downloadedFiles[fileName]?.exists)
+
     if (filesToDelete.length === 0) return
-    
+
     setConfirmDelete({ fileName: filesToDelete.join(', '), isMultiple: true, files: filesToDelete })
   }
 
   // Confirm and execute delete all
   const handleConfirmDeleteAll = async () => {
     if (!confirmDelete?.isMultiple || !confirmDelete.files) return
-    
+
     let successCount = 0
     let failCount = 0
-    
+
     for (const fileName of confirmDelete.files) {
       try {
         const result = await window.api.deleteDownloadedFile(fileName)
         if (result.success) {
           successCount++
-          setDownloadedFiles(prev => ({
+          setDownloadedFiles((prev) => ({
             ...prev,
             [fileName]: { exists: false }
           }))
@@ -469,14 +475,14 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
         failCount++
       }
     }
-    
+
     if (successCount > 0) {
       toast.success(`${successCount} ${t('files_deleted') || 'file(s) deleted'}`)
     }
     if (failCount > 0) {
       toast.error(`${failCount} ${t('files_failed_delete') || 'file(s) failed to delete'}`)
     }
-    
+
     setConfirmDelete(null)
   }
 
@@ -522,7 +528,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   const formatEta = (remainingBytes, speed) => {
     if (!speed || speed === 0 || !remainingBytes) return '--'
     const seconds = Math.ceil(remainingBytes / speed)
-    
+
     const hours = Math.floor(seconds / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
     const secs = seconds % 60
@@ -544,7 +550,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
   // Update standalone game file size to API (only if not already set)
   const updateStandaloneFileSize = async (identifier, fileSize) => {
     if (!identifier || !fileSize || fileSize <= 0) return
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/game-size`, {
         method: 'POST',
@@ -557,7 +563,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
           fileSize: fileSize
         })
       })
-      
+
       if (response.ok) {
         console.log(`[GameDetailModal] File size updated for ${identifier}: ${fileSize} bytes`)
       } else {
@@ -573,14 +579,14 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     const currentVer = getCurrentVersion()
     const version = currentVer.version || gameVersion
     let fileName = `${gameTitle.replace(/[<>:"/\\|?*]/g, '_')}_${version}`
-    
+
     if (partIndex !== null) {
       fileName += `_Part${partIndex + 1}`
     }
     fileName += '.zip'
 
     setShowDownloadModal(true)
-    
+
     // Update download count when download starts
     await updateDownloadCount(partIndex)
 
@@ -666,14 +672,17 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
     if (isDownloadableUrl(link) && window.api?.downloadAndInstallArchive) {
       setConfirmInstall({ link })
     } else {
-      toast.error(t('install_not_supported') || 'Direct install is only supported for Google Drive and Dropbox links')
+      toast.error(
+        t('install_not_supported') ||
+          'Direct install is only supported for Google Drive and Dropbox links'
+      )
     }
   }
 
   // Handle confirm install from modal
   const handleConfirmInstall = async () => {
     if (!confirmInstall || !connectedDevice) return
-    
+
     const currentVer = getCurrentVersion()
     const version = currentVer.version || gameVersion
     // Determine file extension from URL or default to .zip
@@ -693,14 +702,14 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
       totalBytes: 0,
       speed: 0
     })
-    
+
     // Also start the install widget for background tracking
     startInstallWidget(gameTitle)
 
     try {
       // Update download count when install starts
       await updateDownloadCount()
-      
+
       // Use downloadAndInstallArchive for ZIP/RAR files (handles APK + OBB)
       const result = await window.api.downloadAndInstallArchive(
         confirmInstall.link,
@@ -769,15 +778,11 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
 
                 {/* Cover image */}
                 {coverUrl && (
-                  <img
-                    src={coverUrl}
-                    alt={gameTitle}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={coverUrl} alt={gameTitle} className="w-full h-full object-cover" />
                 )}
 
                 {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/40 to-transparent" />
 
                 {/* Close button */}
                 <button
@@ -908,7 +913,9 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                                       setShowVersionSelector(false)
                                     }}
                                     className={`w-full text-left px-4 py-3 hover:bg-white/10 transition-colors flex justify-between items-center ${
-                                      version.originalIndex === selectedVersion ? 'bg-[#0081FB]/10' : ''
+                                      version.originalIndex === selectedVersion
+                                        ? 'bg-[#0081FB]/10'
+                                        : ''
                                     }`}
                                   >
                                     <span
@@ -938,25 +945,13 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                       </div>
                     )}
 
-                    {/* Download buttons */}
+                    {/* Download / Install buttons */}
                     <div className="flex flex-col gap-3 mt-4">
                       {gameStatus !== 'coming_soon' ? (
                         <>
-                          {/* Download only button - OR Delete button if already downloaded */}
-                          {currentVersion.downloadLinks?.length === 1 && isFileDownloaded(null) ? (
-                            // Single file already downloaded - show delete button
-                            <button
-                              onClick={() => handleDeleteFile(null)}
-                              disabled={isDownloading || (showWidget && !downloadComplete) || isInstalling}
-                              className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-red-500/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
-                            >
-                              <Icon icon="mdi:delete" className="w-5 h-5" />
-                              {t('delete_file') || 'Delete Downloaded File'}
-                            </button>
-                          ) : currentVersion.downloadLinks?.length > 1 ? (
-                            // Multi-part game - show download/delete based on status
+                          {/* Multi-part games */}
+                          {currentVersion.downloadLinks?.length > 1 ? (
                             areAllPartsDownloaded() ? (
-                              // All parts downloaded - show delete all button
                               <button
                                 onClick={handleDeleteAllParts}
                                 disabled={isDownloading || isInstalling}
@@ -966,10 +961,13 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                                 {t('delete_all_files') || 'Delete All Downloaded Files'}
                               </button>
                             ) : (
-                              // Some or no parts downloaded - show download with indicator
                               <button
                                 onClick={handleDownload}
-                                disabled={!currentVersion.downloadLinks?.length || isDownloading || isInstalling}
+                                disabled={
+                                  !currentVersion.downloadLinks?.length ||
+                                  isDownloading ||
+                                  isInstalling
+                                }
                                 className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-1"
                               >
                                 {isDownloading ? (
@@ -985,18 +983,107 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                                     </div>
                                     {areAnyPartsDownloaded() && (
                                       <span className="text-xs text-white/70 font-normal">
-                                        {t('some_parts_downloaded') || 'Some parts already downloaded'}
+                                        {t('some_parts_downloaded') ||
+                                          'Some parts already downloaded'}
                                       </span>
                                     )}
                                   </>
                                 )}
                               </button>
                             )
+                          ) : currentVersion.downloadLinks?.length === 1 &&
+                            isFileDownloaded(null) ? (
+                            // Single file ALREADY downloaded → [Hapus File] + [Instal Game] in flex-row
+                            <div className="flex flex-row gap-3">
+                              <button
+                                onClick={() => handleDeleteFile(null)}
+                                disabled={
+                                  isDownloading || (showWidget && !downloadComplete) || isInstalling
+                                }
+                                className="flex-1 py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-red-500/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                              >
+                                <Icon icon="mdi:delete" className="w-5 h-5" />
+                                {t('delete_file') || 'Delete File'}
+                              </button>
+                              <button
+                                onClick={handleDownloadAndInstall}
+                                disabled={
+                                  !connectedDevice ||
+                                  !currentVersion.downloadLinks?.length ||
+                                  isDownloading ||
+                                  isInstalling
+                                }
+                                className="flex-1 py-3.5 bg-linear-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 disabled:from-white/10 disabled:to-white/10 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-green-500/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-0.5"
+                              >
+                                {isInstalling ? (
+                                  <div className="flex items-center gap-2">
+                                    <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
+                                    {t('installing') || 'Installing...'}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center gap-2">
+                                      <Icon icon="bi:headset-vr" className="w-5 h-5" />
+                                      {t('install_game') || 'Install Game'}
+                                    </div>
+                                    {connectedDevice && deviceModel && (
+                                      <span className="text-xs text-white/70 font-normal">
+                                        {t('device') || 'Device'}: {deviceModel}
+                                      </span>
+                                    )}
+                                    {!connectedDevice && (
+                                      <span className="text-xs text-white/50 font-normal">
+                                        {t('no_device_connected') || 'No device connected'}
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          ) : connectedDevice ? (
+                            // Single file NOT downloaded + device connected → [Unduh & Install]
+                            <button
+                              onClick={handleDownloadAndInstall}
+                              disabled={
+                                !currentVersion.downloadLinks?.length ||
+                                isDownloading ||
+                                isInstalling
+                              }
+                              className="w-full py-3.5 bg-linear-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 disabled:from-white/10 disabled:to-white/10 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-green-500/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-0.5"
+                            >
+                              {isInstalling ? (
+                                <div className="flex items-center gap-2">
+                                  <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
+                                  {t('installing') || 'Installing...'}
+                                </div>
+                              ) : isDownloading ? (
+                                <div className="flex items-center gap-2">
+                                  <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
+                                  {t('downloading') || 'Downloading...'}
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="flex items-center gap-2">
+                                    <Icon icon="bi:headset-vr" className="w-5 h-5" />
+                                    {t('download_and_install') || 'Download & Install to Quest'}
+                                  </div>
+                                  {deviceModel && (
+                                    <span className="text-xs text-white/70 font-normal">
+                                      {t('device') || 'Device'}: {deviceModel}
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </button>
                           ) : (
-                            // Single file not downloaded - show download button
+                            // Single file NOT downloaded + NO device → [Download] only
                             <button
                               onClick={handleDownload}
-                              disabled={!currentVersion.downloadLinks?.length || isDownloading || isInstalling}
+                              disabled={
+                                !currentVersion.downloadLinks?.length ||
+                                isDownloading ||
+                                isInstalling
+                              }
                               className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
                             >
                               {isDownloading ? (
@@ -1008,39 +1095,6 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                                 <>
                                   <Icon icon="mdi:download" className="w-5 h-5" />
                                   {t('download') || 'Download'}
-                                </>
-                              )}
-                            </button>
-                          )}
-
-                          {/* Download and Install button - always show, disabled if no device */}
-                          {currentVersion.downloadLinks?.length === 1 && (
-                            <button
-                              onClick={handleDownloadAndInstall}
-                              disabled={!connectedDevice || !currentVersion.downloadLinks?.length || isDownloading || isInstalling}
-                              className="w-full py-3.5 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 disabled:from-white/10 disabled:to-white/10 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-green-500/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-0.5"
-                            >
-                              {isInstalling ? (
-                                <div className="flex items-center gap-2">
-                                  <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
-                                  {t('installing') || 'Installing...'}
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="flex items-center gap-2">
-                                    <Icon icon="bi:headset-vr" className="w-5 h-5" />
-                                    {t('download_and_install') || 'Download & Install to Quest'}
-                                  </div>
-                                  {connectedDevice && deviceModel && (
-                                    <span className="text-xs text-white/70 font-normal">
-                                      {t('device') || 'Device'}: {deviceModel}
-                                    </span>
-                                  )}
-                                  {!connectedDevice && (
-                                    <span className="text-xs text-white/50 font-normal">
-                                      {t('no_device_connected') || 'No device connected'}
-                                    </span>
-                                  )}
                                 </>
                               )}
                             </button>
@@ -1074,7 +1128,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+                  className="fixed inset-0 z-60 flex items-center justify-center p-4"
                 >
                   <div
                     className="fixed inset-0 bg-black/60"
@@ -1102,26 +1156,34 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                         {t('download_all_parts_warning') ||
                           'You must download all parts for the game to work!'}
                       </p>
-                      
+
                       {/* Download Progress */}
                       {isDownloading && (
                         <div className="mb-4 p-3 rounded-xl border border-[#0081FB]/30 bg-[#0081FB]/5">
                           <p className="text-sm text-white/80 mb-2 truncate">
                             {downloadInfo.fileName}
                           </p>
-                          
+
                           {downloadInfo.status === 'downloading' && downloadInfo.totalBytes > 0 ? (
                             <>
                               <div className="flex items-center justify-between text-xs text-white/50 mb-1">
                                 <span>
-                                  {formatBytes(downloadInfo.downloadedBytes)} / {formatBytes(downloadInfo.totalBytes)}
+                                  {formatBytes(downloadInfo.downloadedBytes)} /{' '}
+                                  {formatBytes(downloadInfo.totalBytes)}
                                 </span>
-                                <span>{Math.round((downloadInfo.downloadedBytes / downloadInfo.totalBytes) * 100)}%</span>
+                                <span>
+                                  {Math.round(
+                                    (downloadInfo.downloadedBytes / downloadInfo.totalBytes) * 100
+                                  )}
+                                  %
+                                </span>
                               </div>
                               <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
                                 <div
-                                  className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
-                                  style={{ width: `${Math.min(100, (downloadInfo.downloadedBytes / downloadInfo.totalBytes) * 100)}%` }}
+                                  className="h-full bg-linear-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
+                                  style={{
+                                    width: `${Math.min(100, (downloadInfo.downloadedBytes / downloadInfo.totalBytes) * 100)}%`
+                                  }}
                                 />
                               </div>
                               <div className="mt-2 flex items-center justify-between text-xs text-white/40">
@@ -1131,14 +1193,23 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <Icon icon="mdi:clock-outline" className="h-3 w-3" />
-                                  {t('qgo_eta') || 'ETA'}: {formatEta(downloadInfo.totalBytes - downloadInfo.downloadedBytes, downloadInfo.speed)}
+                                  {t('qgo_eta') || 'ETA'}:{' '}
+                                  {formatEta(
+                                    downloadInfo.totalBytes - downloadInfo.downloadedBytes,
+                                    downloadInfo.speed
+                                  )}
                                 </span>
                               </div>
                             </>
                           ) : (
                             <div className="flex items-center justify-center py-2">
-                              <Icon icon="mdi:loading" className="h-6 w-6 animate-spin text-[#0081FB]" />
-                              <span className="ml-2 text-sm text-white/60">{t('qgo_preparing') || 'Preparing...'}</span>
+                              <Icon
+                                icon="mdi:loading"
+                                className="h-6 w-6 animate-spin text-[#0081FB]"
+                              />
+                              <span className="ml-2 text-sm text-white/60">
+                                {t('qgo_preparing') || 'Preparing...'}
+                              </span>
                             </div>
                           )}
                           {/* Cancel Download Button */}
@@ -1154,29 +1225,31 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                           </button>
                         </div>
                       )}
-                      
+
                       {(currentVersion.downloadLinks || [])
                         .filter((l) => l && l.trim())
                         .map((link, idx) => {
                           const partDownloaded = isFileDownloaded(idx)
                           const fileName = getFileName(idx)
                           const fileInfo = downloadedFiles[fileName]
-                          
+
                           return (
                             <div
                               key={idx}
                               className={`w-full flex items-center justify-between p-3 border rounded-xl transition-colors ${
-                                partDownloaded 
-                                  ? 'border-green-500/30 bg-green-500/5' 
+                                partDownloaded
+                                  ? 'border-green-500/30 bg-green-500/5'
                                   : 'border-white/10 hover:bg-[#0081FB]/10 hover:border-[#0081FB]/30'
                               }`}
                             >
                               <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm transition-colors ${
-                                  partDownloaded 
-                                    ? 'bg-green-500/20 text-green-400' 
-                                    : 'bg-[#0081FB]/20 text-[#0081FB]'
-                                }`}>
+                                <div
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm transition-colors ${
+                                    partDownloaded
+                                      ? 'bg-green-500/20 text-green-400'
+                                      : 'bg-[#0081FB]/20 text-[#0081FB]'
+                                  }`}
+                                >
                                   {partDownloaded ? (
                                     <Icon icon="mdi:check" className="w-5 h-5" />
                                   ) : (
@@ -1187,7 +1260,8 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                                   <span className="font-medium text-white">Part {idx + 1}</span>
                                   {partDownloaded && fileInfo?.size && (
                                     <span className="text-[10px] text-green-400/70">
-                                      {formatBytes(fileInfo.size)} - {t('downloaded') || 'Downloaded'}
+                                      {formatBytes(fileInfo.size)} -{' '}
+                                      {t('downloaded') || 'Downloaded'}
                                     </span>
                                   )}
                                 </div>
@@ -1229,7 +1303,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
+                  className="fixed inset-0 z-60 flex items-center justify-center bg-black/80"
                   onClick={() => setConfirmDelete(null)}
                 >
                   <motion.div
@@ -1248,9 +1322,10 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                       </h3>
                     </div>
                     <p className="text-sm text-white/60">
-                      {confirmDelete.isMultiple 
-                        ? (t('delete_confirm_desc_multiple') || 'You are about to delete the following files:')
-                        : (t('delete_confirm_desc') || 'You are about to delete:')}
+                      {confirmDelete.isMultiple
+                        ? t('delete_confirm_desc_multiple') ||
+                          'You are about to delete the following files:'
+                        : t('delete_confirm_desc') || 'You are about to delete:'}
                     </p>
                     <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
                       {confirmDelete.isMultiple ? (
@@ -1278,7 +1353,9 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                         {t('cancel') || 'Cancel'}
                       </button>
                       <button
-                        onClick={confirmDelete.isMultiple ? handleConfirmDeleteAll : handleConfirmDelete}
+                        onClick={
+                          confirmDelete.isMultiple ? handleConfirmDeleteAll : handleConfirmDelete
+                        }
                         className="rounded-lg bg-red-600 hover:bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-red-500/20 transition-all"
                       >
                         {t('delete') || 'Delete'}
@@ -1296,7 +1373,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
+                  className="fixed inset-0 z-60 flex items-center justify-center bg-black/80"
                   onClick={() => setConfirmDownload(null)}
                 >
                   <motion.div
@@ -1315,8 +1392,10 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                     <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
                       <p className="font-medium text-white">{gameTitle}</p>
                       <p className="mt-1 text-xs text-white/50">
-                        {t('qgo_version') || 'Version'}: {getCurrentVersion().version || gameVersion}
-                        {confirmDownload.partIndex !== null && ` - Part ${confirmDownload.partIndex + 1}`}
+                        {t('qgo_version') || 'Version'}:{' '}
+                        {getCurrentVersion().version || gameVersion}
+                        {confirmDownload.partIndex !== null &&
+                          ` - Part ${confirmDownload.partIndex + 1}`}
                       </p>
                       {game?.gameSize && (
                         <p className="mt-1 text-xs text-white/50">
@@ -1333,7 +1412,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                       </button>
                       <button
                         onClick={handleConfirmDownload}
-                        className="rounded-lg bg-gradient-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-[#0081FB]/20 transition-all hover:shadow-xl hover:shadow-[#0081FB]/30"
+                        className="rounded-lg bg-linear-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-[#0081FB]/20 transition-all hover:shadow-xl hover:shadow-[#0081FB]/30"
                       >
                         {t('qgo_download') || 'Download'}
                       </button>
@@ -1350,7 +1429,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
+                  className="fixed inset-0 z-60 flex items-center justify-center bg-black/80"
                 >
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -1367,10 +1446,13 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                         className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
                         title={t('minimize_to_background') || 'Minimize to background'}
                       >
-                        <Icon icon="material-symbols:close-fullscreen-rounded" className="h-5 w-5" />
+                        <Icon
+                          icon="material-symbols:close-fullscreen-rounded"
+                          className="h-5 w-5"
+                        />
                       </button>
                     </div>
-                    
+
                     <p className="mt-2 text-sm text-white/60">
                       {downloadInfo.fileName || gameTitle}
                     </p>
@@ -1385,7 +1467,8 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                             <>
                               <div className="mb-2 flex items-center justify-between text-xs text-white/50">
                                 <span>
-                                  {formatBytes(downloadInfo.downloadedBytes)} / {formatBytes(downloadInfo.totalBytes)}
+                                  {formatBytes(downloadInfo.downloadedBytes)} /{' '}
+                                  {formatBytes(downloadInfo.totalBytes)}
                                 </span>
                                 <span>{Math.round(progressPercent)}%</span>
                               </div>
@@ -1409,7 +1492,11 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                           </span>
                           <span className="flex items-center gap-1">
                             <Icon icon="mdi:clock-outline" className="h-3 w-3" />
-                            {t('qgo_eta') || 'ETA'}: {formatEta(downloadInfo.totalBytes - downloadInfo.downloadedBytes, downloadInfo.speed)}
+                            {t('qgo_eta') || 'ETA'}:{' '}
+                            {formatEta(
+                              downloadInfo.totalBytes - downloadInfo.downloadedBytes,
+                              downloadInfo.speed
+                            )}
                           </span>
                         </div>
                       </div>
@@ -1431,7 +1518,8 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
 
                     {/* Minimize hint */}
                     <p className="mt-4 text-center text-xs text-white/40">
-                      {t('download_minimize_hint') || 'Click the arrow to minimize and continue in background'}
+                      {t('download_minimize_hint') ||
+                        'Click the arrow to minimize and continue in background'}
                     </p>
 
                     {/* Cancel Download Button */}
@@ -1458,7 +1546,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+                  className="fixed inset-0 z-60 flex items-center justify-center p-4"
                 >
                   <div
                     className="fixed inset-0 bg-black/80"
@@ -1474,7 +1562,8 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                       {t('install_confirm_title') || 'Download & Install'}
                     </h3>
                     <p className="mt-2 text-sm text-white/60">
-                      {t('install_confirm_desc') || 'This will download and install the APK directly to your Meta Quest device:'}
+                      {t('install_confirm_desc') ||
+                        'This will download and install the APK directly to your Meta Quest device:'}
                     </p>
                     <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
                       <p className="font-medium text-white">{gameTitle}</p>
@@ -1495,7 +1584,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                       </button>
                       <button
                         onClick={handleConfirmInstall}
-                        className="rounded-lg bg-gradient-to-r from-green-600 to-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-green-500/20 transition-all hover:shadow-xl"
+                        className="rounded-lg bg-linear-to-r from-green-600 to-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-green-500/20 transition-all hover:shadow-xl"
                       >
                         {t('install') || 'Install'}
                       </button>
@@ -1512,7 +1601,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+                  className="fixed inset-0 z-60 flex items-center justify-center p-4"
                 >
                   <div className="fixed inset-0 bg-black/80" />
                   <motion.div
@@ -1524,7 +1613,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                     {/* Header with minimize button */}
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <h3 className="text-lg font-semibold text-white">
-                        {installProgress.step === 'DOWNLOADING' 
+                        {installProgress.step === 'DOWNLOADING'
                           ? t('qgo_downloading') || 'Downloading...'
                           : installProgress.step === 'EXTRACTING'
                             ? t('extracting') || 'Extracting...'
@@ -1548,7 +1637,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                         <Icon icon="mdi:arrow-collapse-down" className="h-5 w-5" />
                       </button>
                     </div>
-                    
+
                     <p className="text-sm text-white/60">{gameTitle}</p>
 
                     {/* Progress */}
@@ -1559,7 +1648,7 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                       </div>
                       <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
                         <div
-                          className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-300"
+                          className="h-full bg-linear-to-r from-green-500 to-emerald-400 transition-all duration-300"
                           style={{ width: `${installProgress.percent}%` }}
                         />
                       </div>
@@ -1572,11 +1661,12 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                             {formatSpeed(installProgress.speed)}
                           </span>
                           <span>
-                            {formatBytes(installProgress.downloadedBytes)} / {formatBytes(installProgress.totalBytes)}
+                            {formatBytes(installProgress.downloadedBytes)} /{' '}
+                            {formatBytes(installProgress.totalBytes)}
                           </span>
                         </div>
                       )}
-                      
+
                       {/* Cancel Install Button - only during download phase */}
                       {installProgress.step === 'DOWNLOADING' && (
                         <button
@@ -1603,11 +1693,14 @@ export default function GameDetailModal({ isOpen, onClose, game, selectedDevice,
                         </>
                       ) : (
                         <>
-                          <Icon icon="mdi:loading" className="h-5 w-5 animate-spin text-green-500" />
+                          <Icon
+                            icon="mdi:loading"
+                            className="h-5 w-5 animate-spin text-green-500"
+                          />
                           <span>
                             {installProgress.step === 'DOWNLOADING'
-                              ? (t('qgo_downloading_msg') || 'Downloading, please wait...')
-                              : (t('installing_msg') || 'Installing to device...')}
+                              ? t('qgo_downloading_msg') || 'Downloading, please wait...'
+                              : t('installing_msg') || 'Installing to device...'}
                           </span>
                         </>
                       )}
