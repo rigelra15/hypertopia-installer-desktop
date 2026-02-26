@@ -74,25 +74,46 @@ if (commits) {
 
 // 4. Read package.json
 const packageJson = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf8'))
+const currentVersion = packageJson.version
 
 let newVersion
-if (customSuffix) {
-  // Custom suffix mode: keep current version, just append suffix
-  // e.g. "1.0.213" + "rev1" => "1.0.213-rev1"
-  newVersion = `${packageJson.version}-${customSuffix}`
+// Check if the argument is a full version string (e.g. "v1.0.213-rev1" or "1.0.213-rev1")
+const isManualVersion = customSuffix && (customSuffix.includes('.') || customSuffix.startsWith('v'))
+if (isManualVersion) {
+  // Manual version mode: use the provided version as-is (strip leading 'v' if present)
+  newVersion = customSuffix.startsWith('v') ? customSuffix.slice(1) : customSuffix
+  console.log(`Manual version:  ${newVersion}`)
+} else if (customSuffix === 'rev') {
+  // Rev mode: auto-increment rev number
+  // e.g. "1.0.213" => "1.0.213-rev1", "1.0.213-rev1" => "1.0.213-rev2"
+  const revMatch = currentVersion.match(/^(.+)-rev(\d+)$/)
+  if (revMatch) {
+    const baseVersion = revMatch[1]
+    const nextRev = parseInt(revMatch[2], 10) + 1
+    newVersion = `${baseVersion}-rev${nextRev}`
+  } else {
+    const baseVersion = currentVersion.replace(/-.*$/, '')
+    newVersion = `${baseVersion}-rev1`
+  }
+  console.log(`Rev mode:        auto-increment`)
+} else if (customSuffix) {
+  // Other custom suffix: keep current base version, append suffix
+  const baseVersion = currentVersion.replace(/-.*$/, '')
+  newVersion = `${baseVersion}-${customSuffix}`
   console.log(`Custom suffix:   -${customSuffix}`)
 } else {
-  // Normal mode: bump patch version based on commit count
+  // Normal mode: bump patch version based on commit count, strip any suffix
   const releaseType = hasFeatures ? 'release' : hasFixes ? 'fix-only' : 'release'
   const suffix = releaseType === 'fix-only' ? '-fix' : ''
-  const [major, minor] = packageJson.version.split('.')
+  const cleanVersion = currentVersion.replace(/-.*$/, '')
+  const [major, minor] = cleanVersion.split('.')
   newVersion = `${major}.${minor}.${commitCount}${suffix}`
   console.log(`Release Type:    ${releaseType}`)
 }
 
 const tagName = `v${newVersion}`
 
-console.log(`Current Version: ${packageJson.version}`)
+console.log(`Current Version: ${currentVersion}`)
 console.log(`New Version:     ${newVersion}`)
 console.log(`Tag Name:        ${tagName}`)
 
