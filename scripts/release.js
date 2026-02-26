@@ -72,22 +72,24 @@ if (commits) {
   })
 }
 
-// Determine suffix: custom suffix takes priority, then auto-detect from commits
-let suffix = ''
+// 4. Read package.json
+const packageJson = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf8'))
+
+let newVersion
 if (customSuffix) {
-  suffix = `-${customSuffix}`
+  // Custom suffix mode: keep current version, just append suffix
+  // e.g. "1.0.213" + "rev1" => "1.0.213-rev1"
+  newVersion = `${packageJson.version}-${customSuffix}`
   console.log(`Custom suffix:   -${customSuffix}`)
 } else {
+  // Normal mode: bump patch version based on commit count
   const releaseType = hasFeatures ? 'release' : hasFixes ? 'fix-only' : 'release'
-  suffix = releaseType === 'fix-only' ? '-fix' : ''
+  const suffix = releaseType === 'fix-only' ? '-fix' : ''
+  const [major, minor] = packageJson.version.split('.')
+  newVersion = `${major}.${minor}.${commitCount}${suffix}`
   console.log(`Release Type:    ${releaseType}`)
 }
 
-// 4. Read package.json
-const packageJson = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf8'))
-const [major, minor] = packageJson.version.split('.')
-
-const newVersion = `${major}.${minor}.${commitCount}${suffix}`
 const tagName = `v${newVersion}`
 
 console.log(`Current Version: ${packageJson.version}`)
