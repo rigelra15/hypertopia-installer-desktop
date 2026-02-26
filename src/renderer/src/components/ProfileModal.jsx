@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useAuth } from '../contexts/AuthContext'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.hypertopia.store'
 
 export function ProfileModal({ isOpen, onClose, user }) {
   const { t } = useLanguage()
+  const { accessTypes } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -160,8 +162,8 @@ export function ProfileModal({ isOpen, onClose, user }) {
                     {t('profile_access_types') || 'Access Types'}
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {profile.accessTypes && profile.accessTypes.length > 0 ? (
-                      profile.accessTypes.map((type) => (
+                    {accessTypes && accessTypes.length > 0 ? (
+                      accessTypes.map((type) => (
                         <span
                           key={type}
                           className={`px-3 py-1.5 rounded-lg text-sm font-semibold border uppercase ${getAccessTypeColor(type)}`}
