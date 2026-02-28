@@ -244,48 +244,118 @@ export function Tutorials({ onNavigate }) {
       </div>
 
       {/* List Content */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-8">
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          {tutorials.map((tutorial) => (
-            <button
-              key={tutorial.id}
-              onClick={() => {
-                setSelectedTutorial(tutorial)
-                setActiveTabId(tutorial.tabs?.[0]?.id || null)
-              }}
-              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-left transition-all duration-300 hover:border-[#0081FB]/50 hover:bg-white/10 flex flex-col"
-            >
-              {/* Gradient Top Accent - Always Visible */}
-              <div className="h-1 w-full rounded-t-2xl bg-linear-to-r from-[#0081FB] to-[#00D4FF] shrink-0" />
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {tutorials.map((tutorial, index) => {
+            // Unique gradient theme per card
+            const themes = [
+              {
+                gradient: 'from-[#0081FB] to-[#00D4FF]',
+                iconBg: 'bg-[#0081FB]/10',
+                iconHoverBg: 'group-hover:bg-[#0081FB]',
+                accent: 'text-[#0081FB]',
+                borderHover: 'hover:border-[#0081FB]/40',
+                glow: 'group-hover:shadow-[#0081FB]/10',
+                badgeBg: 'bg-[#0081FB]/10 text-[#0081FB]'
+              },
+              {
+                gradient: 'from-[#A855F7] to-[#D946EF]',
+                iconBg: 'bg-purple-500/10',
+                iconHoverBg: 'group-hover:bg-purple-500',
+                accent: 'text-purple-400',
+                borderHover: 'hover:border-purple-500/40',
+                glow: 'group-hover:shadow-purple-500/10',
+                badgeBg: 'bg-purple-500/10 text-purple-400'
+              },
+              {
+                gradient: 'from-[#10B981] to-[#34D399]',
+                iconBg: 'bg-emerald-500/10',
+                iconHoverBg: 'group-hover:bg-emerald-500',
+                accent: 'text-emerald-400',
+                borderHover: 'hover:border-emerald-500/40',
+                glow: 'group-hover:shadow-emerald-500/10',
+                badgeBg: 'bg-emerald-500/10 text-emerald-400'
+              },
+              {
+                gradient: 'from-[#F59E0B] to-[#F97316]',
+                iconBg: 'bg-amber-500/10',
+                iconHoverBg: 'group-hover:bg-amber-500',
+                accent: 'text-amber-400',
+                borderHover: 'hover:border-amber-500/40',
+                glow: 'group-hover:shadow-amber-500/10',
+                badgeBg: 'bg-amber-500/10 text-amber-400'
+              }
+            ]
+            const theme = themes[index % themes.length]
 
-              {/* Card Content */}
-              <div className="p-4 flex flex-col flex-1">
-                {/* Icon */}
-                <div className="mb-3 w-10 h-10 rounded-lg bg-[#0081FB]/10 flex items-center justify-center text-[#0081FB] group-hover:bg-[#0081FB] group-hover:text-white transition-all duration-300 shrink-0">
-                  <Icon icon={tutorial.icon} className="h-5 w-5" />
+            // Count total steps
+            const stepCount = tutorial.tabs
+              ? tutorial.tabs.reduce((sum, tab) => sum + (tab.steps?.length || 0), 0)
+              : tutorial.steps?.length || 0
+
+            return (
+              <button
+                key={tutorial.id}
+                onClick={() => {
+                  setSelectedTutorial(tutorial)
+                  setActiveTabId(tutorial.tabs?.[0]?.id || null)
+                }}
+                className={`group relative overflow-hidden rounded-2xl border border-white/8 bg-white/3 text-left transition-all duration-300 ${theme.borderHover} hover:bg-white/6 hover:shadow-xl ${theme.glow} hover:-translate-y-0.5 flex flex-col`}
+              >
+                {/* Gradient Top Bar */}
+                <div
+                  className={`h-1 w-full bg-linear-to-r ${theme.gradient} opacity-80 group-hover:opacity-100 transition-opacity`}
+                />
+
+                {/* Card Content */}
+                <div className="p-4 flex flex-col flex-1">
+                  {/* Icon Row */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div
+                      className={`w-11 h-11 rounded-xl ${theme.iconBg} ${theme.iconHoverBg} group-hover:text-white flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg`}
+                    >
+                      <Icon
+                        icon={tutorial.icon}
+                        className={`h-5 w-5 ${theme.accent} group-hover:text-white transition-colors`}
+                      />
+                    </div>
+                    {/* Step Count Badge */}
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme.badgeBg}`}
+                    >
+                      {stepCount} {t('steps') || 'steps'}
+                    </span>
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="font-bold text-[13px] text-white mb-1.5 line-clamp-2 group-hover:text-white/95 transition-colors">
+                    {t(tutorial.titleKey)}
+                  </h3>
+
+                  {/* Description */}
+                  <p className="text-[11px] text-white/40 line-clamp-2 flex-1 leading-relaxed">
+                    {t(tutorial.descriptionKey)}
+                  </p>
+
+                  {/* Read More CTA */}
+                  <div
+                    className={`flex items-center text-xs font-semibold ${theme.accent} mt-4 pt-3 border-t border-white/6`}
+                  >
+                    <span>{t('tutorial_read_guide')}</span>
+                    <Icon
+                      icon="mdi:arrow-right"
+                      className="ml-1.5 h-3.5 w-3.5 group-hover:translate-x-1.5 transition-transform duration-300"
+                    />
+                  </div>
                 </div>
 
-                {/* Title */}
-                <h3 className="font-semibold text-sm text-white mb-1.5 line-clamp-2">
-                  {t(tutorial.titleKey)}
-                </h3>
-
-                {/* Description */}
-                <p className="text-xs text-white/50 line-clamp-2 flex-1">
-                  {t(tutorial.descriptionKey)}
-                </p>
-
-                {/* Read More */}
-                <div className="flex items-center text-xs font-medium text-[#0081FB] mt-3">
-                  <span>{t('tutorial_read_guide')}</span>
-                  <Icon
-                    icon="mdi:arrow-right"
-                    className="ml-1 h-3.5 w-3.5 group-hover:translate-x-1 transition-transform"
-                  />
-                </div>
-              </div>
-            </button>
-          ))}
+                {/* Subtle corner glow on hover */}
+                <div
+                  className={`absolute -top-12 -right-12 w-24 h-24 bg-linear-to-br ${theme.gradient} rounded-full opacity-0 group-hover:opacity-[0.07] blur-2xl transition-opacity duration-500`}
+                />
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>
