@@ -82,83 +82,86 @@ export function DownloadProvider({ children }) {
   }, [])
 
   // Start download
-  const startDownload = useCallback(async (url, fileName, gameTitle) => {
-    if (isDownloading) {
-      console.warn('[Download] Another download is already in progress')
-      return { success: false, error: 'Another download is in progress' }
-    }
-
-    setIsDownloading(true)
-    setDownloadComplete(false)
-    setShowWidget(true)
-    setDownloadInfo({
-      fileName,
-      gameTitle,
-      progress: 0,
-      downloadedBytes: 0,
-      totalBytes: 0,
-      speed: 0,
-      status: 'preparing'
-    })
-
-    try {
-      const result = await window.api.downloadFile(url, fileName)
-
-      if (result.success) {
-        setIsDownloading(false)
-        setDownloadComplete(true)
-        setDownloadInfo((prev) => ({
-          ...prev,
-          progress: 100,
-          status: 'idle'
-        }))
-        return { success: true, filePath: result.filePath }
-      } else if (result.canceled) {
-        setIsDownloading(false)
-        setDownloadComplete(false)
-        setShowWidget(false)
-        setDownloadInfo({
-          fileName: '',
-          gameTitle: '',
-          progress: 0,
-          downloadedBytes: 0,
-          totalBytes: 0,
-          speed: 0,
-          status: 'idle'
-        })
-        return { success: false, canceled: true }
-      } else {
-        setIsDownloading(false)
-        setDownloadComplete(false)
-        setShowWidget(false)
-        setDownloadInfo({
-          fileName: '',
-          gameTitle: '',
-          progress: 0,
-          downloadedBytes: 0,
-          totalBytes: 0,
-          speed: 0,
-          status: 'idle'
-        })
-        return { success: false, error: result.error || 'Unknown error' }
+  const startDownload = useCallback(
+    async (url, fileName, gameTitle) => {
+      if (isDownloading) {
+        console.warn('[Download] Another download is already in progress')
+        return { success: false, error: 'Another download is in progress' }
       }
-    } catch (error) {
-      console.error('[Download] Error:', error)
-      setIsDownloading(false)
+
+      setIsDownloading(true)
       setDownloadComplete(false)
-      setShowWidget(false)
+      setShowWidget(true)
       setDownloadInfo({
-        fileName: '',
-        gameTitle: '',
+        fileName,
+        gameTitle,
         progress: 0,
         downloadedBytes: 0,
         totalBytes: 0,
         speed: 0,
-        status: 'idle'
+        status: 'preparing'
       })
-      return { success: false, error: error.message }
-    }
-  }, [isDownloading])
+
+      try {
+        const result = await window.api.downloadFile(url, fileName)
+
+        if (result.success) {
+          setIsDownloading(false)
+          setDownloadComplete(true)
+          setDownloadInfo((prev) => ({
+            ...prev,
+            progress: 100,
+            status: 'idle'
+          }))
+          return { success: true, filePath: result.filePath }
+        } else if (result.canceled) {
+          setIsDownloading(false)
+          setDownloadComplete(false)
+          setShowWidget(false)
+          setDownloadInfo({
+            fileName: '',
+            gameTitle: '',
+            progress: 0,
+            downloadedBytes: 0,
+            totalBytes: 0,
+            speed: 0,
+            status: 'idle'
+          })
+          return { success: false, canceled: true }
+        } else {
+          setIsDownloading(false)
+          setDownloadComplete(false)
+          setShowWidget(false)
+          setDownloadInfo({
+            fileName: '',
+            gameTitle: '',
+            progress: 0,
+            downloadedBytes: 0,
+            totalBytes: 0,
+            speed: 0,
+            status: 'idle'
+          })
+          return { success: false, error: result.error || 'Unknown error' }
+        }
+      } catch (error) {
+        console.error('[Download] Error:', error)
+        setIsDownloading(false)
+        setDownloadComplete(false)
+        setShowWidget(false)
+        setDownloadInfo({
+          fileName: '',
+          gameTitle: '',
+          progress: 0,
+          downloadedBytes: 0,
+          totalBytes: 0,
+          speed: 0,
+          status: 'idle'
+        })
+        return { success: false, error: error.message }
+      }
+    },
+    [isDownloading]
+  )
 
   // Close widget
   const closeWidget = useCallback(() => {
@@ -302,11 +305,7 @@ export function DownloadProvider({ children }) {
     cancelInstall
   }
 
-  return (
-    <DownloadContext.Provider value={value}>
-      {children}
-    </DownloadContext.Provider>
-  )
+  return <DownloadContext.Provider value={value}>{children}</DownloadContext.Provider>
 }
 
 DownloadProvider.propTypes = {

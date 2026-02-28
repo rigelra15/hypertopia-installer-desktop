@@ -8,7 +8,6 @@ import UpdateNotification from './UpdateNotification'
 import BrowseMethodModal from './BrowseMethodModal'
 import PropTypes from 'prop-types'
 
-
 export function InstallerSidebar({
   selectedDevice,
   onDeviceSelect,
@@ -371,12 +370,16 @@ export function InstallerSidebar({
             }`}
             title={t('expand_sidebar') || 'Expand Sidebar'}
           >
-            <Icon 
-              icon={selectedDevice?.toLowerCase().includes('quest') ? 'ri:meta-fill' : 'fluent:phone-32-filled'} 
-              className="h-5 w-5 shrink-0" 
+            <Icon
+              icon={
+                selectedDevice?.toLowerCase().includes('quest')
+                  ? 'ri:meta-fill'
+                  : 'fluent:phone-32-filled'
+              }
+              className="h-5 w-5 shrink-0"
             />
             {selectedDevice && (
-              <span 
+              <span
                 className="text-xs font-medium whitespace-nowrap group-hover:text-green-300"
                 style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
               >

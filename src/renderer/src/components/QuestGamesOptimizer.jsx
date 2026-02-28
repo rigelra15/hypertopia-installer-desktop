@@ -11,11 +11,27 @@ import QGOLogo from '../assets/images/qgo-logo.png'
 
 const API_BASE_URL = 'https://api.hypertopia.store'
 
-export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, onDeepLinkProcessed }) {
+export function QuestGamesOptimizer({
+  selectedDevice,
+  pendingDeepLinkDownload,
+  onDeepLinkProcessed
+}) {
   const { t } = useLanguage()
   const { user, accessTypes } = useAuth()
-  const { isDownloading, downloadInfo, startDownload, showWidget, showDownloadWidget, cancelDownload } = useDownload()
-  const { qgoLinks: cachedQgoLinks, qgoDownloadStats: cachedQgoStats, qgoLoading, fetchQgoLinks } = useGames()
+  const {
+    isDownloading,
+    downloadInfo,
+    startDownload,
+    showWidget,
+    showDownloadWidget,
+    cancelDownload
+  } = useDownload()
+  const {
+    qgoLinks: cachedQgoLinks,
+    qgoDownloadStats: cachedQgoStats,
+    qgoLoading,
+    fetchQgoLinks
+  } = useGames()
   const toast = useToast()
 
   // Check if user has QGO access
@@ -29,14 +45,14 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
   const [confirmDownload, setConfirmDownload] = useState(null)
   const [showDownloadModal, setShowDownloadModal] = useState(false)
   const [deviceModel, setDeviceModel] = useState(null)
-  
+
   // Installed QGO detection
   const [installedQgoVersion, setInstalledQgoVersion] = useState(null)
   const [isCheckingInstalled, setIsCheckingInstalled] = useState(false)
-  
+
   // Downloaded files tracking
   const [downloadedFiles, setDownloadedFiles] = useState({}) // { version: { exists, path, size } }
-  
+
   // Install state
   const [confirmInstall, setConfirmInstall] = useState(null)
   const [installing, setInstalling] = useState(false)
@@ -103,17 +119,19 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
     } else if (!qgoLoading) {
       // Fetch if not already loading and no cached data
       setIsLoading(true)
-      fetchQgoLinks().then(result => {
-        if (result) {
-          setQgoLinks(result.links || [])
-          setDownloadStats(result.stats || { total: 0, byVersion: {} })
-        }
-        setIsLoading(false)
-      }).catch(err => {
-        console.error('Error fetching QGO:', err)
-        setError(err.message)
-        setIsLoading(false)
-      })
+      fetchQgoLinks()
+        .then((result) => {
+          if (result) {
+            setQgoLinks(result.links || [])
+            setDownloadStats(result.stats || { total: 0, byVersion: {} })
+          }
+          setIsLoading(false)
+        })
+        .catch((err) => {
+          console.error('Error fetching QGO:', err)
+          setError(err.message)
+          setIsLoading(false)
+        })
     }
   }, [cachedQgoLinks, cachedQgoStats, qgoLoading, fetchQgoLinks])
 
@@ -178,7 +196,9 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
           const versionMap = {}
           qgoLinks.forEach((item) => {
             const version = extractVersion(item.description)
-            const fileName = version ? `QuestGamesOptimizer_v${version}.apk` : 'QuestGamesOptimizer.apk'
+            const fileName = version
+              ? `QuestGamesOptimizer_v${version}.apk`
+              : 'QuestGamesOptimizer.apk'
             if (result.downloadedFiles[fileName]) {
               versionMap[version || 'unknown'] = result.downloadedFiles[fileName]
             }
@@ -204,7 +224,7 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
       setIsCheckingInstalled(true)
       try {
         const apps = await window.api.listApps(selectedDevice)
-        
+
         // Find QGO app by package name pattern
         const qgoApp = apps.find((app) => {
           const pkgLower = (app.package || '').toLowerCase()
@@ -217,8 +237,16 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
         if (qgoApp) {
           // Extract version from app info
           // App version might be in version, versionName, or we extract from name
-          const version = qgoApp.version || qgoApp.versionName || extractVersion(qgoApp.name) || null
-          console.log('[QGO] Found installed QGO:', qgoApp.package, 'version:', version, 'raw:', qgoApp)
+          const version =
+            qgoApp.version || qgoApp.versionName || extractVersion(qgoApp.name) || null
+          console.log(
+            '[QGO] Found installed QGO:',
+            qgoApp.package,
+            'version:',
+            version,
+            'raw:',
+            qgoApp
+          )
           setInstalledQgoVersion(version)
         } else {
           console.log('[QGO] QGO not found on device')
@@ -321,13 +349,13 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
   useEffect(() => {
     if (pendingDeepLinkDownload && pendingDeepLinkDownload.game && qgoLinks.length > 0) {
       console.log('[DeepLinkDownload] QGO - Looking for version:', pendingDeepLinkDownload.version)
-      
+
       // Find the QGO version that matches
       const matchingItem = qgoLinks.find((item) => {
         const itemVersion = extractVersion(item.description)
         return itemVersion === pendingDeepLinkDownload.version
       })
-      
+
       if (matchingItem) {
         console.log('[DeepLinkDownload] QGO - Found matching version:', matchingItem.description)
         // Open download confirmation modal
@@ -357,15 +385,15 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
   const updateQgoDownloadCount = async (version) => {
     try {
       console.log('[QGO] Updating download count for version:', version)
-      
+
       const response = await fetch(`${API_BASE_URL}/api/v1/qgo/download-stats`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ version })
       })
-      
+
       const result = await response.json()
-      
+
       if (response.ok && result.success) {
         console.log('[QGO] Download count updated:', result)
       } else {
@@ -380,22 +408,22 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
   // Update QGO file size via API (only if not already set)
   const updateQgoFileSize = async (version, fileSize) => {
     if (!version || !fileSize || fileSize <= 0) return
-    
+
     try {
       console.log('[QGO] Updating file size for version:', version, 'size:', fileSize)
-      
+
       const response = await fetch(`${API_BASE_URL}/api/v1/game-size`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           type: 'qgo',
           identifier: version,
-          fileSize 
+          fileSize
         })
       })
-      
+
       const result = await response.json()
-      
+
       if (response.ok && result.success) {
         console.log('[QGO] File size update result:', result)
       } else {
@@ -415,9 +443,7 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
     if (!confirmDownload?.url) return
 
     const version = extractVersion(confirmDownload.description)
-    const fileName = version
-      ? `QuestGamesOptimizer_v${version}.apk`
-      : 'QuestGamesOptimizer.apk'
+    const fileName = version ? `QuestGamesOptimizer_v${version}.apk` : 'QuestGamesOptimizer.apk'
     const gameTitle = confirmDownload.description || 'Quest Games Optimizer'
 
     setShowDownloadModal(true)
@@ -539,18 +565,43 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
 
       if (result.success) {
         setInstalling(false)
-        setInstallProgress({ step: '', percent: 0, detail: '', downloadedBytes: 0, totalBytes: 0, speed: 0 })
+        setInstallProgress({
+          step: '',
+          percent: 0,
+          detail: '',
+          downloadedBytes: 0,
+          totalBytes: 0,
+          speed: 0
+        })
         setInstalledQgoVersion(version)
-        toast.success(`${t('install_success') || 'Installation complete!'} Quest Games Optimizer v${version}`)
+        toast.success(
+          `${t('install_success') || 'Installation complete!'} Quest Games Optimizer v${version}`
+        )
       } else {
         setInstalling(false)
-        setInstallProgress({ step: '', percent: 0, detail: '', downloadedBytes: 0, totalBytes: 0, speed: 0 })
-        toast.error(`${t('install_failed') || 'Installation failed:'} ${result.error || 'Unknown error'}`)
+        setInstallProgress({
+          step: '',
+          percent: 0,
+          detail: '',
+          downloadedBytes: 0,
+          totalBytes: 0,
+          speed: 0
+        })
+        toast.error(
+          `${t('install_failed') || 'Installation failed:'} ${result.error || 'Unknown error'}`
+        )
       }
     } catch (error) {
       console.error('Install local error:', error)
       setInstalling(false)
-      setInstallProgress({ step: '', percent: 0, detail: '', downloadedBytes: 0, totalBytes: 0, speed: 0 })
+      setInstallProgress({
+        step: '',
+        percent: 0,
+        detail: '',
+        downloadedBytes: 0,
+        totalBytes: 0,
+        speed: 0
+      })
       toast.error(`${t('install_failed') || 'Installation failed:'} ${error.message}`)
     }
   }
@@ -582,9 +633,7 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
 
     try {
       const version = extractVersion(confirmInstall.description)
-      const fileName = version
-        ? `QuestGamesOptimizer_v${version}.apk`
-        : 'QuestGamesOptimizer.apk'
+      const fileName = version ? `QuestGamesOptimizer_v${version}.apk` : 'QuestGamesOptimizer.apk'
 
       const result = await window.api.downloadAndInstallApk(
         confirmInstall.url,
@@ -595,15 +644,27 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
       if (result.success) {
         setConfirmInstall(null)
         setInstalling(false)
-        setInstallProgress({ step: '', percent: 0, detail: '', downloadedBytes: 0, totalBytes: 0, speed: 0 })
+        setInstallProgress({
+          step: '',
+          percent: 0,
+          detail: '',
+          downloadedBytes: 0,
+          totalBytes: 0,
+          speed: 0
+        })
         // Update installed version
         setInstalledQgoVersion(version)
-        toast.success(
-          `${t('install_success') || 'Installation complete!'} Quest Games Optimizer`
-        )
+        toast.success(`${t('install_success') || 'Installation complete!'} Quest Games Optimizer`)
       } else {
         setInstalling(false)
-        setInstallProgress({ step: '', percent: 0, detail: '', downloadedBytes: 0, totalBytes: 0, speed: 0 })
+        setInstallProgress({
+          step: '',
+          percent: 0,
+          detail: '',
+          downloadedBytes: 0,
+          totalBytes: 0,
+          speed: 0
+        })
         toast.error(
           `${t('install_failed') || 'Installation failed:'} ${result.error || 'Unknown error'}`
         )
@@ -612,10 +673,15 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
     } catch (error) {
       console.error('Install error:', error)
       setInstalling(false)
-      setInstallProgress({ step: '', percent: 0, detail: '', downloadedBytes: 0, totalBytes: 0, speed: 0 })
-      toast.error(
-        `${t('install_failed') || 'Installation failed:'} ${error.message}`
-      )
+      setInstallProgress({
+        step: '',
+        percent: 0,
+        detail: '',
+        downloadedBytes: 0,
+        totalBytes: 0,
+        speed: 0
+      })
+      toast.error(`${t('install_failed') || 'Installation failed:'} ${error.message}`)
       setConfirmInstall(null)
     }
   }
@@ -651,7 +717,9 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
 
       if (result.success) {
         setInstalledQgoVersion(null)
-        toast.success(t('qgo_uninstall_success') || 'Quest Games Optimizer uninstalled successfully')
+        toast.success(
+          t('qgo_uninstall_success') || 'Quest Games Optimizer uninstalled successfully'
+        )
       } else {
         toast.error(`${t('qgo_uninstall_failed') || 'Uninstall failed:'} ${result.message}`)
       }
@@ -682,7 +750,7 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
   const formatEta = (remainingBytes, speed) => {
     if (!speed || speed === 0 || !remainingBytes) return '--'
     const seconds = Math.ceil(remainingBytes / speed)
-    
+
     const hours = Math.floor(seconds / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
     const secs = seconds % 60
@@ -729,7 +797,8 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
           {t('qgo_no_access_title') || 'Access Restricted'}
         </h2>
         <p className="max-w-md text-sm text-white/50">
-          {t('qgo_no_access_desc') || 'You do not have access to Quest Games Optimizer. Please contact support if you believe this is an error.'}
+          {t('qgo_no_access_desc') ||
+            'You do not have access to Quest Games Optimizer. Please contact support if you believe this is an error.'}
         </p>
       </div>
     )
@@ -742,11 +811,7 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1.5 shadow-lg">
-              <img 
-                src={QGOLogo} 
-                alt="QGO Logo" 
-                className="h-full w-full object-contain"
-              />
+              <img src={QGOLogo} alt="QGO Logo" className="h-full w-full object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -756,8 +821,8 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
                 {/* Show installed version badge */}
                 {installedQgoVersion && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-0.5 text-[10px] font-medium text-green-400">
-                    <Icon icon="mdi:check-circle" className="h-3 w-3" />
-                    v{installedQgoVersion} {t('installed') || 'Installed'}
+                    <Icon icon="mdi:check-circle" className="h-3 w-3" />v{installedQgoVersion}{' '}
+                    {t('installed') || 'Installed'}
                   </span>
                 )}
               </div>
@@ -896,7 +961,10 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
                               <span className="text-white/30">•</span>
                               <div className="flex items-center gap-1">
                                 <Icon icon="mdi:download" className="h-3 w-3" />
-                                <span>{(downloadStats.byVersion[version] || 0).toLocaleString()} {t('downloads') || 'downloads'}</span>
+                                <span>
+                                  {(downloadStats.byVersion[version] || 0).toLocaleString()}{' '}
+                                  {t('downloads') || 'downloads'}
+                                </span>
                               </div>
                             </div>
                           )}
@@ -915,7 +983,9 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
                             className="flex-shrink-0 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-red-500/20 transition-all hover:shadow-xl hover:shadow-red-500/30 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                           >
                             <Icon icon="mdi:file-remove" className="h-4 w-4" />
-                            <span className="hidden sm:inline">{t('delete_file') || 'Delete File'}</span>
+                            <span className="hidden sm:inline">
+                              {t('delete_file') || 'Delete File'}
+                            </span>
                           </button>
 
                           {/* Install/Uninstall button */}
@@ -924,25 +994,35 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
                             <button
                               onClick={handleUninstall}
                               disabled={!selectedDevice || isDownloading || installing}
-                              title={!selectedDevice ? (t('connect_device_first') || 'Connect a device first') : ''}
+                              title={
+                                !selectedDevice
+                                  ? t('connect_device_first') || 'Connect a device first'
+                                  : ''
+                              }
                               className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                                selectedDevice 
-                                  ? 'bg-gradient-to-r from-red-600 to-red-500 shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover:scale-105 disabled:opacity-50' 
+                                selectedDevice
+                                  ? 'bg-gradient-to-r from-red-600 to-red-500 shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover:scale-105 disabled:opacity-50'
                                   : 'bg-gray-600 opacity-50'
                               }`}
                             >
                               <Icon icon="mdi:delete" className="h-4 w-4" />
-                              <span className="hidden sm:inline">{t('uninstall_app') || 'Uninstall App'}</span>
+                              <span className="hidden sm:inline">
+                                {t('uninstall_app') || 'Uninstall App'}
+                              </span>
                             </button>
                           ) : (
                             // Install button - install from local file
                             <button
                               onClick={() => selectedDevice && handleInstallLocal(item)}
                               disabled={!selectedDevice || isDownloading || installing}
-                              title={!selectedDevice ? (t('connect_device_first') || 'Connect a device first') : ''}
+                              title={
+                                !selectedDevice
+                                  ? t('connect_device_first') || 'Connect a device first'
+                                  : ''
+                              }
                               className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                                selectedDevice 
-                                  ? 'bg-gradient-to-r from-green-600 to-emerald-500 shadow-green-500/20 hover:shadow-xl hover:shadow-green-500/30 hover:scale-105 disabled:opacity-50' 
+                                selectedDevice
+                                  ? 'bg-gradient-to-r from-green-600 to-emerald-500 shadow-green-500/20 hover:shadow-xl hover:shadow-green-500/30 hover:scale-105 disabled:opacity-50'
                                   : 'bg-gray-600 opacity-50'
                               }`}
                             >
@@ -960,7 +1040,9 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
                             className="flex-shrink-0 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-[#0081FB]/20 transition-all hover:shadow-xl hover:shadow-[#0081FB]/30 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                           >
                             <Icon icon="mdi:download" className="h-4 w-4" />
-                            <span className="hidden sm:inline">{t('qgo_download') || 'Download'}</span>
+                            <span className="hidden sm:inline">
+                              {t('qgo_download') || 'Download'}
+                            </span>
                           </button>
 
                           {/* Uninstall App button - show if this version is installed but file deleted */}
@@ -968,15 +1050,21 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
                             <button
                               onClick={handleUninstall}
                               disabled={!selectedDevice || isDownloading || installing}
-                              title={!selectedDevice ? (t('connect_device_first') || 'Connect a device first') : ''}
+                              title={
+                                !selectedDevice
+                                  ? t('connect_device_first') || 'Connect a device first'
+                                  : ''
+                              }
                               className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                                selectedDevice 
-                                  ? 'bg-gradient-to-r from-red-600 to-red-500 shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover:scale-105 disabled:opacity-50' 
+                                selectedDevice
+                                  ? 'bg-gradient-to-r from-red-600 to-red-500 shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover:scale-105 disabled:opacity-50'
                                   : 'bg-gray-600 opacity-50'
                               }`}
                             >
                               <Icon icon="mdi:delete" className="h-4 w-4" />
-                              <span className="hidden sm:inline">{t('uninstall_app') || 'Uninstall App'}</span>
+                              <span className="hidden sm:inline">
+                                {t('uninstall_app') || 'Uninstall App'}
+                              </span>
                             </button>
                           )}
                         </>
@@ -1008,39 +1096,38 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
             >
-            <h3 className="text-lg font-semibold text-white">
-              {t('qgo_confirm_title') || 'Download Confirmation'}
-            </h3>
-            <p className="mt-2 text-sm text-white/60">
-              {t('qgo_confirm_desc') || 'You are about to download:'}
-            </p>
-            <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
-              <p className="font-medium text-white">
-                {confirmDownload.description || 'Quest Games Optimizer'}
+              <h3 className="text-lg font-semibold text-white">
+                {t('qgo_confirm_title') || 'Download Confirmation'}
+              </h3>
+              <p className="mt-2 text-sm text-white/60">
+                {t('qgo_confirm_desc') || 'You are about to download:'}
               </p>
-              {extractVersion(confirmDownload.description) && (
-                <p className="mt-1 text-xs text-white/50">
-                  {t('qgo_version') || 'Version'}: v
-                  {extractVersion(confirmDownload.description)}
+              <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
+                <p className="font-medium text-white">
+                  {confirmDownload.description || 'Quest Games Optimizer'}
                 </p>
-              )}
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                onClick={() => setConfirmDownload(null)}
-                className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white/70 transition-all hover:bg-white/5"
-              >
-                {t('cancel') || 'Cancel'}
-              </button>
-              <button
-                onClick={handleConfirmDownload}
-                className="rounded-lg bg-gradient-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-[#0081FB]/20 transition-all hover:shadow-xl hover:shadow-[#0081FB]/30"
-              >
-                {t('qgo_download') || 'Download'}
-              </button>
-            </div>
+                {extractVersion(confirmDownload.description) && (
+                  <p className="mt-1 text-xs text-white/50">
+                    {t('qgo_version') || 'Version'}: v{extractVersion(confirmDownload.description)}
+                  </p>
+                )}
+              </div>
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  onClick={() => setConfirmDownload(null)}
+                  className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white/70 transition-all hover:bg-white/5"
+                >
+                  {t('cancel') || 'Cancel'}
+                </button>
+                <button
+                  onClick={handleConfirmDownload}
+                  className="rounded-lg bg-gradient-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-[#0081FB]/20 transition-all hover:shadow-xl hover:shadow-[#0081FB]/30"
+                >
+                  {t('qgo_download') || 'Download'}
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
         )}
       </AnimatePresence>
 
@@ -1062,87 +1149,92 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
             >
-            <div className="flex items-start justify-between">
-              <h3 className="text-lg font-semibold text-white">
-                {t('qgo_downloading') || 'Downloading...'}
-              </h3>
+              <div className="flex items-start justify-between">
+                <h3 className="text-lg font-semibold text-white">
+                  {t('qgo_downloading') || 'Downloading...'}
+                </h3>
+                <button
+                  onClick={handleMinimizeDownload}
+                  className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
+                  title={t('minimize_to_background') || 'Minimize to background'}
+                >
+                  <Icon icon="material-symbols:close-fullscreen-rounded" className="h-5 w-5" />
+                </button>
+              </div>
+
+              <p className="mt-2 text-sm text-white/60">
+                {downloadInfo.fileName || downloadInfo.gameTitle || 'Quest Games Optimizer'}
+              </p>
+
+              {/* Progress Bar - Only show when downloading */}
+              {downloadInfo.status === 'downloading' && downloadInfo.totalBytes > 0 ? (
+                <div className="mt-4">
+                  <div className="mb-2 flex items-center justify-between text-xs text-white/50">
+                    <span>
+                      {formatBytes(downloadInfo.downloadedBytes)} /{' '}
+                      {formatBytes(downloadInfo.totalBytes)}
+                    </span>
+                    <span>{Math.round(downloadInfo.progress)}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
+                      style={{ width: `${downloadInfo.progress}%` }}
+                    />
+                  </div>
+
+                  {/* Speed and ETA */}
+                  <div className="mt-2 flex items-center justify-between text-xs text-white/40">
+                    <span className="flex items-center gap-1">
+                      <Icon icon="mdi:speedometer" className="h-3 w-3" />
+                      {formatSpeed(downloadInfo.speed)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Icon icon="mdi:clock-outline" className="h-3 w-3" />
+                      {t('qgo_eta') || 'ETA'}:{' '}
+                      {formatEta(
+                        downloadInfo.totalBytes - downloadInfo.downloadedBytes,
+                        downloadInfo.speed
+                      )}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 flex items-center justify-center py-4">
+                  <Icon icon="mdi:loading" className="h-8 w-8 animate-spin text-[#0081FB]" />
+                </div>
+              )}
+
+              {/* Download Info */}
+              <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/70">
+                <Icon icon="mdi:download" className="h-5 w-5 animate-pulse text-[#0081FB]" />
+                <span>
+                  {downloadInfo.status === 'preparing'
+                    ? t('qgo_preparing') || 'Preparing download...'
+                    : t('qgo_downloading_msg') || 'Downloading, please wait...'}
+                </span>
+              </div>
+
+              {/* Minimize hint */}
+              <p className="mt-4 text-center text-xs text-white/40">
+                {t('download_minimize_hint') ||
+                  'Click the arrow to minimize and continue in background'}
+              </p>
+
+              {/* Cancel Download Button */}
               <button
-                onClick={handleMinimizeDownload}
-                className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
-                title={t('minimize_to_background') || 'Minimize to background'}
+                onClick={async () => {
+                  await cancelDownload()
+                  setShowDownloadModal(false)
+                  toast.info(t('download_cancelled') || 'Download Cancelled')
+                }}
+                className="mt-3 w-full py-2 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
               >
-                <Icon icon="material-symbols:close-fullscreen-rounded" className="h-5 w-5" />
+                <Icon icon="mdi:close-circle" className="w-4 h-4" />
+                {t('cancel_download') || 'Cancel Download'}
               </button>
-            </div>
-
-            <p className="mt-2 text-sm text-white/60">
-              {downloadInfo.fileName || downloadInfo.gameTitle || 'Quest Games Optimizer'}
-            </p>
-
-            {/* Progress Bar - Only show when downloading */}
-            {downloadInfo.status === 'downloading' && downloadInfo.totalBytes > 0 ? (
-              <div className="mt-4">
-                <div className="mb-2 flex items-center justify-between text-xs text-white/50">
-                  <span>
-                    {formatBytes(downloadInfo.downloadedBytes)} /{' '}
-                    {formatBytes(downloadInfo.totalBytes)}
-                  </span>
-                  <span>{Math.round(downloadInfo.progress)}%</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
-                    style={{ width: `${downloadInfo.progress}%` }}
-                  />
-                </div>
-
-                {/* Speed and ETA */}
-                <div className="mt-2 flex items-center justify-between text-xs text-white/40">
-                  <span className="flex items-center gap-1">
-                    <Icon icon="mdi:speedometer" className="h-3 w-3" />
-                    {formatSpeed(downloadInfo.speed)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Icon icon="mdi:clock-outline" className="h-3 w-3" />
-                    {t('qgo_eta') || 'ETA'}: {formatEta(downloadInfo.totalBytes - downloadInfo.downloadedBytes, downloadInfo.speed)}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-4 flex items-center justify-center py-4">
-                <Icon icon="mdi:loading" className="h-8 w-8 animate-spin text-[#0081FB]" />
-              </div>
-            )}
-
-            {/* Download Info */}
-            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/70">
-              <Icon icon="mdi:download" className="h-5 w-5 animate-pulse text-[#0081FB]" />
-              <span>
-                {downloadInfo.status === 'preparing'
-                  ? t('qgo_preparing') || 'Preparing download...'
-                  : t('qgo_downloading_msg') || 'Downloading, please wait...'}
-              </span>
-            </div>
-
-            {/* Minimize hint */}
-            <p className="mt-4 text-center text-xs text-white/40">
-              {t('download_minimize_hint') || 'Click the arrow to minimize and continue in background'}
-            </p>
-
-            {/* Cancel Download Button */}
-            <button
-              onClick={async () => {
-                await cancelDownload()
-                setShowDownloadModal(false)
-                toast.info(t('download_cancelled') || 'Download Cancelled')
-              }}
-              className="mt-3 w-full py-2 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-            >
-              <Icon icon="mdi:close-circle" className="w-4 h-4" />
-              {t('cancel_download') || 'Cancel Download'}
-            </button>
+            </motion.div>
           </motion.div>
-        </motion.div>
         )}
       </AnimatePresence>
 
@@ -1164,42 +1256,43 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
             >
-            <h3 className="text-lg font-semibold text-white">
-              {t('install_confirm_title') || 'Download & Install'}
-            </h3>
-            <p className="mt-2 text-sm text-white/60">
-              {t('install_confirm_desc') || 'This will download and install the APK directly to your Meta Quest device:'}
-            </p>
-            <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
-              <p className="font-medium text-white">
-                {confirmInstall.description || 'Quest Games Optimizer'}
+              <h3 className="text-lg font-semibold text-white">
+                {t('install_confirm_title') || 'Download & Install'}
+              </h3>
+              <p className="mt-2 text-sm text-white/60">
+                {t('install_confirm_desc') ||
+                  'This will download and install the APK directly to your Meta Quest device:'}
               </p>
-              {extractVersion(confirmInstall.description) && (
-                <p className="mt-1 text-xs text-white/50">
-                  {t('qgo_version') || 'Version'}: v{extractVersion(confirmInstall.description)}
+              <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
+                <p className="font-medium text-white">
+                  {confirmInstall.description || 'Quest Games Optimizer'}
                 </p>
-              )}
-              <p className="mt-1 text-xs text-green-400 flex items-center gap-1">
-                <Icon icon="bi:headset-vr" className="w-3 h-3" />
-                {t('connected_device') || 'Device'}: {deviceModel || selectedDevice}
-              </p>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                onClick={() => setConfirmInstall(null)}
-                className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white/70 transition-all hover:bg-white/5"
-              >
-                {t('cancel') || 'Cancel'}
-              </button>
-              <button
-                onClick={handleConfirmInstall}
-                className="rounded-lg bg-gradient-to-r from-green-600 to-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-green-500/20 transition-all hover:shadow-xl"
-              >
-                {t('install') || 'Install'}
-              </button>
-            </div>
+                {extractVersion(confirmInstall.description) && (
+                  <p className="mt-1 text-xs text-white/50">
+                    {t('qgo_version') || 'Version'}: v{extractVersion(confirmInstall.description)}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-green-400 flex items-center gap-1">
+                  <Icon icon="bi:headset-vr" className="w-3 h-3" />
+                  {t('connected_device') || 'Device'}: {deviceModel || selectedDevice}
+                </p>
+              </div>
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  onClick={() => setConfirmInstall(null)}
+                  className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white/70 transition-all hover:bg-white/5"
+                >
+                  {t('cancel') || 'Cancel'}
+                </button>
+                <button
+                  onClick={handleConfirmInstall}
+                  className="rounded-lg bg-gradient-to-r from-green-600 to-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-green-500/20 transition-all hover:shadow-xl"
+                >
+                  {t('install') || 'Install'}
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
         )}
       </AnimatePresence>
 
@@ -1221,67 +1314,68 @@ export function QuestGamesOptimizer({ selectedDevice, pendingDeepLinkDownload, o
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
             >
-            <h3 className="text-lg font-semibold text-white">
-              {installProgress.step === 'DOWNLOADING' 
-                ? (t('qgo_downloading') || 'Downloading...')
-                : installProgress.step === 'INSTALLING'
-                ? (t('installing') || 'Installing...')
-                : installProgress.step === 'COMPLETED'
-                ? (t('install_success') || 'Installation Complete!')
-                : (t('qgo_preparing') || 'Preparing...')}
-            </h3>
-            
-            <p className="mt-2 text-sm text-white/60">
-              {confirmInstall?.description || 'Quest Games Optimizer'}
-            </p>
+              <h3 className="text-lg font-semibold text-white">
+                {installProgress.step === 'DOWNLOADING'
+                  ? t('qgo_downloading') || 'Downloading...'
+                  : installProgress.step === 'INSTALLING'
+                    ? t('installing') || 'Installing...'
+                    : installProgress.step === 'COMPLETED'
+                      ? t('install_success') || 'Installation Complete!'
+                      : t('qgo_preparing') || 'Preparing...'}
+              </h3>
 
-            {/* Progress */}
-            <div className="mt-4">
-              <div className="mb-2 flex items-center justify-between text-xs text-white/50">
-                <span>{installProgress.detail}</span>
-                <span>{Math.round(installProgress.percent)}%</span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-300"
-                  style={{ width: `${installProgress.percent}%` }}
-                />
-              </div>
+              <p className="mt-2 text-sm text-white/60">
+                {confirmInstall?.description || 'Quest Games Optimizer'}
+              </p>
 
-              {/* Speed and progress info for download phase */}
-              {installProgress.step === 'DOWNLOADING' && installProgress.totalBytes > 0 && (
-                <div className="mt-2 flex items-center justify-between text-xs text-white/40">
-                  <span className="flex items-center gap-1">
-                    <Icon icon="mdi:speedometer" className="h-3 w-3" />
-                    {formatSpeed(installProgress.speed)}
-                  </span>
-                  <span>
-                    {formatBytes(installProgress.downloadedBytes)} / {formatBytes(installProgress.totalBytes)}
-                  </span>
+              {/* Progress */}
+              <div className="mt-4">
+                <div className="mb-2 flex items-center justify-between text-xs text-white/50">
+                  <span>{installProgress.detail}</span>
+                  <span>{Math.round(installProgress.percent)}%</span>
                 </div>
-              )}
-            </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-300"
+                    style={{ width: `${installProgress.percent}%` }}
+                  />
+                </div>
 
-            {/* Status info */}
-            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/70">
-              {installProgress.step === 'COMPLETED' ? (
-                <>
-                  <Icon icon="mdi:check-circle" className="h-5 w-5 text-green-500" />
-                  <span>{t('install_success') || 'Installation complete!'}</span>
-                </>
-              ) : (
-                <>
-                  <Icon icon="mdi:loading" className="h-5 w-5 animate-spin text-green-500" />
-                  <span>
-                    {installProgress.step === 'DOWNLOADING'
-                      ? (t('qgo_downloading_msg') || 'Downloading, please wait...')
-                      : (t('installing_msg') || 'Installing to device...')}
-                  </span>
-                </>
-              )}
-            </div>
+                {/* Speed and progress info for download phase */}
+                {installProgress.step === 'DOWNLOADING' && installProgress.totalBytes > 0 && (
+                  <div className="mt-2 flex items-center justify-between text-xs text-white/40">
+                    <span className="flex items-center gap-1">
+                      <Icon icon="mdi:speedometer" className="h-3 w-3" />
+                      {formatSpeed(installProgress.speed)}
+                    </span>
+                    <span>
+                      {formatBytes(installProgress.downloadedBytes)} /{' '}
+                      {formatBytes(installProgress.totalBytes)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Status info */}
+              <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/70">
+                {installProgress.step === 'COMPLETED' ? (
+                  <>
+                    <Icon icon="mdi:check-circle" className="h-5 w-5 text-green-500" />
+                    <span>{t('install_success') || 'Installation complete!'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Icon icon="mdi:loading" className="h-5 w-5 animate-spin text-green-500" />
+                    <span>
+                      {installProgress.step === 'DOWNLOADING'
+                        ? t('qgo_downloading_msg') || 'Downloading, please wait...'
+                        : t('installing_msg') || 'Installing to device...'}
+                    </span>
+                  </>
+                )}
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
         )}
       </AnimatePresence>
     </div>

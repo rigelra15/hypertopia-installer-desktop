@@ -88,11 +88,7 @@ export default function BrowseMethodModal({ isOpen, onClose, onSelectArchive, on
                     className="shrink-0 rounded-xl p-3 transition-colors"
                     style={{ backgroundColor: `${method.color}20` }}
                   >
-                    <Icon
-                      icon={method.icon}
-                      className="h-6 w-6"
-                      style={{ color: method.color }}
-                    />
+                    <Icon icon={method.icon} className="h-6 w-6" style={{ color: method.color }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white group-hover:text-white">

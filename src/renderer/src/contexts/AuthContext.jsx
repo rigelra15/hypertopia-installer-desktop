@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
     }
 
     setEligibilityLoading(true)
-    
+
     try {
       // Fetch all data from each category and filter client-side
       // This avoids the need for Firebase Rules indexing on REST API
@@ -54,15 +54,21 @@ export function AuthProvider({ children }) {
       ])
 
       // Filter by email client-side
-      const hasStandaloneAccess = standaloneData && Object.values(standaloneData).some(
-        (user) => user && user.email && user.email.toLowerCase() === email.toLowerCase()
-      )
-      const hasPcvrAccess = pcvrData && Object.values(pcvrData).some(
-        (user) => user && user.email && user.email.toLowerCase() === email.toLowerCase()
-      )
-      const hasQgoAccess = qgoData && Object.values(qgoData).some(
-        (user) => user && user.email && user.email.toLowerCase() === email.toLowerCase()
-      )
+      const hasStandaloneAccess =
+        standaloneData &&
+        Object.values(standaloneData).some(
+          (user) => user && user.email && user.email.toLowerCase() === email.toLowerCase()
+        )
+      const hasPcvrAccess =
+        pcvrData &&
+        Object.values(pcvrData).some(
+          (user) => user && user.email && user.email.toLowerCase() === email.toLowerCase()
+        )
+      const hasQgoAccess =
+        qgoData &&
+        Object.values(qgoData).some(
+          (user) => user && user.email && user.email.toLowerCase() === email.toLowerCase()
+        )
 
       const access = []
       if (hasStandaloneAccess) access.push('standalone')

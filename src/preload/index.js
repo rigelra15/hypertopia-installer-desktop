@@ -10,7 +10,7 @@ const api = {
     console.log('[getFilePath] Input file object:', file)
     console.log('[getFilePath] file.path:', file?.path)
     console.log('[getFilePath] file.name:', file?.name)
-    
+
     // Try webUtils.getPathForFile first (new Electron API)
     try {
       const webUtilsPath = webUtils.getPathForFile(file)
@@ -21,13 +21,13 @@ const api = {
     } catch (err) {
       console.error('[getFilePath] webUtils.getPathForFile error:', err)
     }
-    
+
     // Fallback to file.path (older Electron / some browsers)
     if (file?.path && file.path.length > 0) {
       console.log('[getFilePath] Using fallback file.path:', file.path)
       return file.path
     }
-    
+
     console.error('[getFilePath] Could not resolve file path')
     return null
   },
@@ -117,7 +117,7 @@ const api = {
   // Delete a downloaded file
   deleteDownloadedFile: (fileName) => ipcRenderer.invoke('delete-downloaded-file', { fileName }),
   // Install a local APK file to device
-  installLocalApk: (filePath, deviceSerial) => 
+  installLocalApk: (filePath, deviceSerial) =>
     ipcRenderer.invoke('install-local-apk', { filePath, deviceSerial }),
   // Desktop capturer for screen sharing
   getDesktopSources: () => ipcRenderer.invoke('get-desktop-sources'),

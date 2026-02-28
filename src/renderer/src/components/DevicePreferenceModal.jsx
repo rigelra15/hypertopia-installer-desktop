@@ -74,10 +74,7 @@ export function DevicePreferenceModal({ isOpen, onClose, onSave, currentDevice, 
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-50 bg-black/70"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-50 bg-black/70" onClick={onClose} />
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

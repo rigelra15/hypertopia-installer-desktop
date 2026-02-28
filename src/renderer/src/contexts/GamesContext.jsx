@@ -14,13 +14,13 @@ export function GamesProvider({ children }) {
   const [paginationCache, setPaginationCache] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
-  
+
   // QGO data cache
   const [qgoLinks, setQgoLinks] = useState([])
   const [qgoDownloadStats, setQgoDownloadStats] = useState({ total: 0, byVersion: {} })
   const [qgoLoading, setQgoLoading] = useState(false)
   const [qgoLastFetch, setQgoLastFetch] = useState(0)
-  
+
   // Track last fetch time per cache key
   const lastFetchTimeRef = useRef({})
   const hasPreloaded = useRef(false)
@@ -39,84 +39,89 @@ export function GamesProvider({ children }) {
   const isCacheValid = useCallback((cacheKey) => {
     const lastFetch = lastFetchTimeRef.current[cacheKey]
     if (!lastFetch) return false
-    return (Date.now() - lastFetch) < CACHE_TTL_MS
+    return Date.now() - lastFetch < CACHE_TTL_MS
   }, [])
 
   /**
    * Fetch games with caching
    * Returns cached data if available and still valid
    */
-  const fetchGames = useCallback(async (params, forceRefresh = false) => {
-    const cacheKey = getCacheKey(params)
-    
-    // Return cached data if valid and not forcing refresh
-    if (!forceRefresh && isCacheValid(cacheKey) && gamesCache[cacheKey]) {
-      return {
-        games: gamesCache[cacheKey],
-        pagination: paginationCache[cacheKey],
-        fromCache: true
-      }
-    }
+  const fetchGames = useCallback(
+    async (params, forceRefresh = false) => {
+      const cacheKey = getCacheKey(params)
 
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const queryParams = new URLSearchParams({
-        page: params.page?.toString() || '1',
-        limit: params.limit?.toString() || '24',
-        sortBy: params.sortBy || 'added',
-        sortOrder: params.sortOrder || 'asc',
-        search: params.search || ''
-      })
-
-      if (params.device) {
-        queryParams.set('device', params.device)
+      // Return cached data if valid and not forcing refresh
+      if (!forceRefresh && isCacheValid(cacheKey) && gamesCache[cacheKey]) {
+        return {
+          games: gamesCache[cacheKey],
+          pagination: paginationCache[cacheKey],
+          fromCache: true
+        }
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/standalone-games-paginated?${queryParams}`)
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch games')
-      }
+      setIsLoading(true)
+      setError(null)
 
-      const result = await response.json()
+      try {
+        const queryParams = new URLSearchParams({
+          page: params.page?.toString() || '1',
+          limit: params.limit?.toString() || '24',
+          sortBy: params.sortBy || 'added',
+          sortOrder: params.sortOrder || 'asc',
+          search: params.search || ''
+        })
 
-      // Convert object to array with keys
-      const gamesArray = Object.entries(result.data || {}).map(([key, game]) => ({
-        id: key,
-        ...game
-      }))
+        if (params.device) {
+          queryParams.set('device', params.device)
+        }
 
-      // Update cache
-      setGamesCache(prev => ({
-        ...prev,
-        [cacheKey]: gamesArray
-      }))
+        const response = await fetch(
+          `${API_BASE_URL}/api/v1/standalone-games-paginated?${queryParams}`
+        )
 
-      if (result.pagination) {
-        setPaginationCache(prev => ({
-          ...prev,
-          [cacheKey]: result.pagination
+        if (!response.ok) {
+          throw new Error('Failed to fetch games')
+        }
+
+        const result = await response.json()
+
+        // Convert object to array with keys
+        const gamesArray = Object.entries(result.data || {}).map(([key, game]) => ({
+          id: key,
+          ...game
         }))
-      }
 
-      // Record fetch time
-      lastFetchTimeRef.current[cacheKey] = Date.now()
+        // Update cache
+        setGamesCache((prev) => ({
+          ...prev,
+          [cacheKey]: gamesArray
+        }))
 
-      return {
-        games: gamesArray,
-        pagination: result.pagination,
-        fromCache: false
+        if (result.pagination) {
+          setPaginationCache((prev) => ({
+            ...prev,
+            [cacheKey]: result.pagination
+          }))
+        }
+
+        // Record fetch time
+        lastFetchTimeRef.current[cacheKey] = Date.now()
+
+        return {
+          games: gamesArray,
+          pagination: result.pagination,
+          fromCache: false
+        }
+      } catch (err) {
+        console.error('Error fetching games:', err)
+        setError(err.message)
+        throw err
+      } finally {
+        setIsLoading(false)
       }
-    } catch (err) {
-      console.error('Error fetching games:', err)
-      setError(err.message)
-      throw err
-    } finally {
-      setIsLoading(false)
-    }
-  }, [getCacheKey, isCacheValid, gamesCache, paginationCache])
+    },
+    [getCacheKey, isCacheValid, gamesCache, paginationCache]
+  )
 
   /**
    * Clear all cache (useful for manual refresh)
@@ -130,71 +135,77 @@ export function GamesProvider({ children }) {
   /**
    * Get cached games without fetching
    */
-  const getCachedGames = useCallback((params) => {
-    const cacheKey = getCacheKey(params)
-    if (isCacheValid(cacheKey) && gamesCache[cacheKey]) {
-      return {
-        games: gamesCache[cacheKey],
-        pagination: paginationCache[cacheKey]
+  const getCachedGames = useCallback(
+    (params) => {
+      const cacheKey = getCacheKey(params)
+      if (isCacheValid(cacheKey) && gamesCache[cacheKey]) {
+        return {
+          games: gamesCache[cacheKey],
+          pagination: paginationCache[cacheKey]
+        }
       }
-    }
-    return null
-  }, [getCacheKey, isCacheValid, gamesCache, paginationCache])
+      return null
+    },
+    [getCacheKey, isCacheValid, gamesCache, paginationCache]
+  )
 
   /**
    * Fetch QGO links from API
    */
-  const fetchQgoLinks = useCallback(async (forceRefresh = false) => {
-    // Return cached data if valid
-    if (!forceRefresh && qgoLinks.length > 0 && (Date.now() - qgoLastFetch) < CACHE_TTL_MS) {
-      return { links: qgoLinks, stats: qgoDownloadStats, fromCache: true }
-    }
-
-    setQgoLoading(true)
-
-    try {
-      const [linksResponse, statsResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/v1/qgo`),
-        fetch(`${API_BASE_URL}/api/v1/qgo/download-stats`)
-      ])
-
-      // Parse QGO links
-      let links = []
-      if (linksResponse.ok) {
-        const data = await linksResponse.json()
-        if (Array.isArray(data)) {
-          links = data
-        } else if (Array.isArray(data.linkDownload)) {
-          links = data.linkDownload
-        } else if (Array.isArray(data.downloads)) {
-          links = data.downloads
-        }
+  const fetchQgoLinks = useCallback(
+    async (forceRefresh = false) => {
+      // Return cached data if valid
+      if (!forceRefresh && qgoLinks.length > 0 && Date.now() - qgoLastFetch < CACHE_TTL_MS) {
+        return { links: qgoLinks, stats: qgoDownloadStats, fromCache: true }
       }
 
-      // Parse download stats
-      let stats = { total: 0, byVersion: {} }
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json()
-        if (statsData.success) {
-          stats = {
-            total: statsData.total || 0,
-            byVersion: statsData.byVersion || {}
+      setQgoLoading(true)
+
+      try {
+        const [linksResponse, statsResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/v1/qgo`),
+          fetch(`${API_BASE_URL}/api/v1/qgo/download-stats`)
+        ])
+
+        // Parse QGO links
+        let links = []
+        if (linksResponse.ok) {
+          const data = await linksResponse.json()
+          if (Array.isArray(data)) {
+            links = data
+          } else if (Array.isArray(data.linkDownload)) {
+            links = data.linkDownload
+          } else if (Array.isArray(data.downloads)) {
+            links = data.downloads
           }
         }
+
+        // Parse download stats
+        let stats = { total: 0, byVersion: {} }
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json()
+          if (statsData.success) {
+            stats = {
+              total: statsData.total || 0,
+              byVersion: statsData.byVersion || {}
+            }
+          }
+        }
+
+        setQgoLinks(links)
+        setQgoDownloadStats(stats)
+        setQgoLastFetch(Date.now())
+
+        return { links, stats, fromCache: false }
+      } catch (err) {
+        console.error('Error fetching QGO:', err)
+        throw err
+      } finally {
+        setQgoLoading(false)
       }
-
-      setQgoLinks(links)
-      setQgoDownloadStats(stats)
-      setQgoLastFetch(Date.now())
-
-      return { links, stats, fromCache: false }
-    } catch (err) {
-      console.error('Error fetching QGO:', err)
-      throw err
-    } finally {
-      setQgoLoading(false)
-    }
-  }, [qgoLinks, qgoDownloadStats, qgoLastFetch])
+    },
+    [qgoLinks, qgoDownloadStats, qgoLastFetch]
+  )
 
   /**
    * Preload all data in background when app starts
@@ -213,10 +224,12 @@ export function GamesProvider({ children }) {
         sortBy: 'added',
         sortOrder: 'asc',
         search: ''
-      }).catch(err => console.warn('[Preload] Games fetch failed:', err))
+      }).catch((err) => console.warn('[Preload] Games fetch failed:', err))
 
       // Fetch QGO links
-      const qgoPromise = fetchQgoLinks().catch(err => console.warn('[Preload] QGO fetch failed:', err))
+      const qgoPromise = fetchQgoLinks().catch((err) =>
+        console.warn('[Preload] QGO fetch failed:', err)
+      )
 
       await Promise.all([gamesPromise, qgoPromise])
 
@@ -244,22 +257,18 @@ export function GamesProvider({ children }) {
     isLoading,
     error,
     cacheSize: Object.keys(gamesCache).length,
-    
+
     // QGO
     qgoLinks,
     qgoDownloadStats,
     qgoLoading,
     fetchQgoLinks,
-    
+
     // Preload
     preloadData
   }
 
-  return (
-    <GamesContext.Provider value={value}>
-      {children}
-    </GamesContext.Provider>
-  )
+  return <GamesContext.Provider value={value}>{children}</GamesContext.Provider>
 }
 
 GamesProvider.propTypes = {
