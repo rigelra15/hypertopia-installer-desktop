@@ -17,6 +17,20 @@ const GOOGLE_API_KEY =
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = true
 
+// Disable strict semver check to allow custom suffixes like -revX.
+// By default, semver considers 1.0.216-rev1 to be OLDER than 1.0.216.
+// The user explicitly wants to ignore this and just install whatever is the newest published release on GitHub.
+autoUpdater.isUpdateAvailable = async function (updateInfo) {
+  if (!updateInfo || !updateInfo.version) return false
+  if (updateInfo.version === app.getVersion()) return false
+
+  if (this.isUpdateSupported && !(await Promise.resolve(this.isUpdateSupported(updateInfo)))) {
+    return false
+  }
+
+  return true
+}
+
 let mainWindow = null
 
 // Deep linking: Store pending auth resolve function
