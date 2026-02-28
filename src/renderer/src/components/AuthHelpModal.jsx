@@ -36,11 +36,16 @@ export function AuthHelpModal({ isOpen, onClose, isAuthorized }) {
             className="w-full max-w-md max-h-[90vh] overflow-y-auto transform rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl custom-scrollbar"
           >
             <h3 className="mb-2 text-center text-lg font-bold text-white">
-              {isAuthorized ? (t('auth_help_success_title') || 'Perangkat Terotorisasi!') : t('auth_help_title')}
+              {isAuthorized
+                ? t('auth_help_success_title') || 'Perangkat Terotorisasi!'
+                : t('auth_help_title')}
             </h3>
 
             <p className="mb-4 text-center text-sm text-white/70">
-              {isAuthorized ? (t('auth_help_success_desc') || 'Perangkat Quest Anda sudah terhubung dan siap digunakan.') : t('auth_help_desc')}
+              {isAuthorized
+                ? t('auth_help_success_desc') ||
+                  'Perangkat Quest Anda sudah terhubung dan siap digunakan.'
+                : t('auth_help_desc')}
             </p>
 
             <div className="mb-6 overflow-hidden rounded-xl border border-white/10 shadow-lg">

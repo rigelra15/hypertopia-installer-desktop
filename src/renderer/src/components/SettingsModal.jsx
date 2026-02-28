@@ -197,10 +197,16 @@ export function SettingsModal({
                 {/* Info about folder usage */}
                 <div className="mt-2 rounded-lg border border-[#0081FB]/20 bg-[#0081FB]/5 p-2">
                   <div className="flex gap-2">
-                    <Icon icon="mdi:folder-information" className="h-4 w-4 shrink-0 text-[#0081FB]" />
+                    <Icon
+                      icon="mdi:folder-information"
+                      className="h-4 w-4 shrink-0 text-[#0081FB]"
+                    />
                     <div className="text-[10px] text-white/60">
-                      <span className="text-[#0081FB] font-medium">{t('settings_folder_usage_label') || 'Used for:'}</span>{' '}
-                      {t('settings_folder_usage_items') || 'Extraction, Standalone Games, QGO downloads'}
+                      <span className="text-[#0081FB] font-medium">
+                        {t('settings_folder_usage_label') || 'Used for:'}
+                      </span>{' '}
+                      {t('settings_folder_usage_items') ||
+                        'Extraction, Standalone Games, QGO downloads'}
                     </div>
                   </div>
                 </div>

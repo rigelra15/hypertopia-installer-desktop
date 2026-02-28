@@ -19,7 +19,7 @@ export default function NetworkStatusWidget() {
     dismissOfflineNotification,
     retryConnection
   } = useNetwork()
-  
+
   // Check if download widget is showing to adjust position
   const { showWidget } = useDownload()
 
@@ -27,7 +27,7 @@ export default function NetworkStatusWidget() {
   const showNotification = showOfflineNotification || showBackOnlineNotification
 
   if (!showNotification) return null
-  
+
   // Adjust bottom position if download widget is visible
   const bottomPosition = showWidget ? 'bottom-[180px]' : 'bottom-4'
 
@@ -82,14 +82,14 @@ export default function NetworkStatusWidget() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-white">
-                    {!isOnline 
-                      ? (t('network_offline') || 'No Internet Connection')
-                      : (t('network_api_unreachable') || 'Server Unreachable')}
+                    {!isOnline
+                      ? t('network_offline') || 'No Internet Connection'
+                      : t('network_api_unreachable') || 'Server Unreachable'}
                   </p>
                   <p className="text-xs text-white/50">
-                    {!isOnline 
-                      ? (t('network_check_connection') || 'Please check your connection')
-                      : (t('network_server_issue') || 'Unable to reach HyperTopia servers')}
+                    {!isOnline
+                      ? t('network_check_connection') || 'Please check your connection'
+                      : t('network_server_issue') || 'Unable to reach HyperTopia servers'}
                   </p>
                 </div>
               </div>
@@ -106,11 +106,15 @@ export default function NetworkStatusWidget() {
               {/* Status Info */}
               <div className="flex items-center justify-between text-xs">
                 <span className="text-white/50">{t('network_status') || 'Status'}:</span>
-                <span className={`flex items-center gap-1 ${isConnected ? 'text-green-400' : 'text-orange-400'}`}>
-                  <span className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-orange-400 animate-pulse'}`}></span>
-                  {isConnected 
-                    ? (t('network_connected') || 'Connected')
-                    : (t('network_disconnected') || 'Disconnected')}
+                <span
+                  className={`flex items-center gap-1 ${isConnected ? 'text-green-400' : 'text-orange-400'}`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-orange-400 animate-pulse'}`}
+                  ></span>
+                  {isConnected
+                    ? t('network_connected') || 'Connected'
+                    : t('network_disconnected') || 'Disconnected'}
                 </span>
               </div>
 

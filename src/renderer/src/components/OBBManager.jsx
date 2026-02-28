@@ -74,9 +74,7 @@ export function OBBManager({ selectedDevice }) {
       {/* Info Banner */}
       <div className="mb-4 flex items-start gap-2 rounded-lg border border-[#0081FB]/20 bg-[#0081FB]/5 px-3 py-2">
         <Icon icon="mdi:information-outline" className="h-4 w-4 shrink-0 text-[#0081FB] mt-0.5" />
-        <p className="text-[11px] text-white/70 leading-relaxed">
-          {t('obb_info_desc')}
-        </p>
+        <p className="text-[11px] text-white/70 leading-relaxed">{t('obb_info_desc')}</p>
       </div>
 
       {/* Search Box */}

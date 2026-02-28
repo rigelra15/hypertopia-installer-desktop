@@ -18,7 +18,7 @@ if (dotenvResult.parsed) {
   // Fallback: manually parse .env file
   try {
     const envContent = readFileSync(envPath, 'utf-8')
-    envContent.split('\n').forEach(line => {
+    envContent.split('\n').forEach((line) => {
       const trimmed = line.trim()
       if (trimmed && !trimmed.startsWith('#')) {
         const [key, ...valueParts] = trimmed.split('=')

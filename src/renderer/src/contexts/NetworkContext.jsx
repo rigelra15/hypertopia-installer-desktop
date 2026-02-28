@@ -17,7 +17,7 @@ export function NetworkProvider({ children }) {
   const [wasOffline, setWasOffline] = useState(false)
   const [showBackOnlineNotification, setShowBackOnlineNotification] = useState(false)
   const [latency, setLatency] = useState(null) // Ping in ms
-  
+
   const checkIntervalRef = useRef(null)
   const retryTimeoutRef = useRef(null)
 
@@ -58,7 +58,7 @@ export function NetworkProvider({ children }) {
             setShowOfflineNotification(false)
             setShowBackOnlineNotification(true)
             setWasOffline(false)
-            
+
             // Auto-hide back online notification after 3 seconds
             setTimeout(() => {
               setShowBackOnlineNotification(false)
@@ -142,7 +142,7 @@ export function NetworkProvider({ children }) {
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
-      
+
       if ('connection' in navigator) {
         navigator.connection.removeEventListener('change', updateConnectionType)
       }
@@ -211,11 +211,7 @@ export function NetworkProvider({ children }) {
     checkApiConnectivity
   }
 
-  return (
-    <NetworkContext.Provider value={value}>
-      {children}
-    </NetworkContext.Provider>
-  )
+  return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>
 }
 
 NetworkProvider.propTypes = {

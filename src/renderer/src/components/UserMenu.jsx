@@ -40,7 +40,8 @@ export function UserMenu() {
   const [showRedeemModal, setShowRedeemModal] = useState(false)
 
   // Derive showLoginModal from state - modal shows only if requested AND (has code OR loading OR error)
-  const showLoginModal = loginModalRequested && !user && (deviceCode || deviceCodeLoading || deviceCodeError)
+  const showLoginModal =
+    loginModalRequested && !user && (deviceCode || deviceCodeLoading || deviceCodeError)
 
   // Countdown timer using reducer
   const expiresAt = deviceCode?.expiresAt
@@ -130,10 +131,7 @@ export function UserMenu() {
         {showLoginModal && (
           <>
             {/* Backdrop */}
-            <div
-              className="fixed inset-0 z-50 bg-black/70"
-              onClick={handleCancelLogin}
-            />
+            <div className="fixed inset-0 z-50 bg-black/70" onClick={handleCancelLogin} />
 
             {/* Modal */}
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -197,11 +195,10 @@ export function UserMenu() {
                           : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
                       }`}
                     >
-                      <Icon
-                        icon={copied ? 'mdi:check' : 'mdi:content-copy'}
-                        className="h-4 w-4"
-                      />
-                      <span>{copied ? (t('copied') || 'Copied!') : (t('copy_code') || 'Copy Code')}</span>
+                      <Icon icon={copied ? 'mdi:check' : 'mdi:content-copy'} className="h-4 w-4" />
+                      <span>
+                        {copied ? t('copied') || 'Copied!' : t('copy_code') || 'Copy Code'}
+                      </span>
                     </button>
 
                     {/* Timer */}
@@ -227,7 +224,10 @@ export function UserMenu() {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <Icon icon="mdi:loading" className="h-8 w-8 animate-spin text-white/50 mx-auto" />
+                    <Icon
+                      icon="mdi:loading"
+                      className="h-8 w-8 animate-spin text-white/50 mx-auto"
+                    />
                   </div>
                 )}
 

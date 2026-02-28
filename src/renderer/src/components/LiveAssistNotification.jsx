@@ -15,7 +15,11 @@ const ADMIN_EMAIL = 'hypertopiaid@gmail.com'
  * Shows toast notification when users request help via Live Assist
  * Works from any tab in the app (except when on Live Assist tab)
  */
-export default function LiveAssistNotification({ onNavigateToLiveAssist, userEmail, isOnLiveAssistTab = false }) {
+export default function LiveAssistNotification({
+  onNavigateToLiveAssist,
+  userEmail,
+  isOnLiveAssistTab = false
+}) {
   const { t } = useLanguage()
   const [pendingRequests, setPendingRequests] = useState([])
   const [dismissed, setDismissed] = useState([])
