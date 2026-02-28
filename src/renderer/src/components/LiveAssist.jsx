@@ -4,8 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 
 // Firebase REST API URL
-const FIREBASE_DB_URL =
-  'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
+const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
 
 // Admin email
 const ADMIN_EMAIL = 'hypertopiaid@gmail.com'
@@ -77,9 +76,7 @@ export function LiveAssist() {
       return
     }
     if (!teamviewerPassword.trim()) {
-      setError(
-        t('live_assist_tv_password_required') || 'Please enter your TeamViewer password'
-      )
+      setError(t('live_assist_tv_password_required') || 'Please enter your TeamViewer password')
       return
     }
 
@@ -102,14 +99,11 @@ export function LiveAssist() {
         timestamp: Date.now()
       }
 
-      const response = await fetch(
-        `${FIREBASE_DB_URL}/liveAssistQueue/${newRequestId}.json`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestData)
-        }
-      )
+      const response = await fetch(`${FIREBASE_DB_URL}/liveAssistQueue/${newRequestId}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData)
+      })
 
       if (!response.ok) {
         throw new Error('Failed to submit request')
@@ -126,16 +120,13 @@ export function LiveAssist() {
               .filter((r) => r && r.status === 'waiting')
               .sort((a, b) => a.timestamp - b.timestamp)
 
-            const myPosition =
-              waitingRequests.findIndex((r) => r.id === newRequestId) + 1
+            const myPosition = waitingRequests.findIndex((r) => r.id === newRequestId) + 1
             setQueuePosition(myPosition)
             setTotalInQueue(waitingRequests.length)
           }
 
           // Check my request status
-          const myRes = await fetch(
-            `${FIREBASE_DB_URL}/liveAssistQueue/${newRequestId}.json`
-          )
+          const myRes = await fetch(`${FIREBASE_DB_URL}/liveAssistQueue/${newRequestId}.json`)
           const myData = await myRes.json()
 
           if (!myData) {
@@ -229,24 +220,18 @@ export function LiveAssist() {
       setActiveRequest(request)
 
       // Update status to in_progress
-      await fetch(
-        `${FIREBASE_DB_URL}/liveAssistQueue/${request.id}/status.json`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify('in_progress')
-        }
-      )
+      await fetch(`${FIREBASE_DB_URL}/liveAssistQueue/${request.id}/status.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify('in_progress')
+      })
 
       // Add admin info
-      await fetch(
-        `${FIREBASE_DB_URL}/liveAssistQueue/${request.id}/adminEmail.json`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ADMIN_EMAIL)
-        }
-      )
+      await fetch(`${FIREBASE_DB_URL}/liveAssistQueue/${request.id}/adminEmail.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ADMIN_EMAIL)
+      })
 
       setStatus('in_progress')
     } catch (err) {
@@ -398,12 +383,8 @@ export function LiveAssist() {
                               {index + 1}
                             </div>
                             <div className="min-w-0">
-                              <p className="font-medium text-white truncate">
-                                {request.userName}
-                              </p>
-                              <p className="text-xs text-white/50 truncate">
-                                {request.userEmail}
-                              </p>
+                              <p className="font-medium text-white truncate">{request.userName}</p>
+                              <p className="text-xs text-white/50 truncate">{request.userEmail}</p>
                               {/* TeamViewer Info */}
                               <div className="mt-2 space-y-1">
                                 <div className="flex items-center gap-2 text-xs">
@@ -411,9 +392,7 @@ export function LiveAssist() {
                                     icon="mdi:monitor-dashboard"
                                     className="h-3.5 w-3.5 text-[#0081FB] shrink-0"
                                   />
-                                  <span className="text-white/70">
-                                    ID: {request.teamviewerId}
-                                  </span>
+                                  <span className="text-white/70">ID: {request.teamviewerId}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-xs">
                                   <Icon
@@ -430,9 +409,7 @@ export function LiveAssist() {
                                       icon="mdi:message-text"
                                       className="h-3.5 w-3.5 text-white/40 shrink-0 mt-0.5"
                                     />
-                                    <span className="text-white/50">
-                                      {request.description}
-                                    </span>
+                                    <span className="text-white/50">{request.description}</span>
                                   </div>
                                 )}
                               </div>
@@ -448,9 +425,7 @@ export function LiveAssist() {
                                 {t('live_assist_in_progress') || 'In Progress'}
                               </span>
                             ) : index === 0 ||
-                              !pendingRequests.some(
-                                (r) => r.status === 'in_progress'
-                              ) ? (
+                              !pendingRequests.some((r) => r.status === 'in_progress') ? (
                               <button
                                 onClick={() => acceptRequest(request)}
                                 className="px-4 py-2 bg-[#0081FB] hover:bg-[#0070E0] text-white rounded-lg font-medium text-sm transition-all flex items-center gap-2"
@@ -479,9 +454,7 @@ export function LiveAssist() {
                   <Icon icon="mdi:account" className="h-6 w-6 text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white">
-                    {activeRequest.userName}
-                  </h3>
+                  <h3 className="font-semibold text-white">{activeRequest.userName}</h3>
                   <p className="text-xs text-emerald-400">{activeRequest.userEmail}</p>
                 </div>
                 <div className="ml-auto flex items-center gap-2 text-emerald-400 text-sm">
@@ -498,9 +471,7 @@ export function LiveAssist() {
                 </h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-white/40 mb-1 block">
-                      TeamViewer ID
-                    </label>
+                    <label className="text-xs text-white/40 mb-1 block">TeamViewer ID</label>
                     <div className="bg-white/5 rounded-lg px-4 py-3 text-white font-mono text-lg select-all border border-white/10">
                       {activeRequest.teamviewerId}
                     </div>
@@ -549,8 +520,7 @@ export function LiveAssist() {
           <span className="text-[#0081FB]">Live</span> Assist
         </h2>
         <p className="text-xs text-white/40">
-          {t('live_assist_subtitle') ||
-            'Get remote help from HyperTopia team via TeamViewer'}
+          {t('live_assist_subtitle') || 'Get remote help from HyperTopia team via TeamViewer'}
         </p>
       </div>
 
@@ -573,8 +543,7 @@ export function LiveAssist() {
                     className="h-4 w-4 text-[#0081FB] mt-0.5 shrink-0"
                   />
                   <span>
-                    {t('live_assist_step_1') ||
-                      'Download & open TeamViewer on your computer'}
+                    {t('live_assist_step_1') || 'Download & open TeamViewer on your computer'}
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
@@ -717,10 +686,7 @@ export function LiveAssist() {
               {/* TeamViewer Password */}
               <div>
                 <label className="block text-sm font-medium text-white/70 mb-1.5">
-                  <Icon
-                    icon="mdi:key"
-                    className="inline h-4 w-4 mr-1 text-amber-400"
-                  />
+                  <Icon icon="mdi:key" className="inline h-4 w-4 mr-1 text-amber-400" />
                   Password <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -728,8 +694,7 @@ export function LiveAssist() {
                   value={teamviewerPassword}
                   onChange={(e) => setTeamviewerPassword(e.target.value)}
                   placeholder={
-                    t('live_assist_tv_password_placeholder') ||
-                    'Password from TeamViewer'
+                    t('live_assist_tv_password_placeholder') || 'Password from TeamViewer'
                   }
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-[#0081FB]/50 focus:ring-1 focus:ring-[#0081FB]/30 transition-all font-mono text-lg"
                 />
@@ -738,14 +703,9 @@ export function LiveAssist() {
               {/* Issue Description (Optional) */}
               <div>
                 <label className="block text-sm font-medium text-white/70 mb-1.5">
-                  <Icon
-                    icon="mdi:message-text"
-                    className="inline h-4 w-4 mr-1 text-white/50"
-                  />
+                  <Icon icon="mdi:message-text" className="inline h-4 w-4 mr-1 text-white/50" />
                   {t('live_assist_desc_label') || 'Describe your issue'}{' '}
-                  <span className="text-white/30">
-                    ({t('optional') || 'optional'})
-                  </span>
+                  <span className="text-white/30">({t('optional') || 'optional'})</span>
                 </label>
                 <textarea
                   value={description}
@@ -762,10 +722,7 @@ export function LiveAssist() {
               {/* Info Note */}
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
                 <div className="flex items-start gap-2">
-                  <Icon
-                    icon="mdi:shield-lock"
-                    className="h-4 w-4 text-amber-400 shrink-0 mt-0.5"
-                  />
+                  <Icon icon="mdi:shield-lock" className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                   <p className="text-xs text-amber-400/80 leading-relaxed">
                     {t('live_assist_security_note') ||
                       'Your TeamViewer credentials are only used for this session and will be deleted after the session is completed.'}
@@ -818,9 +775,7 @@ export function LiveAssist() {
                   </span>
                 </div>
                 <span className="text-2xl font-bold text-white">#{queuePosition}</span>
-                <span className="text-xs text-white/40">
-                  / {totalInQueue}
-                </span>
+                <span className="text-xs text-white/40">/ {totalInQueue}</span>
               </div>
             )}
 
@@ -839,9 +794,7 @@ export function LiveAssist() {
 
             <div className="flex items-center justify-center gap-2 text-[#0081FB] text-sm mb-6">
               <div className="h-2 w-2 rounded-full bg-[#0081FB] animate-pulse" />
-              <span>
-                {t('live_assist_waiting_agent') || 'Waiting for available agent...'}
-              </span>
+              <span>{t('live_assist_waiting_agent') || 'Waiting for available agent...'}</span>
             </div>
 
             <button
@@ -855,10 +808,7 @@ export function LiveAssist() {
           // In Progress State
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-8 text-center">
             <div className="mx-auto mb-6 w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center">
-              <Icon
-                icon="mdi:monitor-share"
-                className="h-10 w-10 text-emerald-400"
-              />
+              <Icon icon="mdi:monitor-share" className="h-10 w-10 text-emerald-400" />
             </div>
             <h3 className="text-xl font-bold text-white mb-2">
               {t('live_assist_connected_title') || 'Support is Connected!'}
