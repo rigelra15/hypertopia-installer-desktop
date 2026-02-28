@@ -8,7 +8,7 @@ const DRY_RUN = process.argv.includes('--dry-run')
 
 // Parse custom suffix from CLI args (e.g. "npm run release rev1" => suffix = "rev1")
 // Skip arguments that start with "--" (those are flags like --dry-run)
-const customSuffix = process.argv.slice(2).find(arg => !arg.startsWith('--')) || ''
+const customSuffix = process.argv.slice(2).find((arg) => !arg.startsWith('--')) || ''
 
 function run(command) {
   console.log(`> ${command}`)
@@ -61,8 +61,8 @@ const commitRange = lastTag ? `${lastTag}..HEAD` : 'HEAD'
 const commits = runOutput(`git log ${commitRange} --pretty=format:"%s"`)
 
 if (commits) {
-  const commitLines = commits.split('\n').filter(line => line.trim())
-  commitLines.forEach(commit => {
+  const commitLines = commits.split('\n').filter((line) => line.trim())
+  commitLines.forEach((commit) => {
     if (commit.startsWith('feat')) {
       hasFeatures = true
     }
