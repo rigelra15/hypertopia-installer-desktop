@@ -40,7 +40,10 @@ async function ensureListLoaded() {
       const items = res.items || []
       console.log(`[CoverImages] SUCCESS: Loaded ${items.length} items from Firebase Storage`)
       if (items.length > 0) {
-        console.log('[CoverImages] Sample items:', items.slice(0, 3).map((i) => i.name))
+        console.log(
+          '[CoverImages] Sample items:',
+          items.slice(0, 3).map((i) => i.name)
+        )
       }
       _listCache.items = items
       _listCache.timestamp = Date.now()
@@ -89,13 +92,16 @@ export async function getCoverUrl(name) {
 
   const items = await ensureListLoaded()
   console.log(`[CoverImages] Looking for "${name}" in ${items.length} items`)
-  
+
   // Show sample of actual file names (first 5)
   if (items.length > 0 && !window._coverImagesSampleShown) {
     window._coverImagesSampleShown = true
-    console.log('[CoverImages] Sample file names from Storage:', items.slice(0, 10).map((i) => i.name))
+    console.log(
+      '[CoverImages] Sample file names from Storage:',
+      items.slice(0, 10).map((i) => i.name)
+    )
   }
-  
+
   const found = items.find((it) => it.name === name)
 
   if (found) {

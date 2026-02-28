@@ -142,17 +142,17 @@ function App() {
   useEffect(() => {
     const removeDeepLinkListener = window.api.onDeepLinkDownload((data) => {
       console.log('[DeepLinkDownload] Received from website:', data)
-      
+
       // Navigate to the correct tab based on type
       if (data.type === 'qgo') {
         setActiveTab('qgo')
       } else {
         setActiveTab('games')
       }
-      
+
       // Store pending download info
       setPendingDeepLinkDownload(data)
-      
+
       // Show toast notification
       toast.info(`Opening ${data.game}...`)
     })
@@ -264,17 +264,21 @@ function App() {
           {activeTab === 'manager' ? (
             <DeviceManager selectedDevice={selectedDevice} />
           ) : activeTab === 'games' ? (
-            <StandaloneGames 
+            <StandaloneGames
               selectedDevice={selectedDevice}
-              pendingDeepLinkDownload={pendingDeepLinkDownload?.type === 'standalone' ? pendingDeepLinkDownload : null}
+              pendingDeepLinkDownload={
+                pendingDeepLinkDownload?.type === 'standalone' ? pendingDeepLinkDownload : null
+              }
               onDeepLinkProcessed={() => setPendingDeepLinkDownload(null)}
             />
           ) : activeTab === 'liveassist' ? (
             <LiveAssist />
           ) : activeTab === 'qgo' ? (
-            <QuestGamesOptimizer 
+            <QuestGamesOptimizer
               selectedDevice={selectedDevice}
-              pendingDeepLinkDownload={pendingDeepLinkDownload?.type === 'qgo' ? pendingDeepLinkDownload : null}
+              pendingDeepLinkDownload={
+                pendingDeepLinkDownload?.type === 'qgo' ? pendingDeepLinkDownload : null
+              }
               onDeepLinkProcessed={() => setPendingDeepLinkDownload(null)}
             />
           ) : (

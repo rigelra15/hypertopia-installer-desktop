@@ -107,13 +107,20 @@ export function SetupModal({ isOpen, onComplete }) {
               <div className="flex gap-2">
                 <Icon icon="mdi:information" className="h-5 w-5 shrink-0 text-[#0081FB]" />
                 <div className="text-xs text-white/80">
-                  <p className="font-medium text-[#0081FB] mb-1">{t('setup_folder_usage_title') || 'This folder will be used for:'}</p>
+                  <p className="font-medium text-[#0081FB] mb-1">
+                    {t('setup_folder_usage_title') || 'This folder will be used for:'}
+                  </p>
                   <ul className="list-disc list-inside space-y-0.5 text-white/70">
-                    <li>{t('setup_folder_usage_1') || 'Temporary file extraction during installation'}</li>
+                    <li>
+                      {t('setup_folder_usage_1') || 'Temporary file extraction during installation'}
+                    </li>
                     <li>{t('setup_folder_usage_2') || 'Standalone Games downloads'}</li>
                     <li>{t('setup_folder_usage_3') || 'QGO (Quest Games Optimizer) downloads'}</li>
                   </ul>
-                  <p className="mt-2 text-white/50">{t('setup_folder_usage_note') || 'No need to select separate folders for downloads!'}</p>
+                  <p className="mt-2 text-white/50">
+                    {t('setup_folder_usage_note') ||
+                      'No need to select separate folders for downloads!'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -155,11 +162,13 @@ export function SetupModal({ isOpen, onComplete }) {
               </div>
 
               {/* Info about HyperTopiaExtraction folder - Dynamic based on folder name */}
-              <div className={`mt-3 rounded-lg border p-3 ${
-                extractPath && extractPath.endsWith('HyperTopiaExtraction')
-                  ? 'border-green-500/20 bg-green-500/5'
-                  : 'border-[#0081FB]/20 bg-[#0081FB]/5'
-              }`}>
+              <div
+                className={`mt-3 rounded-lg border p-3 ${
+                  extractPath && extractPath.endsWith('HyperTopiaExtraction')
+                    ? 'border-green-500/20 bg-green-500/5'
+                    : 'border-[#0081FB]/20 bg-[#0081FB]/5'
+                }`}
+              >
                 <div className="flex gap-2">
                   <svg
                     className={`h-4 w-4 shrink-0 ${
@@ -189,7 +198,8 @@ export function SetupModal({ isOpen, onComplete }) {
                   </svg>
                   <p className="text-xs text-white/70">
                     {extractPath && extractPath.endsWith('HyperTopiaExtraction')
-                      ? t('setup_folder_already_correct') || 'Folder yang dipilih sudah benar dan akan digunakan langsung.'
+                      ? t('setup_folder_already_correct') ||
+                        'Folder yang dipilih sudah benar dan akan digunakan langsung.'
                       : t('setup_folder_auto_create')}
                   </p>
                 </div>

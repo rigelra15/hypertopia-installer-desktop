@@ -13,7 +13,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
   const [hasScannedOnce, setHasScannedOnce] = useState(false)
   const authHelpDismissed = useRef(false)
   const dropdownRef = useRef(null)
-  
+
   // Store onSelect in ref to avoid dependency issues in useCallback
   const onSelectRef = useRef(onSelect)
   useEffect(() => {
@@ -151,7 +151,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
             ) : (
               <span className="text-white/40">
                 {devices.length === 0
-                  ? (isLoading && !hasScannedOnce)
+                  ? isLoading && !hasScannedOnce
                     ? t('scanning')
                     : t('no_device')
                   : t('select_device')}
@@ -245,11 +245,14 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
                   if (percent > 70) return 'bg-yellow-500' // Warning
                   return 'bg-[#0081FB]' // Safe
                 })()}`}
-                style={{ width: devices.find((d) => d.serial === selectedSerial)?.storage?.percent || '0%' }}
+                style={{
+                  width: devices.find((d) => d.serial === selectedSerial)?.storage?.percent || '0%'
+                }}
               ></div>
             </div>
             <div className="mt-1 text-right text-[9px] text-white/40">
-              {devices.find((d) => d.serial === selectedSerial)?.storage?.percent || '0%'} {t('storage_used')}
+              {devices.find((d) => d.serial === selectedSerial)?.storage?.percent || '0%'}{' '}
+              {t('storage_used')}
             </div>
           </div>
         )}
@@ -258,7 +261,10 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
       {hasScannedOnce && devices.length === 0 && (
         <div className="mt-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
           <div className="flex items-start gap-2">
-            <Icon icon="mdi:help-circle-outline" className="h-4 w-4 shrink-0 text-yellow-500 mt-0.5" />
+            <Icon
+              icon="mdi:help-circle-outline"
+              className="h-4 w-4 shrink-0 text-yellow-500 mt-0.5"
+            />
             <div className="flex-1 min-w-0">
               <p className="text-[11px] font-semibold text-yellow-400 mb-2">
                 {t('troubleshoot_title')}

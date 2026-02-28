@@ -35,7 +35,11 @@ const compareVersions = (versionA, versionB) => {
   return b.build - a.build
 }
 
-export function StandaloneGames({ selectedDevice: connectedDevice, pendingDeepLinkDownload, onDeepLinkProcessed }) {
+export function StandaloneGames({
+  selectedDevice: connectedDevice,
+  pendingDeepLinkDownload,
+  onDeepLinkProcessed
+}) {
   const { t } = useLanguage()
   const { user, accessTypes } = useAuth()
   const { fetchGames: fetchGamesFromContext, getCachedGames } = useGames()
@@ -170,13 +174,13 @@ export function StandaloneGames({ selectedDevice: connectedDevice, pendingDeepLi
   useEffect(() => {
     if (pendingDeepLinkDownload && pendingDeepLinkDownload.game && games.length > 0) {
       console.log('[DeepLinkDownload] Looking for game:', pendingDeepLinkDownload.game)
-      
+
       // Find the game that matches the name
-      const matchingGame = games.find(game => {
+      const matchingGame = games.find((game) => {
         const gameTitle = game.gameTitle || game.name || ''
         return gameTitle.toLowerCase() === pendingDeepLinkDownload.game.toLowerCase()
       })
-      
+
       if (matchingGame) {
         console.log('[DeepLinkDownload] Found matching game:', matchingGame.gameTitle)
         setSelectedGame(matchingGame)

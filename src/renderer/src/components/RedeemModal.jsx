@@ -16,7 +16,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
   const [orderData, setOrderData] = useState(null)
   const [error, setError] = useState('')
   const [successCategories, setSuccessCategories] = useState([])
-  
+
   // Cooldown state (like website)
   const [lastSearchTime, setLastSearchTime] = useState(0)
   const [cooldownTime, setCooldownTime] = useState(0)
@@ -43,14 +43,16 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
 
   // Check if user has all access
   const allCategories = ['standalone', 'pcvr', 'qgo']
-  const hasAllAccess = allCategories.every(cat => 
-    accessTypes.some(t => t.toLowerCase() === cat.toLowerCase())
+  const hasAllAccess = allCategories.every((cat) =>
+    accessTypes.some((t) => t.toLowerCase() === cat.toLowerCase())
   )
 
   const handleSearch = async () => {
     // Check if user already has all access
     if (hasAllAccess) {
-      setError('Anda sudah memiliki akses lengkap ke semua kategori VR. Penukaran tidak diperlukan.')
+      setError(
+        'Anda sudah memiliki akses lengkap ke semua kategori VR. Penukaran tidak diperlukan.'
+      )
       setStep('error')
       return
     }
@@ -113,7 +115,9 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
 
   const handleRedeem = async () => {
     if (hasAllAccess) {
-      setError('Anda sudah memiliki akses lengkap ke semua kategori VR. Penukaran tidak diperlukan.')
+      setError(
+        'Anda sudah memiliki akses lengkap ke semua kategori VR. Penukaran tidak diperlukan.'
+      )
       setStep('error')
       return
     }
@@ -157,7 +161,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
       if (data.success) {
         setSuccessCategories(data.categories || [])
         setStep('success')
-        
+
         // Callback to refresh access
         if (onSuccess) {
           onSuccess()
@@ -188,10 +192,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-50 bg-black/80"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-50 bg-black/80" onClick={onClose} />
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -202,7 +203,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
           {/* Header */}
           <div className="relative h-20 bg-[#0081FB] flex items-center justify-center flex-shrink-0">
             <Icon icon="mdi:ticket-confirmation" className="h-10 w-10 text-white" />
-            
+
             {/* Close Button */}
             <button
               onClick={onClose}
@@ -226,7 +227,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
               <div className="text-xs text-white/50 mb-2">Akses yang sudah dimiliki:</div>
               <div className="flex flex-wrap gap-2">
                 {allCategories.map((cat) => {
-                  const hasAccess = accessTypes.some(t => t.toLowerCase() === cat.toLowerCase())
+                  const hasAccess = accessTypes.some((t) => t.toLowerCase() === cat.toLowerCase())
                   return (
                     <span
                       key={cat}
@@ -247,7 +248,8 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
             {hasAllAccess && (
               <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
                 <Icon icon="mdi:check-circle" className="inline h-4 w-4 mr-1" />
-                Akses Anda sudah lengkap (Standalone, PCVR, QGO). Tidak perlu melakukan penukaran lagi.
+                Akses Anda sudah lengkap (Standalone, PCVR, QGO). Tidak perlu melakukan penukaran
+                lagi.
               </div>
             )}
 
@@ -285,7 +287,11 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
                   ) : (
                     <Icon icon="mdi:magnify" className="h-5 w-5" />
                   )}
-                  {loading ? 'Mencari...' : cooldownTime > 0 ? `Tunggu ${cooldownTime}s` : 'Cari Pesanan'}
+                  {loading
+                    ? 'Mencari...'
+                    : cooldownTime > 0
+                      ? `Tunggu ${cooldownTime}s`
+                      : 'Cari Pesanan'}
                 </button>
               </div>
             )}
@@ -323,11 +329,13 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-white/50 text-sm">Status</span>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      orderData.isRedeemed 
-                        ? 'bg-green-500/20 text-green-400' 
-                        : 'bg-yellow-500/20 text-yellow-400'
-                    }`}>
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full ${
+                        orderData.isRedeemed
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-yellow-500/20 text-yellow-400'
+                      }`}
+                    >
                       {orderData.isRedeemed ? 'Sudah Diklaim' : 'Belum Diklaim'}
                     </span>
                   </div>

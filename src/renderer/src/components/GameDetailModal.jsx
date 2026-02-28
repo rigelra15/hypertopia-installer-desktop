@@ -1448,10 +1448,7 @@ export default function GameDetailModal({
                         className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
                         title={t('minimize_to_background') || 'Minimize to background'}
                       >
-                      <Icon
-                          icon="octicon:minimize-16"
-                          className="h-5 w-5"
-                        />
+                        <Icon icon="octicon:minimize-16" className="h-5 w-5" />
                       </button>
                     </div>
 
@@ -1460,13 +1457,15 @@ export default function GameDetailModal({
                         {downloadInfo.fileName || gameTitle}
                       </p>
                       {downloadInfo.fileName && (
-                        <span className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
-                          downloadInfo.fileName.toLowerCase().endsWith('.rar')
-                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                            : downloadInfo.fileName.toLowerCase().endsWith('.7z')
-                              ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                              : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                        }`}>
+                        <span
+                          className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
+                            downloadInfo.fileName.toLowerCase().endsWith('.rar')
+                              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                              : downloadInfo.fileName.toLowerCase().endsWith('.7z')
+                                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                                : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                          }`}
+                        >
                           {downloadInfo.fileName.split('.').pop()?.toUpperCase() || 'ZIP'}
                         </span>
                       )}
@@ -1661,13 +1660,15 @@ export default function GameDetailModal({
                         <p className="text-xs text-white/40 truncate flex-1">
                           {installProgress.gdFileName}
                         </p>
-                        <span className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
-                          installProgress.gdFileName.toLowerCase().endsWith('.rar')
-                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                            : installProgress.gdFileName.toLowerCase().endsWith('.7z')
-                              ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                              : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                        }`}>
+                        <span
+                          className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
+                            installProgress.gdFileName.toLowerCase().endsWith('.rar')
+                              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                              : installProgress.gdFileName.toLowerCase().endsWith('.7z')
+                                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                                : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                          }`}
+                        >
                           {installProgress.gdFileName.split('.').pop()?.toUpperCase() || 'ZIP'}
                         </span>
                       </div>
