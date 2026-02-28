@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -14,25 +14,19 @@ export function ProfileModal({ isOpen, onClose, user }) {
   const [profile, setProfile] = useState(null)
   const [imageError, setImageError] = useState(false)
 
-  useEffect(() => {
-    if (isOpen && user?.email) {
-      fetchProfile()
-    }
-  }, [isOpen, user?.email])
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      
+
       const response = await fetch(
         `${API_BASE_URL}/api/v1/user-profile?email=${encodeURIComponent(user.email)}`
       )
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch profile')
       }
-      
+
       const data = await response.json()
       if (data.success) {
         setProfile(data.profile)
@@ -45,7 +39,13 @@ export function ProfileModal({ isOpen, onClose, user }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.email])
+
+  useEffect(() => {
+    if (isOpen && user?.email) {
+      fetchProfile()
+    }
+  }, [isOpen, user?.email, fetchProfile])
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Belum terdaftar'
@@ -67,7 +67,7 @@ export function ProfileModal({ isOpen, onClose, user }) {
       standalone: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
       pcvr: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
       qgo: 'bg-green-500/20 text-green-400 border-green-500/30',
-      firmware: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+      firmware: 'bg-orange-500/20 text-orange-400 border-orange-500/30'
     }
     return colors[type?.toLowerCase()] || 'bg-white/10 text-white/70 border-white/20'
   }
@@ -77,10 +77,7 @@ export function ProfileModal({ isOpen, onClose, user }) {
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-50 bg-black/80"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-50 bg-black/80" onClick={onClose} />
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -89,15 +86,18 @@ export function ProfileModal({ isOpen, onClose, user }) {
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header with gradient background */}
-          <div className="relative h-28 bg-gradient-to-br from-[#0081FB] via-[#0070E0] to-[#00BFFF]">
+          <div className="relative h-28 bg-linear-to-br from-[#0081FB] via-[#0070E0] to-[#00BFFF]">
             {/* Pattern overlay */}
             <div className="absolute inset-0 opacity-10">
-              <div className="absolute inset-0" style={{
-                backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
-                backgroundSize: '20px 20px'
-              }} />
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
+                  backgroundSize: '20px 20px'
+                }}
+              />
             </div>
-            
+
             {/* Close Button */}
             <button
               onClick={onClose}
@@ -118,7 +118,7 @@ export function ProfileModal({ isOpen, onClose, user }) {
                   onError={() => setImageError(true)}
                 />
               ) : (
-                <div className="h-24 w-24 rounded-2xl border-4 border-[#1a1a1a] bg-gradient-to-br from-[#0081FB] to-[#00BFFF] flex items-center justify-center shadow-xl">
+                <div className="h-24 w-24 rounded-2xl border-4 border-[#1a1a1a] bg-linear-to-br from-[#0081FB] to-[#00BFFF] flex items-center justify-center shadow-xl">
                   <Icon icon="mdi:account" className="h-12 w-12 text-white" />
                 </div>
               )}
@@ -231,9 +231,7 @@ export function ProfileModal({ isOpen, onClose, user }) {
                           {t('profile_source') || 'Source'}
                         </span>
                       </div>
-                      <p className="text-sm font-medium text-white capitalize">
-                        {profile.source}
-                      </p>
+                      <p className="text-sm font-medium text-white capitalize">{profile.source}</p>
                     </div>
                   )}
                 </div>
@@ -253,17 +251,26 @@ export function ProfileModal({ isOpen, onClose, user }) {
                           <div className="flex items-center gap-3">
                             {/* Source Icon */}
                             {tx.source === 'shopee' ? (
-                              <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center" title="Shopee">
+                              <div
+                                className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center"
+                                title="Shopee"
+                              >
                                 <Icon icon="mdi:shopping" className="h-3 w-3 text-orange-400" />
                               </div>
                             ) : (
-                              <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center" title="Website">
+                              <div
+                                className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center"
+                                title="Website"
+                              >
                                 <Icon icon="mdi:web" className="h-3 w-3 text-blue-400" />
                               </div>
                             )}
                             <div className="flex flex-col">
                               <span className="text-sm text-white/70 truncate max-w-[130px]">
-                                {tx.product || tx.accessType || (tx.accessTypes?.join(', ')) || 'Transaction'}
+                                {tx.product ||
+                                  tx.accessType ||
+                                  tx.accessTypes?.join(', ') ||
+                                  'Transaction'}
                               </span>
                               {tx.orderNumber && (
                                 <span className="text-[10px] text-white/40 truncate max-w-[130px]">
@@ -273,16 +280,24 @@ export function ProfileModal({ isOpen, onClose, user }) {
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-1">
-                            <div className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                              tx.status === 'success' || tx.status === 'paid' || tx.status === 'redeemed'
-                                ? 'bg-green-500/20 text-green-400' 
-                                : tx.status === 'pending' 
-                                  ? 'bg-yellow-500/20 text-yellow-400' 
-                                  : 'bg-gray-500/20 text-gray-400'
-                            }`}>
-                              {tx.status === 'redeemed' ? 'Diklaim' : 
-                               tx.status === 'success' || tx.status === 'paid' ? 'Berhasil' : 
-                               tx.status === 'pending' ? 'Menunggu' : 'Tidak diketahui'}
+                            <div
+                              className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                                tx.status === 'success' ||
+                                tx.status === 'paid' ||
+                                tx.status === 'redeemed'
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : tx.status === 'pending'
+                                    ? 'bg-yellow-500/20 text-yellow-400'
+                                    : 'bg-gray-500/20 text-gray-400'
+                              }`}
+                            >
+                              {tx.status === 'redeemed'
+                                ? 'Diklaim'
+                                : tx.status === 'success' || tx.status === 'paid'
+                                  ? 'Berhasil'
+                                  : tx.status === 'pending'
+                                    ? 'Menunggu'
+                                    : 'Tidak diketahui'}
                             </div>
                             <span className="text-[10px] text-white/40">
                               {formatDate(tx.createdAt)}
@@ -316,8 +331,8 @@ ProfileModal.propTypes = {
   user: PropTypes.shape({
     email: PropTypes.string,
     displayName: PropTypes.string,
-    photoURL: PropTypes.string,
-  }),
+    photoURL: PropTypes.string
+  })
 }
 
 export default ProfileModal

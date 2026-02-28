@@ -8,8 +8,9 @@ import { autoUpdater } from 'electron-updater'
 // Google API credentials - hardcoded fallback for production builds
 // These are injected at build time via define, but we provide fallbacks
 // in case the build system doesn't properly replace them
-const GOOGLE_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY || 'AIzaSyDzR4ZXxVlzCFvh-iMViLoPKLHP9NTv5qY'
-const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '176112373977-61sguaetet4tu1gdbpolgu6m7dgt5je8.apps.googleusercontent.com'
+const GOOGLE_API_KEY =
+  process.env.REACT_APP_GOOGLE_API_KEY || 'AIzaSyDzR4ZXxVlzCFvh-iMViLoPKLHP9NTv5qY'
+// removed unused GOOGLE_CLIENT_ID
 
 // Configure auto-updater
 // autoDownload is false by default - user can control via settings
@@ -170,10 +171,10 @@ ipcMain.handle('cancel-installation', async () => {
 // Download cancellation state
 let downloadState = {
   isCancelled: false,
-  activeRequest: null,        // HTTP request object (for abort)
-  activeStream: null,         // Write stream to close
-  activeFilePath: null,       // File path for cleanup
-  currentFileName: null       // For identifying current download
+  activeRequest: null, // HTTP request object (for abort)
+  activeStream: null, // Write stream to close
+  activeFilePath: null, // File path for cleanup
+  currentFileName: null // For identifying current download
 }
 
 // Reset download state
@@ -739,12 +740,15 @@ app.whenReady().then(() => {
       shell.openExternal(authUrl)
 
       // Set timeout for auth (2 minutes)
-      setTimeout(() => {
-        if (pendingAuthResolve === resolve) {
-          pendingAuthResolve = null
-          resolve({ success: false, error: 'Auth timeout' })
-        }
-      }, 2 * 60 * 1000)
+      setTimeout(
+        () => {
+          if (pendingAuthResolve === resolve) {
+            pendingAuthResolve = null
+            resolve({ success: false, error: 'Auth timeout' })
+          }
+        },
+        2 * 60 * 1000
+      )
     })
   })
 
@@ -844,7 +848,7 @@ app.whenReady().then(() => {
       thumbnailSize: { width: 150, height: 150 }
     })
     // Return simplified source info
-    return sources.map(source => ({
+    return sources.map((source) => ({
       id: source.id,
       name: source.name,
       thumbnail: source.thumbnail.toDataURL()
@@ -882,12 +886,12 @@ const os = require('os')
 // Helper: Get 7za binary path
 function get7zPath() {
   const isDev = !app.isPackaged
-  
+
   if (isDev) {
     // In development, use the path from 7zip-bin package
     return sevenBin.path7za
   }
-  
+
   // In production, the 7zip-bin module is unpacked to app.asar.unpacked
   // We need to manually construct the path to the executable
   const arch = process.arch // x64, ia32, arm64
@@ -900,10 +904,10 @@ function get7zPath() {
     arch,
     '7za.exe'
   )
-  
+
   console.log('[get7zPath] Resolved path:', sevenZipPath)
   console.log('[get7zPath] Path exists:', require('fs').existsSync(sevenZipPath))
-  
+
   return sevenZipPath
 }
 
@@ -911,10 +915,10 @@ function get7zPath() {
 function getUnrarPath() {
   const isDev = !app.isPackaged
   const platform = process.platform // 'win32', 'darwin', 'linux'
-  
+
   // Determine binary name based on platform
   const unrarBinary = platform === 'win32' ? 'unrar.exe' : 'unrar'
-  
+
   if (isDev) {
     return path.join(__dirname, `../../resources/${unrarBinary}`)
   }
@@ -997,10 +1001,10 @@ async function cleanupAllTempFolders(customExtractPath = null) {
 function getAdbPath() {
   const isDev = !app.isPackaged
   const platform = process.platform // 'win32', 'darwin', 'linux'
-  
+
   // Determine binary name based on platform
   const adbBinary = platform === 'win32' ? 'adb.exe' : 'adb'
-  
+
   // Determine platform-tools folder based on OS
   let platformToolsFolder = 'platform-tools' // Default for Windows
   if (platform === 'darwin') {
@@ -1008,7 +1012,7 @@ function getAdbPath() {
   } else if (platform === 'linux') {
     platformToolsFolder = 'platform-tools-linux'
   }
-  
+
   if (isDev) {
     return path.join(__dirname, `../../resources/${platformToolsFolder}/${adbBinary}`)
   }
@@ -1102,7 +1106,7 @@ async function scanRar(rarPath) {
 async function scan7z(archivePath) {
   return new Promise((resolve, reject) => {
     const sevenPath = get7zPath()
-    
+
     // Debug logging
     console.log('[scan7z] 7z binary path:', sevenPath)
     console.log('[scan7z] 7z binary exists:', fs.existsSync(sevenPath))
@@ -1619,7 +1623,7 @@ ipcMain.handle('scan-zip', async (event, filePath) => {
   console.log('[scan-zip] Received filePath:', filePath)
   console.log('[scan-zip] filePath type:', typeof filePath)
   console.log('[scan-zip] 7z path:', get7zPath())
-  
+
   // Verify file exists before attempting scan
   if (!fs.existsSync(filePath)) {
     console.error('[scan-zip] File does not exist:', filePath)
@@ -1634,9 +1638,9 @@ ipcMain.handle('scan-zip', async (event, filePath) => {
     // Use normalized path if it exists
     filePath = normalizedPath
   }
-  
+
   console.log('[scan-zip] File exists, proceeding with scan')
-  
+
   const lowerPath = filePath.toLowerCase()
 
   // Check if file is a supported archive format
@@ -2047,11 +2051,11 @@ const extractGoogleDriveFileId = (url) => {
   // Format 1: /file/d/FILE_ID/view
   const match1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)
   if (match1) return match1[1]
-  
+
   // Format 2: ?id=FILE_ID
   const match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/)
   if (match2) return match2[1]
-  
+
   return null
 }
 
@@ -2062,7 +2066,7 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
     // Reset download state first to ensure clean start
     resetDownloadState()
     console.log('[Download] Starting new download, state reset')
-    
+
     const fsNative = require('fs')
     const https = require('https')
     const fsExtra = require('fs-extra')
@@ -2078,10 +2082,6 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
     if (!extractPath) {
       throw new Error('No extraction folder configured. Please set it up in Settings.')
     }
-
-    // Determine file extension based on fileName
-    const fileExt = fileName.split('.').pop().toLowerCase()
-    const isApk = fileExt === 'apk'
 
     // Create Downloads subfolder in the extractPath
     const downloadFolder = path.join(extractPath, 'Downloads')
@@ -2121,7 +2121,7 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
             reject(new Error('Too many redirects'))
             return
           }
-          
+
           // Check if cancelled before starting
           if (downloadState.isCancelled) {
             reject(new Error('Download cancelled'))
@@ -2131,104 +2131,112 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
           const parsedUrl = new URL(downloadUrl)
           const httpModule = parsedUrl.protocol === 'https:' ? https : require('http')
 
-          const request = httpModule.get(downloadUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-          }, (response) => {
-            // Store request for cancellation
-            downloadState.activeRequest = request
-            
-            // Handle redirects
-            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-              console.log('[Download] Following redirect to:', response.headers.location)
-              followRedirects(response.headers.location, maxRedirects - 1)
-              return
-            }
+          const request = httpModule.get(
+            downloadUrl,
+            {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            },
+            (response) => {
+              // Store request for cancellation
+              downloadState.activeRequest = request
 
-            if (response.statusCode !== 200) {
-              reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`))
-              return
-            }
-
-            totalBytes = parseInt(response.headers['content-length'] || '0', 10)
-            console.log('[Download] Dropbox file size:', totalBytes, 'bytes')
-
-            const dest = fsNative.createWriteStream(filePath)
-            
-            // Store stream and file path for cancellation
-            downloadState.activeStream = dest
-            downloadState.activeFilePath = filePath
-
-            response.on('data', (chunk) => {
-              // Check if cancelled
-              if (downloadState.isCancelled) {
-                response.destroy()
-                dest.destroy()
+              // Handle redirects
+              if (
+                response.statusCode >= 300 &&
+                response.statusCode < 400 &&
+                response.headers.location
+              ) {
+                console.log('[Download] Following redirect to:', response.headers.location)
+                followRedirects(response.headers.location, maxRedirects - 1)
                 return
               }
-              
-              downloadedBytes += chunk.length
-              const progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0
 
-              // Calculate speed
-              const now = Date.now()
-              const timeDiff = (now - lastTime) / 1000
-              if (timeDiff >= 0.5) {
-                speed = (downloadedBytes - lastBytes) / timeDiff
-                lastTime = now
-                lastBytes = downloadedBytes
+              if (response.statusCode !== 200) {
+                reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`))
+                return
               }
 
-              if (event.sender && !event.sender.isDestroyed() && !downloadState.isCancelled) {
-                event.sender.send('download-progress', {
-                  fileName,
-                  downloadedBytes,
-                  totalBytes,
-                  progress,
-                  speed,
-                  status: 'downloading'
-                })
-              }
-            })
+              totalBytes = parseInt(response.headers['content-length'] || '0', 10)
+              console.log('[Download] Dropbox file size:', totalBytes, 'bytes')
 
-            response.pipe(dest)
+              const dest = fsNative.createWriteStream(filePath)
 
-            dest.on('finish', () => {
-              dest.close(() => {
-                try {
-                  const stats = fsNative.statSync(filePath)
-                  console.log('[Download] Dropbox download complete, size:', stats.size, 'bytes')
+              // Store stream and file path for cancellation
+              downloadState.activeStream = dest
+              downloadState.activeFilePath = filePath
 
-                  if (stats.size === 0) {
-                    fsNative.unlink(filePath, () => {})
-                    if (!resolved) {
-                      resolved = true
-                      reject(new Error('Downloaded file is empty'))
-                    }
-                  } else {
-                    if (!resolved) {
-                      resolved = true
-                      resolve({ success: true, filePath })
-                    }
-                  }
-                } catch (err) {
-                  if (!resolved) {
-                    resolved = true
-                    reject(err)
-                  }
+              response.on('data', (chunk) => {
+                // Check if cancelled
+                if (downloadState.isCancelled) {
+                  response.destroy()
+                  dest.destroy()
+                  return
+                }
+
+                downloadedBytes += chunk.length
+                const progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0
+
+                // Calculate speed
+                const now = Date.now()
+                const timeDiff = (now - lastTime) / 1000
+                if (timeDiff >= 0.5) {
+                  speed = (downloadedBytes - lastBytes) / timeDiff
+                  lastTime = now
+                  lastBytes = downloadedBytes
+                }
+
+                if (event.sender && !event.sender.isDestroyed() && !downloadState.isCancelled) {
+                  event.sender.send('download-progress', {
+                    fileName,
+                    downloadedBytes,
+                    totalBytes,
+                    progress,
+                    speed,
+                    status: 'downloading'
+                  })
                 }
               })
-            })
 
-            dest.on('error', (err) => {
-              fsNative.unlink(filePath, () => {})
-              if (!resolved) {
-                resolved = true
-                reject(err)
-              }
-            })
-          })
+              response.pipe(dest)
+
+              dest.on('finish', () => {
+                dest.close(() => {
+                  try {
+                    const stats = fsNative.statSync(filePath)
+                    console.log('[Download] Dropbox download complete, size:', stats.size, 'bytes')
+
+                    if (stats.size === 0) {
+                      fsNative.unlink(filePath, () => {})
+                      if (!resolved) {
+                        resolved = true
+                        reject(new Error('Downloaded file is empty'))
+                      }
+                    } else {
+                      if (!resolved) {
+                        resolved = true
+                        resolve({ success: true, filePath })
+                      }
+                    }
+                  } catch (err) {
+                    if (!resolved) {
+                      resolved = true
+                      reject(err)
+                    }
+                  }
+                })
+              })
+
+              dest.on('error', (err) => {
+                fsNative.unlink(filePath, () => {})
+                if (!resolved) {
+                  resolved = true
+                  reject(err)
+                }
+              })
+            }
+          )
 
           request.on('error', (err) => {
             console.error('[Download] Dropbox request error:', err)
@@ -2253,9 +2261,13 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
       return new Promise((resolve, reject) => {
         // Use the pre-defined GOOGLE_API_KEY constant (has fallback)
         const apiKey = GOOGLE_API_KEY
-        
+
         if (!apiKey) {
-          reject(new Error('Google Drive API Key not found. Please set REACT_APP_GOOGLE_API_KEY in .env file'))
+          reject(
+            new Error(
+              'Google Drive API Key not found. Please set REACT_APP_GOOGLE_API_KEY in .env file'
+            )
+          )
           return
         }
 
@@ -2263,8 +2275,8 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
 
         // Create custom HTTP agent and options with referer header
         const customHeaders = {
-          'Referer': 'https://hypertopia.store/',
-          'Origin': 'https://hypertopia.store',
+          Referer: 'https://hypertopia.store/',
+          Origin: 'https://hypertopia.store',
           'Accept-Encoding': 'identity'
         }
 
@@ -2286,165 +2298,166 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
 
         // Send initial status (selecting file location done)
         if (event.sender && !event.sender.isDestroyed()) {
-        event.sender.send('download-progress', {
-          fileName,
-          downloadedBytes: 0,
-          totalBytes: 0,
-          progress: 0,
-          speed: 0,
-          status: 'preparing'
-        })
-      }
+          event.sender.send('download-progress', {
+            fileName,
+            downloadedBytes: 0,
+            totalBytes: 0,
+            progress: 0,
+            speed: 0,
+            status: 'preparing'
+          })
+        }
 
-      // Get file metadata first to get the file size
-      drive.files
-        .get(
-          {
-            fileId: fileId,
-            fields: 'size,name',
-            supportsAllDrives: true
-          },
-          { 
-            responseType: 'json',
-            headers: customHeaders
-          }
-        )
-        .then((metadata) => {
-          totalBytes = parseInt(metadata.data.size || '0', 10)
-          console.log('[Download] File size:', totalBytes, 'bytes')
-          console.log('[Download] File name:', metadata.data.name)
-
-          // Download the file
-          const dest = fsNative.createWriteStream(filePath)
-
-          drive.files.get(
+        // Get file metadata first to get the file size
+        drive.files
+          .get(
             {
               fileId: fileId,
-              alt: 'media',
-              supportsAllDrives: true,
-              acknowledgeAbuse: true
+              fields: 'size,name',
+              supportsAllDrives: true
             },
             {
-              responseType: 'stream',
+              responseType: 'json',
               headers: customHeaders
-            },
-            (err, response) => {
-              if (err) {
-                console.error('[Download] Error downloading file:', err)
-                dest.close()
-                fsNative.unlink(filePath, () => {})
-                if (!resolved) {
-                  resolved = true
-                  reject(err)
-                }
-                return
-              }
+            }
+          )
+          .then((metadata) => {
+            totalBytes = parseInt(metadata.data.size || '0', 10)
+            console.log('[Download] File size:', totalBytes, 'bytes')
+            console.log('[Download] File name:', metadata.data.name)
 
-              // Try to get content-length from response headers if totalBytes is 0
-              if (totalBytes === 0 && response.headers && response.headers['content-length']) {
-                totalBytes = parseInt(response.headers['content-length'], 10)
-                console.log('[Download] Got file size from content-length:', totalBytes, 'bytes')
-              }
-              
-              // Store stream for cancellation
-              downloadState.activeStream = dest
+            // Download the file
+            const dest = fsNative.createWriteStream(filePath)
 
-              response.data
-                .on('data', (chunk) => {
-                  // Check if cancelled
-                  if (downloadState.isCancelled) {
-                    response.data.destroy()
-                    dest.destroy()
-                    return
-                  }
-                  
-                  downloadedBytes += chunk.length
-                  const progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0
-
-                  // Calculate speed (bytes per second)
-                  const now = Date.now()
-                  const timeDiff = (now - lastTime) / 1000 // in seconds
-                  if (timeDiff >= 0.5) { // Update speed every 500ms
-                    speed = (downloadedBytes - lastBytes) / timeDiff
-                    lastTime = now
-                    lastBytes = downloadedBytes
-                  }
-
-                  // Send progress to renderer (only if not cancelled)
-                  if (event.sender && !event.sender.isDestroyed() && !downloadState.isCancelled) {
-                    event.sender.send('download-progress', {
-                      fileName,
-                      downloadedBytes,
-                      totalBytes,
-                      progress,
-                      speed,
-                      status: 'downloading'
-                    })
-                  }
-                })
-                .on('end', () => {
-                  console.log('[Download] Download stream ended')
-                })
-                .on('error', (err) => {
-                  console.error('[Download] Stream error:', err)
+            drive.files.get(
+              {
+                fileId: fileId,
+                alt: 'media',
+                supportsAllDrives: true,
+                acknowledgeAbuse: true
+              },
+              {
+                responseType: 'stream',
+                headers: customHeaders
+              },
+              (err, response) => {
+                if (err) {
+                  console.error('[Download] Error downloading file:', err)
                   dest.close()
                   fsNative.unlink(filePath, () => {})
                   if (!resolved) {
                     resolved = true
                     reject(err)
                   }
-                })
-                .pipe(dest)
+                  return
+                }
 
-              dest.on('finish', () => {
-                console.log('[Download] File finish event')
-                dest.close(() => {
-                  console.log('[Download] File closed')
-                  // Verify file size
-                  try {
-                    const stats = fsNative.statSync(filePath)
-                    console.log('[Download] Final file size:', stats.size, 'bytes')
+                // Try to get content-length from response headers if totalBytes is 0
+                if (totalBytes === 0 && response.headers && response.headers['content-length']) {
+                  totalBytes = parseInt(response.headers['content-length'], 10)
+                  console.log('[Download] Got file size from content-length:', totalBytes, 'bytes')
+                }
 
-                    if (stats.size === 0) {
-                      fsNative.unlink(filePath, () => {})
-                      if (!resolved) {
-                        resolved = true
-                        reject(new Error('Downloaded file is empty'))
-                      }
-                    } else {
-                      if (!resolved) {
-                        resolved = true
-                        resolve({ success: true, filePath })
-                      }
+                // Store stream for cancellation
+                downloadState.activeStream = dest
+
+                response.data
+                  .on('data', (chunk) => {
+                    // Check if cancelled
+                    if (downloadState.isCancelled) {
+                      response.data.destroy()
+                      dest.destroy()
+                      return
                     }
-                  } catch (err) {
-                    console.error('[Download] Error checking file size:', err)
+
+                    downloadedBytes += chunk.length
+                    const progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0
+
+                    // Calculate speed (bytes per second)
+                    const now = Date.now()
+                    const timeDiff = (now - lastTime) / 1000 // in seconds
+                    if (timeDiff >= 0.5) {
+                      // Update speed every 500ms
+                      speed = (downloadedBytes - lastBytes) / timeDiff
+                      lastTime = now
+                      lastBytes = downloadedBytes
+                    }
+
+                    // Send progress to renderer (only if not cancelled)
+                    if (event.sender && !event.sender.isDestroyed() && !downloadState.isCancelled) {
+                      event.sender.send('download-progress', {
+                        fileName,
+                        downloadedBytes,
+                        totalBytes,
+                        progress,
+                        speed,
+                        status: 'downloading'
+                      })
+                    }
+                  })
+                  .on('end', () => {
+                    console.log('[Download] Download stream ended')
+                  })
+                  .on('error', (err) => {
+                    console.error('[Download] Stream error:', err)
+                    dest.close()
+                    fsNative.unlink(filePath, () => {})
                     if (!resolved) {
                       resolved = true
                       reject(err)
                     }
+                  })
+                  .pipe(dest)
+
+                dest.on('finish', () => {
+                  console.log('[Download] File finish event')
+                  dest.close(() => {
+                    console.log('[Download] File closed')
+                    // Verify file size
+                    try {
+                      const stats = fsNative.statSync(filePath)
+                      console.log('[Download] Final file size:', stats.size, 'bytes')
+
+                      if (stats.size === 0) {
+                        fsNative.unlink(filePath, () => {})
+                        if (!resolved) {
+                          resolved = true
+                          reject(new Error('Downloaded file is empty'))
+                        }
+                      } else {
+                        if (!resolved) {
+                          resolved = true
+                          resolve({ success: true, filePath })
+                        }
+                      }
+                    } catch (err) {
+                      console.error('[Download] Error checking file size:', err)
+                      if (!resolved) {
+                        resolved = true
+                        reject(err)
+                      }
+                    }
+                  })
+                })
+
+                dest.on('error', (err) => {
+                  console.error('[Download] File stream error:', err)
+                  fsNative.unlink(filePath, () => {})
+                  if (!resolved) {
+                    resolved = true
+                    reject(err)
                   }
                 })
-              })
-
-              dest.on('error', (err) => {
-                console.error('[Download] File stream error:', err)
-                fsNative.unlink(filePath, () => {})
-                if (!resolved) {
-                  resolved = true
-                  reject(err)
-                }
-              })
+              }
+            )
+          })
+          .catch((err) => {
+            console.error('[Download] Error getting file metadata:', err)
+            if (!resolved) {
+              resolved = true
+              reject(err)
             }
-          )
-        })
-        .catch((err) => {
-          console.error('[Download] Error getting file metadata:', err)
-          if (!resolved) {
-            resolved = true
-            reject(err)
-          }
-        })
+          })
       })
     } else {
       // ============ UNSUPPORTED URL - Open in browser ============
@@ -2498,10 +2511,10 @@ ipcMain.handle('open-downloads-folder', async (event) => {
 // This handles the full flow: download -> extract -> scan -> install APK + OBB
 ipcMain.handle('download-and-install-archive', async (event, { url, fileName, deviceSerial }) => {
   const https = require('https')
-  
+
   // Reset cancellation state at start
   resetInstallationState()
-  
+
   const deviceFlag = deviceSerial ? ['-s', deviceSerial] : []
 
   // Get extract path from localStorage or use temp directory
@@ -2517,7 +2530,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
 
   const tempDir = path.join(extractBasePath, 'hypertopia_install_' + Date.now())
   let archivePath = path.join(tempDir, fileName)
-  
+
   // Store temp directory for cleanup on cancel
   installationState.tempDir = tempDir
 
@@ -2545,7 +2558,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
       let lastBytes = 0
       let speed = 0
 
-      const handleDownload = (downloadUrl, isRedirect = false) => {
+      const handleDownload = (downloadUrl) => {
         // Handle Dropbox
         if (isDropboxUrl(downloadUrl)) {
           downloadUrl = getDropboxDirectUrl(downloadUrl)
@@ -2557,14 +2570,18 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
         const options = {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Referer': 'https://hypertopia.store/',
-            'Origin': 'https://hypertopia.store'
+            Referer: 'https://hypertopia.store/',
+            Origin: 'https://hypertopia.store'
           }
         }
 
         const request = httpModule.get(downloadUrl, options, (response) => {
           // Handle redirects
-          if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          if (
+            response.statusCode >= 300 &&
+            response.statusCode < 400 &&
+            response.headers.location
+          ) {
             handleDownload(response.headers.location, true)
             return
           }
@@ -2584,7 +2601,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
               reject(new Error('Installation cancelled'))
               return
             }
-            
+
             downloadedBytes += chunk.length
             const progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0
 
@@ -2629,7 +2646,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
       if (isGoogleDriveUrl(url)) {
         const { google } = require('googleapis')
         const fileId = extractGoogleDriveFileId(url)
-        
+
         if (!fileId) {
           reject(new Error('Invalid Google Drive URL'))
           return
@@ -2642,22 +2659,23 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
         }
 
         const customHeaders = {
-          'Referer': 'https://hypertopia.store/',
-          'Origin': 'https://hypertopia.store',
+          Referer: 'https://hypertopia.store/',
+          Origin: 'https://hypertopia.store',
           'Accept-Encoding': 'identity'
         }
 
-        const drive = google.drive({ 
-          version: 'v3', 
+        const drive = google.drive({
+          version: 'v3',
           auth: apiKey,
           headers: customHeaders
         })
 
         // Get file metadata first
-        drive.files.get(
-          { fileId, fields: 'size,name', supportsAllDrives: true },
-          { responseType: 'json', headers: customHeaders }
-        )
+        drive.files
+          .get(
+            { fileId, fields: 'size,name', supportsAllDrives: true },
+            { responseType: 'json', headers: customHeaders }
+          )
           .then((metadata) => {
             totalBytes = parseInt(metadata.data.size || '0', 10)
             const gdFileName = metadata.data.name || ''
@@ -2690,7 +2708,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
                     reject(new Error('Installation cancelled'))
                     return
                   }
-                  
+
                   downloadedBytes += chunk.length
                   const progress = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0
 
@@ -2715,12 +2733,23 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
                 dest.on('finish', () =>
                   dest.close(() => {
                     const stats = fs.statSync(archivePath)
-                    console.log('[Install Archive] Download complete. File on disk:', stats.size, 'bytes, expected:', totalBytes, 'bytes')
+                    console.log(
+                      '[Install Archive] Download complete. File on disk:',
+                      stats.size,
+                      'bytes, expected:',
+                      totalBytes,
+                      'bytes'
+                    )
                     if (stats.size === 0) {
                       reject(new Error('Downloaded file is empty'))
                     } else if (totalBytes > 0 && Math.abs(stats.size - totalBytes) > 1024) {
                       // File size mismatch - likely encoding/decompression issue
-                      console.warn('[Install Archive] WARNING: File size mismatch! On disk:', stats.size, 'expected:', totalBytes)
+                      console.warn(
+                        '[Install Archive] WARNING: File size mismatch! On disk:',
+                        stats.size,
+                        'expected:',
+                        totalBytes
+                      )
                       // Still resolve but log warning - the file may still work
                       resolve({ success: true, filePath: archivePath })
                     } else {
@@ -2762,18 +2791,37 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
       fsNode.closeSync(fd)
 
       // Check magic bytes for common archive formats
-      const isZipMagic = headerBuf[0] === 0x50 && headerBuf[1] === 0x4B // PK (ZIP)
-      const is7zMagic = headerBuf[0] === 0x37 && headerBuf[1] === 0x7A && headerBuf[2] === 0xBC && headerBuf[3] === 0xAF // 7z
-      const isRarMagic = headerBuf[0] === 0x52 && headerBuf[1] === 0x61 && headerBuf[2] === 0x72 && headerBuf[3] === 0x21 // Rar!
+      const isZipMagic = headerBuf[0] === 0x50 && headerBuf[1] === 0x4b // PK (ZIP)
+      const is7zMagic =
+        headerBuf[0] === 0x37 &&
+        headerBuf[1] === 0x7a &&
+        headerBuf[2] === 0xbc &&
+        headerBuf[3] === 0xaf // 7z
+      const isRarMagic =
+        headerBuf[0] === 0x52 &&
+        headerBuf[1] === 0x61 &&
+        headerBuf[2] === 0x72 &&
+        headerBuf[3] === 0x21 // Rar!
 
       if (!isZipMagic && !is7zMagic && !isRarMagic) {
         // Check if it's HTML (Google Drive virus scan page)
         const headerStr = headerBuf.toString('utf8').trim().toLowerCase()
-        if (headerStr.startsWith('<!doc') || headerStr.startsWith('<html') || headerStr.startsWith('<head')) {
-          console.error('[Install Archive] Downloaded file is an HTML page (likely Google Drive virus scan confirmation)')
-          throw new Error('Download gagal: Google Drive mengembalikan halaman konfirmasi, bukan file arsip. Coba lagi atau gunakan link download langsung.')
+        if (
+          headerStr.startsWith('<!doc') ||
+          headerStr.startsWith('<html') ||
+          headerStr.startsWith('<head')
+        ) {
+          console.error(
+            '[Install Archive] Downloaded file is an HTML page (likely Google Drive virus scan confirmation)'
+          )
+          throw new Error(
+            'Download gagal: Google Drive mengembalikan halaman konfirmasi, bukan file arsip. Coba lagi atau gunakan link download langsung.'
+          )
         }
-        console.warn('[Install Archive] Unknown archive format, magic bytes:', headerBuf.slice(0, 8).toString('hex'))
+        console.warn(
+          '[Install Archive] Unknown archive format, magic bytes:',
+          headerBuf.slice(0, 8).toString('hex')
+        )
       } else {
         const detectedFormat = isZipMagic ? 'ZIP' : is7zMagic ? '7Z' : 'RAR'
         console.log('[Install Archive] Archive format validated:', detectedFormat)
@@ -2782,10 +2830,12 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
         // This happens when Google Drive file is e.g. .rar but we saved it as .zip
         const currentExt = path.extname(archivePath).toLowerCase()
         const correctExt = isRarMagic ? '.rar' : is7zMagic ? '.7z' : '.zip'
-        
+
         if (currentExt !== correctExt) {
           const newArchivePath = archivePath.replace(/\.[^.]+$/, correctExt)
-          console.log(`[Install Archive] Extension mismatch! File is ${detectedFormat} but saved as ${currentExt}. Renaming to ${correctExt}`)
+          console.log(
+            `[Install Archive] Extension mismatch! File is ${detectedFormat} but saved as ${currentExt}. Renaming to ${correctExt}`
+          )
           fsNode.renameSync(archivePath, newArchivePath)
           archivePath = newArchivePath
           console.log('[Install Archive] Renamed to:', archivePath)
@@ -2804,7 +2854,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
 
     // 2. EXTRACTION
     sendProgress('EXTRACTING', 0, 'Extracting archive...')
-    
+
     const isRar = archivePath.toLowerCase().endsWith('.rar')
     const extractDir = path.join(tempDir, 'extracted')
     fs.ensureDirSync(extractDir)
@@ -2825,12 +2875,16 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
       }
     } catch (extractErr) {
       if (extractErr.message === 'Installation cancelled') throw extractErr
-      
+
       const errMsg = extractErr.message || ''
       if (errMsg.startsWith('RAR_') || errMsg.startsWith('ARCHIVE_')) {
         throw extractErr
       }
-      if (errMsg.includes('Cannot open') || errMsg.includes('not supported') || errMsg.includes('invalid signature')) {
+      if (
+        errMsg.includes('Cannot open') ||
+        errMsg.includes('not supported') ||
+        errMsg.includes('invalid signature')
+      ) {
         throw new Error('File archive tidak valid atau format tidak didukung.')
       } else if (errMsg.includes('Wrong password') || errMsg.includes('encrypted')) {
         throw new Error('File archive terenkripsi/memiliki password.')
@@ -2918,7 +2972,9 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
       }
 
       const obbFolderName = path.basename(obbPath)
-      const obbFiles = fs.readdirSync(obbPath).filter((f) => fs.statSync(path.join(obbPath, f)).isFile())
+      const obbFiles = fs
+        .readdirSync(obbPath)
+        .filter((f) => fs.statSync(path.join(obbPath, f)).isFile())
 
       console.log('[Install Archive] OBB files to push:', obbFiles)
 
@@ -2933,7 +2989,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
         if (installationState.isCancelled) {
           throw new Error('Installation cancelled')
         }
-        
+
         const obbFileName = obbFiles[i]
         const localFilePath = path.join(obbPath, obbFileName)
         const remoteFilePath = `${remoteObbFolder}/${obbFileName}`
@@ -3037,7 +3093,7 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
       let lastBytes = 0
       let speed = 0
 
-      const handleDownload = (downloadUrl, isRedirect = false) => {
+      const handleDownload = (downloadUrl) => {
         // Handle Dropbox
         if (isDropboxUrl(downloadUrl)) {
           downloadUrl = getDropboxDirectUrl(downloadUrl)
@@ -3049,14 +3105,18 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
         const options = {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Referer': 'https://hypertopia.store/',
-            'Origin': 'https://hypertopia.store'
+            Referer: 'https://hypertopia.store/',
+            Origin: 'https://hypertopia.store'
           }
         }
 
         const request = httpModule.get(downloadUrl, options, (response) => {
           // Handle redirects
-          if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          if (
+            response.statusCode >= 300 &&
+            response.statusCode < 400 &&
+            response.headers.location
+          ) {
             handleDownload(response.headers.location, true)
             return
           }
@@ -3114,7 +3174,7 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
       if (isGoogleDriveUrl(url)) {
         const { google } = require('googleapis')
         const fileId = extractGoogleDriveFileId(url)
-        
+
         if (!fileId) {
           reject(new Error('Invalid Google Drive URL'))
           return
@@ -3128,22 +3188,23 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
 
         // Custom headers required for API key restrictions
         const customHeaders = {
-          'Referer': 'https://hypertopia.store/',
-          'Origin': 'https://hypertopia.store',
+          Referer: 'https://hypertopia.store/',
+          Origin: 'https://hypertopia.store',
           'Accept-Encoding': 'identity'
         }
 
-        const drive = google.drive({ 
-          version: 'v3', 
+        const drive = google.drive({
+          version: 'v3',
           auth: apiKey,
           headers: customHeaders
         })
 
         // Get file metadata first
-        drive.files.get(
-          { fileId, fields: 'size,name', supportsAllDrives: true },
-          { responseType: 'json', headers: customHeaders }
-        )
+        drive.files
+          .get(
+            { fileId, fields: 'size,name', supportsAllDrives: true },
+            { responseType: 'json', headers: customHeaders }
+          )
           .then((metadata) => {
             totalBytes = parseInt(metadata.data.size || '0', 10)
             console.log('[Install] Google Drive file size:', totalBytes, 'bytes')
@@ -3269,7 +3330,7 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
 ipcMain.handle('check-downloaded-files', async (event, { fileNames }) => {
   try {
     const fs = require('fs')
-    
+
     // Get extractPath from localStorage
     const extractPath = await new Promise((resolve) => {
       event.sender
@@ -3315,7 +3376,7 @@ ipcMain.handle('check-downloaded-files', async (event, { fileNames }) => {
 ipcMain.handle('delete-downloaded-file', async (event, { fileName }) => {
   try {
     const fs = require('fs')
-    
+
     // Get extractPath from localStorage
     const extractPath = await new Promise((resolve) => {
       event.sender
