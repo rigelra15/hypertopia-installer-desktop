@@ -846,6 +846,26 @@ export function QuestGamesOptimizer({
           </button>
         </div>
       </div>
+      {/* Info Card */}
+      {hasQgoAccess && (
+        <div className="border-b border-white/10 bg-[#191919] p-4">
+          <div className="p-4 bg-[#0081FB]/10 border-l-4 border-[#0081FB] rounded">
+            <div className="text-sm text-white/90">
+              {t('language_code') === 'id' || t('qgo_download') === 'Unduh' ? (
+                <>
+                  Aplikasi Quest Games Optimizer terhubung dengan email:{' '}
+                  <strong>hypertopiaqgo@gmail.com</strong>
+                </>
+              ) : (
+                <>
+                  The Quest Games Optimizer app is connected to email:{' '}
+                  <strong>hypertopiaqgo@gmail.com</strong>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search and Sort Controls */}
       <div className="flex flex-col gap-3 border-b border-white/10 bg-[#191919] p-4">
@@ -859,7 +879,7 @@ export function QuestGamesOptimizer({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t('qgo_search_placeholder') || 'Search version or number...'}
+              placeholder={t('qgo_search_placeholder') || 'Search version...'}
               className="w-full rounded-lg border border-white/10 bg-[#0a0a0a] py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-[#0081FB]/50 transition-colors"
             />
           </div>

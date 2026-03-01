@@ -110,7 +110,7 @@
   "qgo_no_access_desc": "You do not have access to Quest Games Optimizer. Please contact support if you believe this is an error.",
   "qgo_loading": "Loading QGO versions...",
   "qgo_versions": "versions available",
-  "qgo_search_placeholder": "Search version or number...",
+  "qgo_search_placeholder": "Search version...",
   "qgo_sort_version_new": "Version (Newest)",
   "qgo_sort_version_old": "Version (Oldest)",
   "qgo_sort_date_new": "Date (Newest)",
