@@ -3470,6 +3470,25 @@ app.on('before-quit', async (event) => {
   event.preventDefault()
   console.log('[Cleanup] App is quitting, cleaning up temp folders...')
   await cleanupAllTempFolders()
+  
+  console.log('[Cleanup] Killing ADB server to prevent conflicts...')
+  try {
+    const adbPath = getAdbPath()
+    // Use execFile directly here without awaiting its output, or we can await a promise
+    await new Promise((resolve) => {
+      execFile(adbPath, ['kill-server'], (error) => {
+        if (error) {
+          console.warn('[Cleanup] Failed to kill ADB server:', error.message)
+        } else {
+          console.log('[Cleanup] ADB server killed successfully.')
+        }
+        resolve() // Continue quitting regardless of error
+      })
+    })
+  } catch (err) {
+    console.warn('[Cleanup] Error during ADB kill:', err.message)
+  }
+
   console.log('[Cleanup] Cleanup complete, exiting...')
   app.exit(0)
 })
