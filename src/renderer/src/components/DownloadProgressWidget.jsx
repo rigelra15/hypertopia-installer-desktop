@@ -69,31 +69,37 @@ export default function DownloadProgressWidget({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 100, scale: 0.8 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed bottom-4 right-4 z-50"
+          className="fixed bottom-4 right-4 z-40"
         >
-          <div className="rounded-2xl border border-white/20 bg-[#111] shadow-2xl overflow-hidden min-w-[280px] max-w-[320px]">
+          <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] shadow-[0_10px_40px_rgba(0,0,0,0.8)] overflow-hidden min-w-[280px] max-w-[320px]">
             {/* Header - Always visible, clickable to expand/collapse */}
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="w-full flex items-center justify-between p-3 hover:bg-white/5 transition-colors"
+              className="w-full flex items-center justify-between p-3.5 transition-colors hover:bg-white/5"
             >
               <div className="flex items-center gap-3">
                 <div
-                  className={`shrink-0 rounded-full p-2 ${isReady ? 'bg-green-500/20' : 'bg-[#0081FB]/20'}`}
+                  className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full ${isReady ? 'bg-[#0d2818] border border-green-700/50' : 'bg-[#0a1929] border border-[#0066cc]/50'}`}
                 >
                   {isReady ? (
-                    <Icon icon="line-md:confirm-circle" className="h-5 w-5 text-green-500" />
+                    <Icon
+                      icon="mdi:check-circle-outline"
+                      className="h-[20px] w-[20px] text-green-500"
+                    />
                   ) : (
-                    <Icon icon="line-md:downloading-loop" className="h-5 w-5 text-[#0081FB]" />
+                    <Icon
+                      icon="mdi:arrow-down-circle-outline"
+                      className="h-[20px] w-[20px] text-[#0081FB]"
+                    />
                   )}
                 </div>
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-white">
+                <div className="flex flex-col justify-center text-left">
+                  <p className="text-[15px] font-bold text-white leading-tight mb-0.5">
                     {isReady
-                      ? t('update_ready_title') || 'Update Ready'
-                      : t('update_downloading') || 'Downloading Update...'}
+                      ? t('update_ready_title') || 'Pembaruan Siap Diinstal'
+                      : t('update_downloading') || 'Mengunduh Pembaruan...'}
                   </p>
-                  <p className="text-xs text-white/50">
+                  <p className="text-[12px] font-medium text-white/50">
                     {isReady
                       ? `v${updateInfo?.version || 'Unknown'}`
                       : `${progressPercent.toFixed(0)}% • ${speedDisplay}`}
@@ -108,7 +114,7 @@ export default function DownloadProgressWidget({
 
             {/* Progress bar - Always visible in collapsed state too */}
             {!isReady && (
-              <div className="h-1 bg-white/10">
+              <div className="h-1 bg-white/5 shadow-inner">
                 <motion.div
                   className="h-full bg-[#0081FB]"
                   initial={{ width: 0 }}
@@ -128,28 +134,27 @@ export default function DownloadProgressWidget({
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div className="p-3 pt-2 border-t border-white/5">
+                  <div className="p-3.5 pt-0">
                     {/* Download details */}
                     {!isReady && (
-                      <div className="space-y-2 mb-3">
+                      <div className="space-y-2 mb-3 mt-3 border-t border-white/5 pt-3">
                         {/* Size progress */}
-                        <div className="flex items-center justify-between text-xs text-white/60">
+                        <div className="flex items-center justify-between text-[11px] font-medium text-white/40">
                           <span>
                             {formatSize(downloadedBytes)} / {formatSize(totalBytes)}
                           </span>
                           {etaDisplay && (
-                            <span className="flex items-center gap-1">
-                              <Icon icon="mdi:clock-outline" className="h-3 w-3" />
+                            <span className="flex items-center gap-1.5 font-mono">
+                              <Icon icon="mdi:clock-outline" className="h-3.5 w-3.5" />
                               {etaDisplay}
                             </span>
                           )}
                         </div>
 
-                        {/* Version info */}
-                        <div className="flex items-center gap-2 text-xs text-white/40">
-                          <Icon icon="mdi:package-variant" className="h-3.5 w-3.5" />
-                          <span>v{updateInfo?.version || 'Unknown'}</span>
-                        </div>
+                        {/* Info text when downloading */}
+                        <p className="text-[11px] font-medium text-white/30 text-center mt-2.5">
+                          {t('update_background_info') || 'Pembaruan diunduh di latar belakang'}
+                        </p>
                       </div>
                     )}
 
@@ -157,18 +162,11 @@ export default function DownloadProgressWidget({
                     {isReady && (
                       <button
                         onClick={onInstall}
-                        className="w-full py-2.5 rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-green-500/20"
+                        className="mt-1 w-full py-3 rounded-xl bg-[#00d050] hover:bg-[#00e058] hover:scale-[1.02] active:scale-[0.98] text-white text-[14px] font-semibold transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,208,80,0.2)]"
                       >
-                        <Icon icon="line-md:rotate-270" className="h-4 w-4" />
-                        {t('update_restart_now') || 'Restart & Install'}
+                        <Icon icon="mdi:reload" className="text-lg shrink-0" />
+                        {t('update_restart_now') || 'Mulai Ulang Aplikasi'}
                       </button>
-                    )}
-
-                    {/* Info text when downloading */}
-                    {!isReady && (
-                      <p className="text-xs text-white/40 text-center">
-                        {t('update_background_info') || 'Download running in background'}
-                      </p>
                     )}
                   </div>
                 </motion.div>
