@@ -6,8 +6,9 @@ import PropTypes from 'prop-types'
 
 /**
  * GameDownloadWidget Component
- * Floating widget in bottom-right corner showing game download progress
- * Similar to DownloadProgressWidget but for game downloads
+ * Floating widget in bottom-right corner showing game download progress.
+ * Has a compact mode (default when minimized) and an expanded mode
+ * which mimics the old central Download Progress modal.
  */
 export default function GameDownloadWidget({
   isVisible,
@@ -25,6 +26,7 @@ export default function GameDownloadWidget({
   const { t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(true)
   const [autoCloseCountdown, setAutoCloseCountdown] = useState(null)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   // Store onClose in ref to avoid dependency issues
   const onCloseRef = useRef(onClose)
@@ -122,140 +124,195 @@ export default function GameDownloadWidget({
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className="fixed bottom-4 right-4 z-50"
         >
-          <div className="rounded-2xl border border-white/20 bg-[#111] shadow-2xl overflow-hidden min-w-[300px] max-w-[360px]">
-            {/* Header - Always visible, clickable to expand/collapse */}
-            <div
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="w-full flex items-center justify-between p-3 hover:bg-white/5 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className={`shrink-0 rounded-full p-2 ${isComplete ? 'bg-green-500/20' : 'bg-[#0081FB]/20'}`}
-                >
-                  {isComplete ? (
-                    <Icon icon="line-md:confirm-circle" className="h-5 w-5 text-green-500" />
-                  ) : status === 'preparing' ? (
-                    <Icon icon="mdi:loading" className="h-5 w-5 text-[#0081FB] animate-spin" />
-                  ) : (
-                    <Icon icon="line-md:downloading-loop" className="h-5 w-5 text-[#0081FB]" />
-                  )}
-                </div>
-                <div className="text-left min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-white truncate">
+          <motion.div
+            layout
+            className={`rounded-2xl border border-white/20 bg-[#111] shadow-2xl overflow-hidden min-w-[300px] ${isExpanded ? 'max-w-[450px] w-[400px]' : 'max-w-[360px]'}`}
+          >
+            {isExpanded ? (
+              /* --- EXPANDED MODE --- (Mimics the old central modal) */
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="p-5 flex flex-col gap-4 relative"
+              >
+                <div className="flex items-start justify-between">
+                  <h3 className="text-lg font-semibold text-white">
                     {isComplete
                       ? t('download_complete') || 'Download Complete'
-                      : status === 'preparing'
-                        ? t('qgo_preparing') || 'Preparing...'
-                        : t('downloading') || 'Downloading...'}
-                  </p>
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-xs text-white/50 truncate">
-                      {isComplete
-                        ? gameTitle || fileName
-                        : status === 'preparing'
-                          ? gameTitle || fileName
-                          : status === 'downloading' && totalBytes > 0
-                            ? `${progressPercent.toFixed(0)}% • ${speedDisplay}`
-                            : gameTitle || fileName}
-                    </p>
-                    {fileName && !isComplete && status !== 'downloading' && (
-                      <span
-                        className={`shrink-0 px-1 py-0 text-[9px] font-bold rounded ${fileName.toLowerCase().endsWith('.rar') ? 'bg-purple-500/20 text-purple-400' : fileName.toLowerCase().endsWith('.7z') ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}
-                      >
-                        {fileName.split('.').pop()?.toUpperCase()}
-                      </span>
-                    )}
-                  </div>
+                      : t('qgo_downloading') || 'Downloading...'}
+                  </h3>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsExpanded(false)
+                      setShowCancelConfirm(false)
+                    }}
+                    className="rounded-lg p-1.5 text-white/50 hover:bg-white/10 hover:text-white transition-colors absolute top-4 right-4"
+                    title={t('minimize_to_background') || 'Minimize to background'}
+                  >
+                    <Icon icon="octicon:minimize-16" className="h-5 w-5" />
+                  </button>
                 </div>
-              </div>
-              <div className="flex items-center gap-1">
-                {/* Cancel button - show when downloading */}
+
+                <div className="mt-1 flex items-center gap-2 pr-8">
+                  <p className="text-sm text-white/60 truncate flex-1">{fileName || gameTitle}</p>
+                  {fileName && !isComplete && (
+                    <span
+                      className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
+                        fileName.toLowerCase().endsWith('.rar')
+                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                          : fileName.toLowerCase().endsWith('.7z')
+                            ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                            : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                      }`}
+                    >
+                      {fileName.split('.').pop()?.toUpperCase() || 'ZIP'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Progress Bar */}
+                {status === 'downloading' && totalBytes > 0 && !isComplete ? (
+                  <div className="mt-2">
+                    <div className="mb-2 flex items-center justify-between text-xs text-white/50">
+                      <span>
+                        {formatSize(downloadedBytes)} / {formatSize(totalBytes)}
+                      </span>
+                      <span>{Math.round(progressPercent)}%</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                      <motion.div
+                        className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF]"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progressPercent}%` }}
+                        transition={{ duration: 0.3 }}
+                      />
+                    </div>
+
+                    {/* Speed and ETA */}
+                    <div className="mt-3 flex items-center justify-between text-xs text-white/40">
+                      <span className="flex items-center gap-1.5">
+                        <Icon icon="mdi:speedometer" className="h-3.5 w-3.5" />
+                        {speedDisplay}
+                      </span>
+                      {etaDisplay && (
+                        <span className="flex items-center gap-1.5">
+                          <Icon icon="mdi:clock-outline" className="h-3.5 w-3.5" />
+                          {t('qgo_eta') || 'ETA'}: {etaDisplay}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : isComplete ? (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-white/40">
+                    <Icon icon="mdi:harddisk" className="h-4 w-4" />
+                    <span>{formatSize(totalBytes)}</span>
+                  </div>
+                ) : (
+                  <div className="mt-4 flex items-center justify-center py-4">
+                    <Icon icon="mdi:loading" className="h-8 w-8 animate-spin text-[#0081FB]" />
+                  </div>
+                )}
+
+                {/* Action Buttons */}
                 {!isComplete && status === 'downloading' && onCancel && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onCancel?.()
-                    }}
-                    className="p-1 rounded-lg hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
-                    title={t('cancel_download') || 'Cancel download'}
-                  >
-                    <Icon icon="mdi:close-circle" className="h-5 w-5" />
-                  </button>
-                )}
-                {isComplete && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onClose?.()
-                    }}
-                    className="p-1 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-                  >
-                    <Icon icon="mdi:close" className="h-4 w-4" />
-                  </button>
-                )}
-                {/* Only show chevron when not complete */}
-                {!isComplete && (
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className={`h-5 w-5 text-white/50 transition-transform ${isExpanded ? '' : 'rotate-180'}`}
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Progress bar - Always visible in collapsed state too */}
-            {!isComplete && status === 'downloading' && (
-              <div className="h-1 bg-white/10">
-                <motion.div
-                  className="h-full bg-linear-to-r from-[#0081FB] to-[#00C2FF]"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progressPercent}%` }}
-                  transition={{ duration: 0.3 }}
-                />
-              </div>
-            )}
-
-            {/* Expanded content */}
-            <AnimatePresence>
-              {isExpanded && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="p-3 pt-2 border-t border-white/5">
-                    {/* Download details */}
-                    {!isComplete && status === 'downloading' && totalBytes > 0 && (
-                      <div className="space-y-2 mb-3">
-                        {/* Size progress */}
-                        <div className="flex items-center justify-between text-xs text-white/60">
-                          <span>
-                            {formatSize(downloadedBytes)} / {formatSize(totalBytes)}
-                          </span>
-                          {etaDisplay && (
-                            <span className="flex items-center gap-1">
-                              <Icon icon="mdi:clock-outline" className="h-3 w-3" />
-                              {t('qgo_eta') || 'ETA'}: {etaDisplay}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Speed info */}
-                        <div className="flex items-center gap-2 text-xs text-white/40">
-                          <Icon icon="mdi:speedometer" className="h-3.5 w-3.5" />
-                          <span>{speedDisplay}</span>
+                  <>
+                    {showCancelConfirm ? (
+                      <div className="mt-2 w-full p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex flex-col gap-3">
+                        <p className="text-sm font-medium text-red-400 text-center">
+                          {t('confirm_cancel_download_msg') ||
+                            'Are you sure you want to cancel this download?'}
+                        </p>
+                        <div className="flex gap-2 w-full">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setShowCancelConfirm(false)
+                            }}
+                            className="flex-1 py-2 px-3 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-medium transition-colors border border-white/10"
+                          >
+                            {t('no_back') || 'No, Back'}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setShowCancelConfirm(false)
+                              onCancel?.()
+                            }}
+                            className="flex-1 py-2 px-3 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-red-500/20"
+                          >
+                            {t('yes_cancel') || 'Yes, Cancel'}
+                          </button>
                         </div>
                       </div>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowCancelConfirm(true)
+                        }}
+                        className="mt-2 w-full py-2.5 px-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Icon icon="mdi:close-circle" className="w-4 h-4" />
+                        {t('cancel_download') || 'Cancel Download'}
+                      </button>
                     )}
+                  </>
+                )}
 
-                    {/* Preparing state - show filename with extension badge */}
-                    {!isComplete && status === 'preparing' && (
-                      <div className="flex items-center gap-2 py-2 text-xs text-white/50">
-                        <Icon icon="mdi:file-download-outline" className="h-4 w-4 shrink-0" />
-                        <span className="truncate">{fileName}</span>
-                        {fileName && (
+                {isComplete && (
+                  <button
+                    onClick={() => onClose?.()}
+                    className="w-full py-2.5 mt-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 text-sm font-medium transition-colors"
+                  >
+                    {autoCloseCountdown
+                      ? `${t('close') || 'Tutup'} (${autoCloseCountdown})`
+                      : t('close') || 'Tutup'}
+                  </button>
+                )}
+              </motion.div>
+            ) : (
+              /* --- COMPACT MODE --- */
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsExpanded(true)}
+                className="w-full flex flex-col hover:bg-white/5 transition-colors cursor-pointer relative"
+              >
+                <div className="flex items-center justify-between p-3 pb-2.5">
+                  <div className="flex items-center gap-3 w-full pr-10">
+                    <div
+                      className={`shrink-0 rounded-full p-2 ${isComplete ? 'bg-green-500/20' : 'bg-[#0081FB]/20'}`}
+                    >
+                      {isComplete ? (
+                        <Icon icon="line-md:confirm-circle" className="h-5 w-5 text-green-500" />
+                      ) : status === 'preparing' ? (
+                        <Icon icon="mdi:loading" className="h-5 w-5 text-[#0081FB] animate-spin" />
+                      ) : (
+                        <Icon icon="line-md:downloading-loop" className="h-5 w-5 text-[#0081FB]" />
+                      )}
+                    </div>
+                    <div className="text-left min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-white truncate">
+                        {isComplete
+                          ? t('download_complete') || 'Download Complete'
+                          : status === 'preparing'
+                            ? t('qgo_preparing') || 'Preparing...'
+                            : t('downloading') || 'Downloading...'}
+                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs text-white/50 truncate">
+                          {isComplete
+                            ? gameTitle || fileName
+                            : status === 'preparing'
+                              ? gameTitle || fileName
+                              : status === 'downloading' && totalBytes > 0
+                                ? `${Math.round(progressPercent)}% • ${speedDisplay}`
+                                : gameTitle || fileName}
+                        </p>
+                        {fileName && !isComplete && status !== 'downloading' && (
                           <span
                             className={`shrink-0 px-1 py-0 text-[9px] font-bold rounded ${fileName.toLowerCase().endsWith('.rar') ? 'bg-purple-500/20 text-purple-400' : fileName.toLowerCase().endsWith('.7z') ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}
                           >
@@ -263,50 +320,71 @@ export default function GameDownloadWidget({
                           </span>
                         )}
                       </div>
-                    )}
+                    </div>
+                  </div>
 
-                    {/* Complete state */}
+                  <div className="absolute top-3 right-3 flex items-center gap-1">
+                    {/* Cancel button - show when downloading */}
+                    {!isComplete && status === 'downloading' && onCancel && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsExpanded(true)
+                          setShowCancelConfirm(true)
+                        }}
+                        className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-500 hover:text-red-400 transition-colors"
+                        title={t('cancel_download') || 'Cancel download'}
+                      >
+                        <Icon icon="mdi:close-circle" className="h-4 w-4" />
+                      </button>
+                    )}
                     {isComplete && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs text-white/60">
-                          <Icon icon="mdi:file" className="h-4 w-4" />
-                          <span className="truncate flex-1">{fileName}</span>
-                          {fileName && (
-                            <span
-                              className={`shrink-0 px-1 py-0 text-[9px] font-bold rounded ${fileName.toLowerCase().endsWith('.rar') ? 'bg-purple-500/20 text-purple-400' : fileName.toLowerCase().endsWith('.7z') ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}
-                            >
-                              {fileName.split('.').pop()?.toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        {totalBytes > 0 && (
-                          <div className="flex items-center gap-2 text-xs text-white/40">
-                            <Icon icon="mdi:harddisk" className="h-3.5 w-3.5" />
-                            <span>{formatSize(totalBytes)}</span>
-                          </div>
-                        )}
-                        <button
-                          onClick={() => onClose?.()}
-                          className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 text-sm font-medium transition-colors"
-                        >
-                          {autoCloseCountdown
-                            ? `${t('close') || 'Tutup'} (${autoCloseCountdown})`
-                            : t('close') || 'Tutup'}
-                        </button>
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onClose?.()
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                      >
+                        <Icon icon="mdi:close" className="h-4 w-4" />
+                      </button>
                     )}
-
-                    {/* Info text when downloading */}
-                    {!isComplete && status === 'downloading' && (
-                      <p className="text-xs text-white/40 text-center">
-                        {t('download_background_info') || 'Download running in background'}
-                      </p>
+                    {/* Arrow to expand */}
+                    {!isComplete && (
+                      <button className="p-1 text-white/50" title={t('expand') || 'Expand'}>
+                        <Icon icon="mdi:chevron-up" className="h-5 w-5" />
+                      </button>
                     )}
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                </div>
+
+                {/* Progress bar and details in compact mode */}
+                {!isComplete && status === 'downloading' && (
+                  <div className="px-3 pb-3">
+                    <div className="h-1 bg-white/10 w-full mb-2">
+                      <motion.div
+                        className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF]"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progressPercent}%` }}
+                        transition={{ duration: 0.3 }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-white/40">
+                      <span>
+                        {formatSize(downloadedBytes)} / {formatSize(totalBytes)}
+                      </span>
+                      {etaDisplay && (
+                        <span>
+                          {t('qgo_eta') || 'ETA'}: {etaDisplay}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
