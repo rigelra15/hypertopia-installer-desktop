@@ -435,5 +435,17 @@
   "downloaded": "Terunduh",
   "some_parts_downloaded": "Beberapa part sudah terunduh",
   "v76_tooltip_title": "Firmware v76+ Diperlukan",
-  "v76_tooltip_desc": "Game ini membutuhkan Quest firmware versi 76 ke atas untuk bisa dimainkan."
+  "v76_tooltip_desc": "Game ini membutuhkan Quest firmware versi 76 ke atas untuk bisa dimainkan.",
+  "view_details": "Lihat Detail",
+  "confirm_install_title": "Konfirmasi Instalasi",
+  "confirm_install_desc": "Tinjau detail file sebelum melanjutkan.",
+  "badge_apk": "APK ONLY",
+  "badge_apk_obb": "APK + OBB",
+  "badge_zip": "ZIP/RAR",
+  "badge_rar": "ZIP/RAR",
+  "file_name": "Nama File",
+  "obb_found": "Konten OBB",
+  "target_folder": "TARGET FOLDER OBB",
+  "obb_files_list": "DAFTAR FILE OBB",
+  "change_method": "Ganti File/Folder"
 }
