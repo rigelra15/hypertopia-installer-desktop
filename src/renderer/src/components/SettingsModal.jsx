@@ -15,7 +15,7 @@ export function SettingsModal({
   updateInfo,
   onUpdateNow
 }) {
-  const { t } = useLanguage()
+  const { t, language, setLanguage } = useLanguage()
   const [extractPath, setExtractPath] = useState(currentPath || '')
   const [diskSpace, setDiskSpace] = useState(null)
   const [isLoadingSpace, setIsLoadingSpace] = useState(false)
@@ -350,6 +350,40 @@ export function SettingsModal({
                       </div>
                     </button>
                   )}
+                </div>
+              </div>
+
+              {/* Language Section */}
+              <div className="border-t border-white/10 pt-4">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
+                  {t('settings_language') || 'Language'}
+                </label>
+                <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-3">
+                  <div className="flex items-center gap-3">
+                    <Icon icon="mdi:translate" className="h-5 w-5 text-[#0081FB]" />
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        {t('settings_language_select') || 'Select Language'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="relative group min-w-[120px]">
+                    <select
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value)}
+                      className="appearance-none bg-white/5 border border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-xs font-bold text-white/70 hover:text-white uppercase cursor-pointer outline-none focus:ring-1 focus:ring-[#0081FB]/50 transition-all w-full"
+                    >
+                      <option value="en" className="bg-[#0a0a0a] text-white">
+                        English (EN)
+                      </option>
+                      <option value="id" className="bg-[#0a0a0a] text-white">
+                        Indonesia (ID)
+                      </option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white/30 group-hover:text-white/70">
+                      <Icon icon="mdi:chevron-down" className="h-4 w-4" />
+                    </div>
+                  </div>
                 </div>
               </div>
 

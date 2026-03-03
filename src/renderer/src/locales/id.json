@@ -75,6 +75,8 @@
   "settings_open_downloads": "Buka Folder Download",
   "settings_changing": "Mengganti...",
   "settings_info": "Mengganti folder akan membersihkan file sementara lama dan pindah ke lokasi baru.",
+  "settings_language": "Bahasa",
+  "settings_language_select": "Pilih Bahasa",
   "settings_theme": "Tema",
   "settings_theme_dark": "Gelap",
   "settings_theme_light": "Terang",
@@ -102,6 +104,7 @@
   "tab_games": "Game Standalone",
   "tab_tutorials": "Tutorial",
   "tab_qgo": "Quest Games Optimizer",
+  "tab_downloads": "Manajer Unduhan",
   "qgo_title": "Quest Games Optimizer",
   "qgo_subtitle": "Unduh rilis resmi QGO",
   "qgo_login_required": "Login Diperlukan",
@@ -447,5 +450,10 @@
   "obb_found": "Konten OBB",
   "target_folder": "TARGET FOLDER OBB",
   "obb_files_list": "DAFTAR FILE OBB",
-  "change_method": "Ganti File/Folder"
+  "change_method": "Ganti File/Folder",
+  "files_found": "file ditemukan",
+  "open_folder": "Buka Folder",
+  "install_btn": "Instal",
+  "delete_btn": "Hapus",
+  "downloads_empty": "Belum ada file yang diunduh."
 }

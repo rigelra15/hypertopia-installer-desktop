@@ -3,7 +3,6 @@ import { Icon } from '@iconify/react'
 import { useLanguage } from './contexts/LanguageContext'
 import { useToast } from './hooks/useToast'
 import { useDownload } from './contexts/DownloadContext'
-import { useNetwork } from './contexts/NetworkContext'
 import { InstallerSidebar } from './components/InstallerSidebar'
 import { DeviceManager } from './components/DeviceManager'
 import { StandaloneGames } from './components/StandaloneGames'
@@ -17,6 +16,7 @@ import LiveAssistNotification from './components/LiveAssistNotification'
 import GameDownloadWidget from './components/GameDownloadWidget'
 import GameInstallWidget from './components/GameInstallWidget'
 import NetworkStatusWidget from './components/NetworkStatusWidget'
+import LocalDownloads from './components/LocalDownloads'
 import { useAuth } from './contexts/AuthContext'
 
 function App() {
@@ -26,7 +26,6 @@ function App() {
   const {
     showWidget,
     downloadInfo,
-    isDownloading,
     downloadComplete,
     closeWidget,
     cancelDownload,
@@ -94,6 +93,11 @@ function App() {
     { id: 'games', icon: 'mdi:gamepad-variant', label: t('tab_games') },
     { id: 'qgo', icon: 'mdi:tune-variant', label: t('tab_qgo') || 'QGO' },
     { id: 'manager', icon: 'mdi:folder-cog', label: t('tab_manager') || 'Manager' },
+    {
+      id: 'downloads',
+      icon: 'mdi:folder-download-outline',
+      label: t('tab_downloads') || 'Downloads'
+    },
     { id: 'liveassist', icon: 'mdi:headset', label: t('tab_live_assist') || 'Live Assist' }
   ]
 
@@ -260,7 +264,6 @@ function App() {
             <UserMenu />
           </div>
 
-          {/* Tab Content */}
           {activeTab === 'manager' ? (
             <DeviceManager selectedDevice={selectedDevice} />
           ) : activeTab === 'games' ? (
@@ -273,6 +276,8 @@ function App() {
             />
           ) : activeTab === 'liveassist' ? (
             <LiveAssist />
+          ) : activeTab === 'downloads' ? (
+            <LocalDownloads selectedDevice={selectedDevice} />
           ) : activeTab === 'qgo' ? (
             <QuestGamesOptimizer
               selectedDevice={selectedDevice}

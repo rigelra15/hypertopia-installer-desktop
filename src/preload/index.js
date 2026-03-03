@@ -114,6 +114,8 @@ const api = {
   },
   // Check which files are already downloaded
   checkDownloadedFiles: (fileNames) => ipcRenderer.invoke('check-downloaded-files', { fileNames }),
+  // List all downloaded files in Downloads folder
+  listDownloadedFiles: () => ipcRenderer.invoke('list-downloaded-files'),
   // Delete a downloaded file
   deleteDownloadedFile: (fileName) => ipcRenderer.invoke('delete-downloaded-file', { fileName }),
   // Install a local APK file to device

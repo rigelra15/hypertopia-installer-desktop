@@ -75,6 +75,8 @@
   "settings_open_downloads": "Open Downloads Folder",
   "settings_changing": "Changing...",
   "settings_info": "Changing the folder will clean up old temporary files and move to the new location.",
+  "settings_language": "Language",
+  "settings_language_select": "Select Language",
   "settings_theme": "Theme",
   "settings_theme_dark": "Dark",
   "settings_theme_light": "Light",
@@ -102,6 +104,7 @@
   "tab_games": "Standalone Games",
   "tab_tutorials": "Tutorials",
   "tab_qgo": "Quest Games Optimizer",
+  "tab_downloads": "Downloads",
   "qgo_title": "Quest Games Optimizer",
   "qgo_subtitle": "Download official QGO releases",
   "qgo_login_required": "Login Required",
@@ -440,5 +443,10 @@
   "obb_found": "OBB Content",
   "target_folder": "TARGET OBB FOLDER",
   "obb_files_list": "OBB FILES",
-  "change_method": "Change Folder/File"
+  "change_method": "Change Folder/File",
+  "files_found": "files found",
+  "open_folder": "Open Folder",
+  "install_btn": "Install",
+  "delete_btn": "Delete",
+  "downloads_empty": "No files downloaded yet."
 }
