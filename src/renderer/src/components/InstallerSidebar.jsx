@@ -6,6 +6,8 @@ import { ErrorModal } from './ErrorModal'
 import { SettingsModal } from './SettingsModal'
 import UpdateNotification from './UpdateNotification'
 import BrowseMethodModal from './BrowseMethodModal'
+import ConfirmationModal from './ConfirmationModal'
+import { SystemLogModal } from './SystemLogModal'
 import PropTypes from 'prop-types'
 
 export function InstallerSidebar({
@@ -25,7 +27,6 @@ export function InstallerSidebar({
     apkName: null,
     obbFolder: null
   })
-  const [log, setLog] = useState('Waiting...')
   const [logHistory, setLogHistory] = useState([]) // Array of log entries
   const [isDragOver, setIsDragOver] = useState(false)
   const [isInstalling, setIsInstalling] = useState(false)
@@ -38,8 +39,10 @@ export function InstallerSidebar({
   const [sourceType, setSourceType] = useState('archive') // 'archive' or 'folder'
   const [folderPath, setFolderPath] = useState(null)
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false)
+  const [confirmModalMode, setConfirmModalMode] = useState('confirm')
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false)
   const fileInputRef = useRef(null)
-  const logContainerRef = useRef(null)
 
   // Notify parent when collapsed state changes
   useEffect(() => {
@@ -55,8 +58,7 @@ export function InstallerSidebar({
       minute: '2-digit',
       second: '2-digit'
     })
-    setLogHistory((prev) => [...prev.slice(-19), { time, message }]) // Keep last 20 entries
-    setLog(message)
+    setLogHistory((prev) => [...prev.slice(-399), { time, message }]) // Keep last 400 entries
   }
 
   // ... (keep useEffects and other handlers as is, until handleInstall)
@@ -84,12 +86,12 @@ export function InstallerSidebar({
     fetchVersion()
   }, [])
 
-  // Update log when language changes
   useEffect(() => {
-    if (!file && !isInstalling) {
-      setLog(t('waiting_file'))
+    if (!file && !isInstalling && logHistory.length === 0) {
+      addLogEntry('Waiting for file...')
     }
-  }, [language, file, isInstalling, t])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file, isInstalling])
 
   const handleDrop = async (e) => {
     e.preventDefault()
@@ -107,7 +109,7 @@ export function InstallerSidebar({
           const folderPath = window.api.getFilePath(droppedFile)
           if (folderPath) {
             // Process as folder
-            setLog(t('scan_folder') || 'Scanning folder...')
+            addLogEntry(t('scan_folder') || 'Scanning folder...')
             setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
             setFile(null)
             setSourceType('folder')
@@ -118,18 +120,18 @@ export function InstallerSidebar({
               setStatus(result)
 
               if (result.hasApk && result.hasObb) {
-                setLog(t('bundle_found'))
+                addLogEntry('Found APK and OBB bundle.')
               } else if (result.hasApk) {
-                setLog(t('apk_found'))
+                addLogEntry('Found APK file.')
               } else {
-                setLog(t('no_content'))
+                addLogEntry('No APK found in the selected folder.')
               }
 
               const folderName = folderPath.split(/[/\\]/).pop()
               setFile({ name: folderName, size: 0, isFolder: true })
             } catch (err) {
               console.error(err)
-              setLog('Error: ' + (err.message || 'Unknown error'))
+              addLogEntry('Error: ' + (err.message || 'Unknown error'))
               setErrorDetails(err.message)
             }
             return
@@ -176,7 +178,7 @@ export function InstallerSidebar({
       const lowerPath = filePath.toLowerCase()
       if (lowerPath.endsWith('.zip') || lowerPath.endsWith('.rar')) {
         setFile(paramFile)
-        setLog(t('scan_arch'))
+        addLogEntry(t('scan_arch'))
         setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
 
         try {
@@ -184,26 +186,31 @@ export function InstallerSidebar({
           setStatus(result)
 
           if (result.hasApk && result.hasObb) {
-            setLog(t('bundle_found'))
+            addLogEntry('Found APK and OBB bundle.')
           } else if (result.hasApk) {
-            setLog(t('apk_found'))
+            addLogEntry('Found APK file.')
           } else {
-            setLog(t('no_content'))
+            addLogEntry('No content found.')
+          }
+
+          if (result.hasApk && selectedDevice) {
+            setConfirmModalMode('confirm')
+            setConfirmModalOpen(true)
           }
         } catch (scanErr) {
           // Handle scan errors
-          setLog('Error: ' + scanErr.message)
+          addLogEntry('Error: ' + scanErr.message)
           setErrorDetails(scanErr.message)
           setFile(null)
           setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
         }
       } else {
-        setLog(t('invalid_fmt'))
+        addLogEntry(t('invalid_fmt'))
         setFile(null)
       }
     } catch (err) {
       console.error(err)
-      setLog('Error: ' + (err.message || 'Unknown error'))
+      addLogEntry('Error: ' + (err.message || 'Unknown error'))
       setErrorDetails(err.message)
       setFile(null)
     }
@@ -222,7 +229,7 @@ export function InstallerSidebar({
       const selectedPath = await window.api.selectGameFolder()
       if (!selectedPath) return
 
-      setLog(t('scan_folder') || 'Scanning folder...')
+      addLogEntry(t('scan_folder') || 'Scanning folder...')
       setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
       setFile(null)
       setSourceType('folder')
@@ -232,27 +239,51 @@ export function InstallerSidebar({
       setStatus(result)
 
       if (result.hasApk && result.hasObb) {
-        setLog(t('bundle_found'))
+        addLogEntry('Found APK and OBB bundle.')
       } else if (result.hasApk) {
-        setLog(t('apk_found'))
+        addLogEntry('Found APK file.')
       } else {
-        setLog(t('no_content'))
+        addLogEntry('No content found.')
       }
 
       // Create a fake file object for display purposes
       const folderName = selectedPath.split(/[/\\]/).pop()
       setFile({ name: folderName, size: 0, isFolder: true })
+
+      if (result.hasApk && selectedDevice) {
+        setConfirmModalMode('confirm')
+        setConfirmModalOpen(true)
+      }
     } catch (err) {
       console.error(err)
-      setLog('Error: ' + (err.message || 'Unknown error'))
+      addLogEntry('Error: ' + (err.message || 'Unknown error'))
       setErrorDetails(err.message)
     }
+  }
+
+  const handleCancelModal = () => {
+    setConfirmModalOpen(false)
+    if (confirmModalMode === 'confirm') {
+      setFile(null)
+      setFolderPath(null)
+      setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
+      addLogEntry(t('waiting_file') || 'Waiting for game file...')
+    }
+  }
+
+  const handleConfirmModal = () => {
+    setConfirmModalOpen(false)
+  }
+
+  const openDetailsModal = () => {
+    setConfirmModalMode('view')
+    setConfirmModalOpen(true)
   }
 
   const handleInstall = async (type) => {
     if (!file && !folderPath) return
     setIsInstalling(true)
-    setLog(type === 'apk' ? t('install_apk') : t('install_full'))
+    addLogEntry(type === 'apk' ? t('install_apk') : t('install_full'))
 
     try {
       if (sourceType === 'folder' && folderPath) {
@@ -263,16 +294,16 @@ export function InstallerSidebar({
         const filePath = window.api.getFilePath(file)
         await window.api.installGame(filePath, type, selectedDevice)
       }
-      setLog(t('install_success'))
+      addLogEntry(t('install_success'))
       setInstallProgress({ step: 'COMPLETED', percent: 100, detail: t('install_success') })
     } catch (err) {
       console.error(err)
       // Check if it was a cancellation
       if (err.message && err.message.includes('cancelled')) {
-        setLog(t('install_cancelled') || 'Installation cancelled')
+        addLogEntry(t('install_cancelled') || 'Installation cancelled')
         setInstallProgress(null)
       } else {
-        setLog(t('install_failed') + err.message)
+        addLogEntry(t('install_failed') + err.message)
         setErrorDetails(err.message)
       }
     } finally {
@@ -286,7 +317,7 @@ export function InstallerSidebar({
       await window.api.cancelInstallation()
       setIsInstalling(false)
       setInstallProgress(null)
-      setLog(t('install_cancelled') || 'Installation cancelled')
+      addLogEntry(t('install_cancelled') || 'Installation cancelled')
       addLogEntry(t('install_cancelled') || 'Installation cancelled')
     } catch (err) {
       console.error('Failed to cancel:', err)
@@ -312,13 +343,6 @@ export function InstallerSidebar({
       if (removeListener) removeListener()
     }
   }, [t])
-
-  // Auto-scroll log container
-  useEffect(() => {
-    if (logContainerRef.current) {
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight
-    }
-  }, [logHistory])
 
   return (
     <div
@@ -402,12 +426,33 @@ export function InstallerSidebar({
             onSelectArchive={handleSelectArchive}
             onSelectFolder={handleSelectFolder}
           />
+          <ConfirmationModal
+            isOpen={confirmModalOpen}
+            onClose={handleCancelModal}
+            onConfirm={handleConfirmModal}
+            mode={confirmModalMode}
+            fileData={{
+              name: sourceType === 'folder' ? status?.apkName || file?.name : file?.name,
+              size:
+                sourceType === 'folder'
+                  ? (status?.apkSize || 0) + (status?.obbSize || 0)
+                  : file?.size || 0,
+              type: sourceType,
+              hasObb: status?.hasObb,
+              obbFolder: status?.obbFolder,
+              apkSize: status?.apkSize || 0,
+              obbSize: status?.obbSize || 0,
+              obbEntries: [],
+              obbFiles: status?.obbFiles || [],
+              manifestData: status?.manifestData
+            }}
+          />
 
           {/* Header */}
           <div className="flex-none p-6 pb-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-4">
             <div className="flex-1 min-w-[140px]">
               <h1 className="text-xl font-bold tracking-tight">
-                HyperTopia <span className="text-[#0081FB]\">Installer</span>
+                <span className="text-[#0081FB]">HyperTopia</span> Installer
               </h1>
               <p className="mt-1 text-xs font-light text-white/50">
                 v{appVersion.version} <span className="opacity-50">({appVersion.build})</span>
@@ -435,8 +480,15 @@ export function InstallerSidebar({
             </div>
             <div className="flex items-start gap-2 flex-none">
               <button
+                onClick={() => setIsLogModalOpen(true)}
+                className="relative rounded-lg bg-white/5 border border-white/10 p-1.5 text-white/50 hover:bg-[#0081FB]/20 hover:text-[#0081FB] transition-all"
+                title="System Log"
+              >
+                <Icon icon="mdi:console" className="text-sm" />
+              </button>
+              <button
                 onClick={handleOpenSettings}
-                className="relative rounded-lg bg-white/5 border border-white/10 p-1.5 text-white/50 hover:text-white hover:bg-white/10 transition-all"
+                className="relative rounded-lg bg-white/5 border border-white/10 p-1.5 text-white/50 hover:bg-white/10 hover:text-white transition-all"
                 title={t('settings_title')}
               >
                 {/* Update available badge */}
@@ -502,147 +554,182 @@ export function InstallerSidebar({
               }}
             />
 
-            {/* Drop Zone - Always enabled, user can select file first */}
-            <div
-              className={`relative mb-6 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition-all ${
-                isDragOver
-                  ? 'border-[#0081FB] bg-[#0081FB]/10 scale-[1.02]'
-                  : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
-              }`}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-            >
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileInput}
-                className="hidden"
-                accept=".zip,.rar"
-              />
-
-              <div className="mb-4 rounded-full p-4 bg-[#0081FB]/20 text-[#0081FB]">
-                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {/* No Device Warning - Moved to the top */}
+            {!selectedDevice && file && status.hasApk && (
+              <div className="mb-4 flex items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/10 p-3">
+                <svg
+                  className="h-5 w-5 shrink-0 text-orange-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                   />
                 </svg>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-orange-400">
+                    {t('no_device_warning_title') || 'No VR Device Connected'}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-orange-300/70">
+                    {t('connect_to_install') || 'Connect your Meta Quest to install this game'}
+                  </p>
+                </div>
               </div>
-              <p className="text-center text-sm font-medium text-white/90">
-                {t('drag_drop_full') || 'Drop Game File or Folder Here'}
-              </p>
-              <p className="mt-1 text-center text-xs text-white/50">
-                {t('support_ext_full') || 'ZIP, RAR, or extracted folder'}
-              </p>
-              <button
-                onClick={() => setShowBrowseModal(true)}
-                className="mt-4 rounded-lg px-4 py-2 text-xs font-medium transition-all bg-white/10 text-white hover:bg-white/20"
+            )}
+
+            {/* Drop Zone - Always enabled, user can select file first */}
+            {!file ? (
+              <div
+                className={`relative mb-6 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition-all ${
+                  isDragOver
+                    ? 'border-[#0081FB] bg-[#0081FB]/10 scale-[1.02]'
+                    : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+                }`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
               >
-                {t('browse_files')}
-              </button>
-            </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileInput}
+                  className="hidden"
+                  accept=".zip,.rar"
+                />
+
+                <div className="mb-4 rounded-full p-4 bg-[#0081FB]/20 text-[#0081FB]">
+                  <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
+                  </svg>
+                </div>
+                <p className="text-center text-sm font-medium text-white/90">
+                  {t('drag_drop_full') || 'Drop Game File or Folder Here'}
+                </p>
+                <p className="mt-1 text-center text-xs text-white/50">
+                  {t('support_ext_full') || 'ZIP, RAR, or extracted folder'}
+                </p>
+                <button
+                  onClick={() => setShowBrowseModal(true)}
+                  className="mt-4 rounded-lg px-4 py-2 text-xs font-medium transition-all bg-white/10 text-white hover:bg-white/20"
+                >
+                  {t('browse_files')}
+                </button>
+              </div>
+            ) : (
+              <div className="mb-6 rounded-2xl border border-white/10 bg-[#151921] p-5 shadow-lg">
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`shrink-0 rounded-xl p-3 ${
+                      file.isFolder
+                        ? 'bg-green-500/10 text-green-500'
+                        : 'bg-[#0081FB]/10 text-[#0081FB]'
+                    }`}
+                  >
+                    <Icon icon="dashicons:games" className="text-2xl" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-all text-base font-bold text-white mb-2.5">
+                      {status?.manifestData?.gameName ||
+                        (sourceType === 'folder' ? status.apkName || file.name : file.name)}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <span
+                        className={`inline-flex items-center rounded bg-[#111520] px-2 py-1 text-[11px] font-bold tracking-wider ring-1 ring-inset ${
+                          status.hasObb
+                            ? 'text-indigo-400 ring-indigo-500/30'
+                            : 'text-emerald-400 ring-emerald-500/30'
+                        }`}
+                      >
+                        {status.hasObb
+                          ? t('badge_apk_obb') || 'APK + OBB'
+                          : t('badge_apk') || 'APK ONLY'}
+                      </span>
+
+                      <span className="inline-flex items-center rounded bg-[#111520] px-2 py-1 text-[11px] font-bold tracking-wider text-gray-400 ring-1 ring-inset ring-gray-600/30">
+                        {(() => {
+                          const totalSize =
+                            sourceType === 'folder'
+                              ? (status?.apkSize || 0) + (status?.obbSize || 0)
+                              : file?.size || 0
+                          if (!totalSize) return '0 B TOTAL'
+                          const k = 1024
+                          const sizes = ['B', 'KB', 'MB', 'GB']
+                          const i = Math.floor(Math.log(totalSize) / Math.log(k))
+                          return (
+                            parseFloat((totalSize / Math.pow(k, i)).toFixed(2)) +
+                            ' ' +
+                            sizes[i] +
+                            ' TOTAL'
+                          )
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-5 flex justify-end gap-3 border-t border-white/5 pt-4">
+                  <button
+                    onClick={() => setShowBrowseModal(true)}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+                  >
+                    <Icon icon="mdi:swap-horizontal" className="text-sm" />
+                    {t('change_method') ||
+                      (language === 'id' ? 'Ganti File/Folder' : 'Change File/Folder')}
+                  </button>
+                  <button
+                    onClick={openDetailsModal}
+                    className="flex items-center gap-1.5 rounded-lg bg-[#2A3241] px-4 py-1.5 text-xs font-medium text-gray-200 transition-colors hover:bg-[#374151] border border-[#374151]"
+                  >
+                    <Icon icon="mdi:eye-outline" className="text-sm" />
+                    {t('view_details') || 'View Details'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Quick Access Buttons */}
             <div className="mb-6 grid grid-cols-2 gap-3">
               <button
                 onClick={() => onNavigateToTab && onNavigateToTab('games')}
-                className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-4 transition-all hover:border-[#0081FB]/50 hover:bg-[#0081FB]/10"
+                className="group flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 p-2.5 transition-all hover:border-[#0081FB]/50 hover:bg-[#0081FB]/10 text-left"
               >
-                <div className="rounded-lg bg-[#0081FB]/20 p-2 text-[#0081FB] transition-all group-hover:bg-[#0081FB]/30">
-                  <Icon icon="mdi:gamepad-variant" className="h-6 w-6" />
+                <div className="rounded-lg bg-[#0081FB]/20 p-1.5 text-[#0081FB] shrink-0 transition-all group-hover:bg-[#0081FB]/30">
+                  <Icon icon="mdi:gamepad-variant" className="h-5 w-5" />
                 </div>
-                <div className="text-center">
-                  <p className="text-xs font-semibold text-white/90 group-hover:text-white">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-white/90 group-hover:text-white truncate">
                     {language === 'id' ? 'Standalone Games' : 'Standalone Games'}
                   </p>
-                  <p className="mt-0.5 text-[10px] text-white/50 group-hover:text-white/70">
-                    {language === 'id' ? 'Download game langsung' : 'Download games directly'}
+                  <p className="text-[9px] text-white/50 group-hover:text-white/70 truncate mt-0.5">
+                    {language === 'id' ? 'Download langsung' : 'Download directly'}
                   </p>
                 </div>
               </button>
               <button
                 onClick={() => onNavigateToTab && onNavigateToTab('qgo')}
-                className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-4 transition-all hover:border-purple-500/50 hover:bg-purple-500/10"
+                className="group flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 p-2.5 transition-all hover:border-purple-500/50 hover:bg-purple-500/10 text-left"
               >
-                <div className="rounded-lg bg-purple-500/20 p-2 text-purple-400 transition-all group-hover:bg-purple-500/30">
-                  <Icon icon="mdi:rocket-launch" className="h-6 w-6" />
+                <div className="rounded-lg bg-purple-500/20 p-1.5 text-purple-400 shrink-0 transition-all group-hover:bg-purple-500/30">
+                  <Icon icon="mdi:rocket-launch" className="h-5 w-5" />
                 </div>
-                <div className="text-center">
-                  <p className="text-xs font-semibold text-white/90 group-hover:text-white">
-                    Quest Games Optimizer
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-white/90 group-hover:text-white truncate">
+                    Games Optimizer
                   </p>
-                  <p className="mt-0.5 text-[10px] text-white/50 group-hover:text-white/70">
+                  <p className="text-[9px] text-white/50 group-hover:text-white/70 truncate mt-0.5">
                     {language === 'id' ? 'Optimize VR games' : 'Optimize VR games'}
                   </p>
                 </div>
               </button>
             </div>
-            {file && (
-              <div className="mb-6 rounded-xl border border-white/10 bg-[#111] p-4">
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`mt-1 rounded-lg p-2 ${file.isFolder ? 'bg-green-500/20 text-green-400' : 'bg-[#0081FB]/20 text-[#0081FB]'}`}
-                  >
-                    {file.isFolder ? (
-                      <svg
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="break-all text-sm font-medium text-white">{file.name}</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {file.isFolder ? (
-                        <span className="inline-flex items-center rounded-md bg-green-500/10 px-2 py-1 text-[10px] font-medium text-green-400 ring-1 ring-inset ring-green-500/20">
-                          {t('folder_selected') || 'Folder'}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-md bg-white/5 px-2 py-1 text-[10px] font-medium text-white/60 ring-1 ring-inset ring-white/10">
-                          {(file.size / (1024 * 1024)).toFixed(2)} MB
-                        </span>
-                      )}
-                      {status.apkName && (
-                        <span className="inline-flex items-center rounded-md bg-green-500/10 px-2 py-1 text-[10px] font-medium text-green-400 ring-1 ring-inset ring-green-500/20">
-                          APK: {status.apkName}
-                        </span>
-                      )}
-                      {status.obbFolder && (
-                        <span className="inline-flex items-center rounded-md bg-yellow-500/10 px-2 py-1 text-[10px] font-medium text-yellow-400 ring-1 ring-inset ring-yellow-500/20">
-                          OBB: {status.obbFolder}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Progress Bar (Visible during installation) */}
             {(isInstalling || (installProgress && installProgress.step === 'COMPLETED')) &&
@@ -691,49 +778,25 @@ export function InstallerSidebar({
                   )}
                 </div>
               )}
+          </div>
 
-            {/* Status Log */}
-            <div className="mb-6 rounded-xl border border-white/10 bg-[#111] p-4 overflow-hidden">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] uppercase tracking-wider text-white/30 font-bold">
-                  {t('system_log')}
-                </p>
-                {isInstalling && (
-                  <div className="h-2 w-2 animate-pulse rounded-full bg-[#0081FB]"></div>
-                )}
-              </div>
-              <div
-                ref={logContainerRef}
-                className="max-h-32 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-white/10"
-              >
-                {logHistory.length > 0 ? (
-                  logHistory.map((entry, idx) => (
-                    <div key={idx} className="flex gap-2 text-[11px] font-mono">
-                      <span className="text-white/30 shrink-0">{entry.time}</span>
-                      <span className="text-white/70 break-all">{entry.message}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs font-mono text-white/50">{log}</p>
-                )}
-              </div>
-            </div>
-
+          {/* Action Buttons & Footer / Device Selector */}
+          <div className="flex-none border-t border-white/5 bg-[#111] p-4 flex flex-col gap-4 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] relative z-10">
             {/* Action Buttons */}
-            <div className="space-y-3">
+            <div className="flex flex-row gap-2">
               <button
                 onClick={() => handleInstall('apk')}
                 disabled={
                   !file || !status.hasApk || isInstalling || status.hasObb || !selectedDevice
                 }
-                className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all ${
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all ${
                   !file || !status.hasApk || isInstalling || status.hasObb || !selectedDevice
                     ? 'cursor-not-allowed bg-white/5 text-white/20'
                     : 'bg-linear-to-r from-[#0081FB] to-[#00C2FF] text-white shadow-lg shadow-[#0081FB]/25 hover:shadow-[#0081FB]/40 hover:scale-[1.02] active:scale-[0.98]'
                 }`}
               >
                 {isInstalling && !status.hasObb ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
                 ) : (
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
@@ -752,14 +815,14 @@ export function InstallerSidebar({
                 disabled={
                   !file || !status.hasApk || !status.hasObb || isInstalling || !selectedDevice
                 }
-                className={`group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl py-3 text-sm font-semibold transition-all ${
+                className={`group relative flex flex-1 items-center justify-center gap-1.5 overflow-hidden rounded-xl py-2 text-xs font-semibold transition-all ${
                   !file || !status.hasApk || !status.hasObb || isInstalling || !selectedDevice
                     ? 'cursor-not-allowed bg-white/5 text-white/20'
                     : 'bg-linear-to-r from-purple-600 to-purple-400 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98]'
                 }`}
               >
                 {isInstalling && status.hasObb ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
                 ) : (
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
@@ -777,45 +840,17 @@ export function InstallerSidebar({
                   </span>
                 </div>
               </button>
-
-              {/* No Device Warning - Show after buttons when file is selected but no device */}
-              {!selectedDevice && file && status.hasApk && (
-                <div className="mt-4 flex items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/10 p-3">
-                  <svg
-                    className="h-5 w-5 shrink-0 text-orange-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-orange-400">
-                      {t('no_device_warning_title') || 'No VR Device Connected'}
-                    </p>
-                    <p className="mt-0.5 text-[10px] text-orange-300/70">
-                      {t('connect_to_install') || 'Connect your Meta Quest to install this game'}
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* Footer / Device Selector */}
-          <div className="flex-none border-t border-white/5 bg-[#111] p-4">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/30">
-              {t('connected_device')}
-            </p>
-            <DeviceSelector
-              selectedSerial={selectedDevice}
-              onSelect={(serial) => onDeviceSelect(serial)}
-            />
+            <div>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/30">
+                {t('connected_device')}
+              </p>
+              <DeviceSelector
+                selectedSerial={selectedDevice}
+                onSelect={(serial) => onDeviceSelect(serial)}
+              />
+            </div>
           </div>
 
           {/* Modals */}
@@ -829,6 +864,11 @@ export function InstallerSidebar({
             onUpdateNow={() => {
               window.api.downloadUpdate()
             }}
+          />
+          <SystemLogModal
+            isOpen={isLogModalOpen}
+            onClose={() => setIsLogModalOpen(false)}
+            logHistory={logHistory}
           />
         </>
       )}

@@ -428,5 +428,17 @@
   "downloaded": "Downloaded",
   "some_parts_downloaded": "Some parts already downloaded",
   "v76_tooltip_title": "Firmware v76+ Required",
-  "v76_tooltip_desc": "This game requires Quest firmware version 76 or above to play."
+  "v76_tooltip_desc": "This game requires Quest firmware version 76 or above to play.",
+  "view_details": "View Details",
+  "confirm_install_title": "Confirm Installation",
+  "confirm_install_desc": "Review file details before continuing.",
+  "badge_apk": "APK ONLY",
+  "badge_apk_obb": "APK + OBB",
+  "badge_zip": "ZIP/RAR",
+  "badge_rar": "ZIP/RAR",
+  "file_name": "File Name",
+  "obb_found": "OBB Content",
+  "target_folder": "TARGET OBB FOLDER",
+  "obb_files_list": "OBB FILES",
+  "change_method": "Change Folder/File"
 }

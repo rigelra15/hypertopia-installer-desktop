@@ -257,36 +257,40 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
           </div>
         )}
 
-      {/* Troubleshooting Tips - Show when no device found after initial scan */}
+      {/* Troubleshooting Tips Hoverable */}
       {hasScannedOnce && devices.length === 0 && (
-        <div className="mt-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
-          <div className="flex items-start gap-2">
-            <Icon
-              icon="mdi:help-circle-outline"
-              className="h-4 w-4 shrink-0 text-yellow-500 mt-0.5"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold text-yellow-400 mb-2">
+        <div className="mt-1.5 flex items-center justify-end">
+          <div className="group relative flex cursor-help items-center gap-1 text-yellow-500/70 transition-colors hover:text-yellow-400">
+            <Icon icon="mdi:help-circle-outline" className="h-3.5 w-3.5" />
+            <span className="text-[10px] font-medium">
+              {t('troubleshoot_title') || 'Perangkat tidak terdeteksi?'}
+            </span>
+
+            {/* Tooltip Popup */}
+            <div className="pointer-events-none absolute bottom-full right-0 z-100 mb-2 w-64 translate-y-1 rounded-xl border border-white/10 bg-[#1a1a1a] p-3.5 shadow-2xl opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
+              <p className="mb-2 text-[11px] font-bold text-yellow-400">
                 {t('troubleshoot_title')}
               </p>
-              <ul className="space-y-1.5 text-[10px] text-white/60">
+              <ul className="space-y-1.5 text-[10px] leading-relaxed text-white/70">
                 <li className="flex items-start gap-1.5">
-                  <span className="text-yellow-500 shrink-0">•</span>
+                  <span className="mt-0.5 shrink-0 text-yellow-500">•</span>
                   <span>{t('troubleshoot_cable')}</span>
                 </li>
                 <li className="flex items-start gap-1.5">
-                  <span className="text-yellow-500 shrink-0">•</span>
+                  <span className="mt-0.5 shrink-0 text-yellow-500">•</span>
                   <span>{t('troubleshoot_dev_mode')}</span>
                 </li>
                 <li className="flex items-start gap-1.5">
-                  <span className="text-yellow-500 shrink-0">•</span>
+                  <span className="mt-0.5 shrink-0 text-yellow-500">•</span>
                   <span>{t('troubleshoot_usb_debug')}</span>
                 </li>
                 <li className="flex items-start gap-1.5">
-                  <span className="text-yellow-500 shrink-0">•</span>
+                  <span className="mt-0.5 shrink-0 text-yellow-500">•</span>
                   <span>{t('troubleshoot_restart')}</span>
                 </li>
               </ul>
+              {/* Tooltip Arrow */}
+              <div className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-b border-r border-white/10 bg-[#1a1a1a]"></div>
             </div>
           </div>
         </div>

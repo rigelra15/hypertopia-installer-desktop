@@ -1033,6 +1033,65 @@ function getAdbPath() {
   return path.join(process.resourcesPath, `${platformToolsFolder}/${adbBinary}`)
 }
 
+// Helper to parse VRP release.manifest
+function parseManifestData(content) {
+  try {
+    const lines = content.split(/\r?\n/)
+    let dataSection = false
+    let headers = []
+    let values = []
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (line.startsWith('#VRPRELEASEMANIFEST') || line === '') continue
+      if (line === '#filelist') break
+
+      if (!dataSection) {
+        headers = line.split(';')
+        dataSection = true
+      } else {
+        values = line.split(';')
+        break
+      }
+    }
+
+    if (values.length > 0 && headers.length > 0) {
+      let rawGameName = values[headers.findIndex((h) => h.trim() === 'Game Name')] || ''
+      let rawReleaseName = values[headers.findIndex((h) => h.trim() === 'Release Name')] || ''
+      let packageName = values[headers.findIndex((h) => h.trim() === 'Package Name')] || ''
+      let sizeMB = values[headers.findIndex((h) => h.trim() === 'Size (MB)')] || ''
+
+      // Remove text inside parentheses like (MR-Fix)
+      let gameName = rawGameName.replace(/\s*\(.*?\)\s*/g, ' ').trim()
+
+      // Extract version after the '+' sign
+      let version = ''
+      const versionMatch = rawReleaseName.match(/\+(.*?)(?:\s|-|$)/)
+      if (versionMatch && versionMatch[1]) {
+        version = 'v' + versionMatch[1]
+      } else {
+        // Fallback to searching for vX.Y.Z
+        const genericV = rawReleaseName.match(/(v\S+)/)
+        if (genericV) {
+          version = genericV[1].split('-')[0].trim()
+        }
+      }
+
+      return {
+        gameName,
+        version,
+        packageName,
+        sizeMB,
+        rawGameName,
+        rawReleaseName
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse manifest:', e)
+  }
+  return null
+}
+
 // Helper: Scan RAR for APK and OBB using UnRAR command-line (no memory limit)
 async function scanRar(rarPath) {
   return new Promise((resolve, reject) => {
@@ -1042,7 +1101,9 @@ async function scanRar(rarPath) {
       hasApk: false,
       hasObb: false,
       apkName: null,
-      obbFolder: null
+      obbFolder: null,
+      manifestPath: null,
+      manifestData: null
     }
 
     // Use 'lb' command for bare list output (just filenames)
@@ -1061,7 +1122,7 @@ async function scanRar(rarPath) {
       stderr += data.toString()
     })
 
-    child.on('close', (code) => {
+    child.on('close', async (code) => {
       if (code !== 0 && code !== 1) {
         console.error('UnRAR error:', stderr)
         if (stderr.includes('Cannot open') || stderr.includes('is not RAR archive')) {
@@ -1104,6 +1165,29 @@ async function scanRar(rarPath) {
             result.obbFolder = parts.length > 1 ? parts[parts.length - 2] : 'Detected'
           }
         }
+
+        // Cek release.manifest
+        if (lowerName.endsWith('release.manifest') || lowerName.endsWith('release.manifest.txt')) {
+          result.manifestPath = fileName
+        }
+      }
+
+      // If manifest found, try to read it
+      if (result.manifestPath) {
+        try {
+          // Use 'p' command to print file to stdout
+          const manifestChild = spawn(unrarPath, ['p', '-inul', rarPath, result.manifestPath], {
+            stdio: ['pipe', 'pipe', 'pipe']
+          })
+          let manifestOutput = ''
+          manifestChild.stdout.on('data', (d) => {
+            manifestOutput += d.toString()
+          })
+          await new Promise((res) => manifestChild.on('close', res))
+          result.manifestData = parseManifestData(manifestOutput)
+        } catch (e) {
+          console.error('[scanRar] Failed to read manifest:', e)
+        }
       }
 
       resolve(result)
@@ -1131,7 +1215,9 @@ async function scan7z(archivePath) {
       hasApk: false,
       hasObb: false,
       apkName: null,
-      obbFolder: null
+      obbFolder: null,
+      manifestPath: null,
+      manifestData: null
     }
 
     const listStream = Seven.list(archivePath, {
@@ -1167,9 +1253,31 @@ async function scan7z(archivePath) {
           result.obbFolder = parts.length > 1 ? parts[parts.length - 2] : 'Detected'
         }
       }
+
+      // Cek release.manifest
+      if (lowerName.endsWith('release.manifest') || lowerName.endsWith('release.manifest.txt')) {
+        result.manifestPath = fileName
+      }
     })
 
-    listStream.on('end', () => {
+    listStream.on('end', async () => {
+      // If manifest found, try to read it
+      if (result.manifestPath) {
+        try {
+          // Use 'e' command and '-so' to output to stdout
+          const childProcess = spawn(sevenPath, ['e', '-so', archivePath, result.manifestPath], {
+            stdio: ['pipe', 'pipe', 'pipe']
+          })
+          let manifestOutput = ''
+          childProcess.stdout.on('data', (d) => {
+            manifestOutput += d.toString()
+          })
+          await new Promise((res) => childProcess.on('close', res))
+          result.manifestData = parseManifestData(manifestOutput)
+        } catch (e) {
+          console.error('[scan7z] Failed to read manifest:', e)
+        }
+      }
       resolve(result)
     })
 
@@ -1574,13 +1682,28 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
         // Continue anyway - folder might already exist
       }
 
-      // Get list of files in OBB folder
+      // Get list of ALL files in OBB folder recursively
       const obbFolderName = path.basename(obbPath)
-      const obbFiles = fs
-        .readdirSync(obbPath)
-        .filter((f) => fs.statSync(path.join(obbPath, f)).isFile())
 
-      console.log('[OBB Push] Files to push:', obbFiles)
+      const getAllFilesRelative = (dir, basePath = '') => {
+        let results = []
+        const list = fs.readdirSync(dir)
+        list.forEach((file) => {
+          const fullPath = path.join(dir, file)
+          const relPath = path.join(basePath, file)
+          const stat = fs.statSync(fullPath)
+          if (stat && stat.isDirectory()) {
+            results = results.concat(getAllFilesRelative(fullPath, relPath))
+          } else {
+            results.push({ localPath: fullPath, relativePath: relPath, name: file })
+          }
+        })
+        return results
+      }
+
+      const obbFiles = getAllFilesRelative(obbPath)
+
+      console.log('[OBB Push] Files to push:', obbFiles.length)
 
       // Create remote folder
       const remoteObbFolder = `/sdcard/Android/obb/${obbFolderName}`
@@ -1591,16 +1714,27 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
       }
 
       // Push each file individually with progress tracking
+      const createdDirs = new Set([remoteObbFolder])
+
       for (let i = 0; i < obbFiles.length; i++) {
-        const fileName = obbFiles[i]
-        const localFilePath = path.join(obbPath, fileName)
-        const remoteFilePath = `${remoteObbFolder}/${fileName}`
+        const fileObj = obbFiles[i]
+        const remoteFilePath = `${remoteObbFolder}/${fileObj.relativePath.replace(/\\/g, '/')}`
+        const remoteDirPath = remoteFilePath.substring(0, remoteFilePath.lastIndexOf('/'))
+
+        if (!createdDirs.has(remoteDirPath)) {
+          try {
+            await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', `"${remoteDirPath}"`])
+            createdDirs.add(remoteDirPath)
+          } catch (err) {
+            console.warn(`[OBB Push] Failed to create dir ${remoteDirPath}:`, err.message)
+          }
+        }
+
         const progressPercent = Math.round((i / obbFiles.length) * 100)
+        sendProgress('PUSHING_OBB', progressPercent, `Copying: ${fileObj.name}`)
+        console.log(`[OBB Push] Pushing file ${i + 1}/${obbFiles.length}: ${fileObj.relativePath}`)
 
-        sendProgress('PUSHING_OBB', progressPercent, `Copying: ${fileName}`)
-        console.log(`[OBB Push] Pushing file ${i + 1}/${obbFiles.length}: ${fileName}`)
-
-        await runAdbCommand([...deviceFlag, 'push', localFilePath, remoteFilePath])
+        await runAdbCommand([...deviceFlag, 'push', fileObj.localPath, remoteFilePath])
       }
 
       sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
@@ -1735,8 +1869,12 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
     hasApk: false,
     hasObb: false,
     apkName: null,
+    apkSize: 0,
     obbFolder: null,
-    folderPath: folderPath
+    obbSize: 0,
+    obbFiles: [],
+    folderPath: folderPath,
+    manifestData: null
   }
 
   try {
@@ -1749,7 +1887,8 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
           const found = findApk(fullPath)
           if (found) return found
         } else if (entry.name.toLowerCase().endsWith('.apk')) {
-          return { path: fullPath, name: entry.name }
+          const stats = fs.statSync(fullPath)
+          return { path: fullPath, name: entry.name, size: stats.size }
         }
       }
       return null
@@ -1764,7 +1903,31 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
           // Check if this folder contains .obb files
           const children = fs.readdirSync(fullPath)
           if (children.some((c) => c.toLowerCase().endsWith('.obb'))) {
-            return { path: fullPath, name: entry.name }
+            let obbFilesList = []
+            let totalObbSize = 0
+
+            const getAllFilesRelative = (currentDir, basePath = '') => {
+              const list = fs.readdirSync(currentDir, { withFileTypes: true })
+              for (const file of list) {
+                const subPath = path.join(currentDir, file.name)
+                const relPath = path.join(basePath, file.name)
+                if (file.isDirectory()) {
+                  getAllFilesRelative(subPath, relPath)
+                } else {
+                  const stat = fs.statSync(subPath)
+                  obbFilesList.push({ name: file.name, relativePath: relPath, size: stat.size })
+                  totalObbSize += stat.size
+                }
+              }
+            }
+            getAllFilesRelative(fullPath)
+
+            return {
+              path: fullPath,
+              name: entry.name,
+              obbFiles: obbFilesList,
+              obbSize: totalObbSize
+            }
           }
           // Otherwise recurse
           const found = findObbFolder(fullPath)
@@ -1778,12 +1941,42 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
     if (apkResult) {
       result.hasApk = true
       result.apkName = apkResult.name
+      result.apkSize = apkResult.size
     }
 
     const obbResult = findObbFolder(folderPath)
     if (obbResult) {
       result.hasObb = true
       result.obbFolder = obbResult.name
+      result.obbSize = obbResult.obbSize
+      result.obbFiles = obbResult.obbFiles
+    }
+
+    // Attempt to find and parse release.manifest
+    try {
+      const findManifest = (dir) => {
+        const entries = fs.readdirSync(dir, { withFileTypes: true })
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name)
+          if (entry.isDirectory()) {
+            const found = findManifest(fullPath)
+            if (found) return found
+          } else {
+            const lowerName = entry.name.toLowerCase()
+            if (lowerName === 'release.manifest' || lowerName === 'release.manifest.txt') {
+              return fullPath
+            }
+          }
+        }
+        return null
+      }
+      const manifestPath = findManifest(folderPath)
+      if (manifestPath) {
+        const manifestOutput = fs.readFileSync(manifestPath, 'utf8')
+        result.manifestData = parseManifestData(manifestOutput)
+      }
+    } catch (e) {
+      console.error('[Scan Folder] Failed to find/read manifest:', e)
     }
 
     console.log('[Scan Folder] Result:', result)
@@ -1873,13 +2066,28 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
         console.warn('mkdir failed (might exist):', mkdirErr.message)
       }
 
-      // Get list of files in OBB folder
+      // Get list of ALL files in OBB folder recursively
       const obbFolderName = path.basename(obbPath)
-      const obbFiles = fs
-        .readdirSync(obbPath)
-        .filter((f) => fs.statSync(path.join(obbPath, f)).isFile())
 
-      console.log('[OBB Push Folder] Files to push:', obbFiles)
+      const getAllFilesRelative = (dir, basePath = '') => {
+        let results = []
+        const list = fs.readdirSync(dir)
+        list.forEach((file) => {
+          const fullPath = path.join(dir, file)
+          const relPath = path.join(basePath, file)
+          const stat = fs.statSync(fullPath)
+          if (stat && stat.isDirectory()) {
+            results = results.concat(getAllFilesRelative(fullPath, relPath))
+          } else {
+            results.push({ localPath: fullPath, relativePath: relPath, name: file })
+          }
+        })
+        return results
+      }
+
+      const obbFiles = getAllFilesRelative(obbPath)
+
+      console.log('[OBB Push Folder] Files to push:', obbFiles.length)
 
       // Create remote folder
       const remoteObbFolder = `/sdcard/Android/obb/${obbFolderName}`
@@ -1890,16 +2098,29 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
       }
 
       // Push each file individually with progress tracking
+      const createdDirs = new Set([remoteObbFolder])
+
       for (let i = 0; i < obbFiles.length; i++) {
-        const fileName = obbFiles[i]
-        const localFilePath = path.join(obbPath, fileName)
-        const remoteFilePath = `${remoteObbFolder}/${fileName}`
+        const fileObj = obbFiles[i]
+        const remoteFilePath = `${remoteObbFolder}/${fileObj.relativePath.replace(/\\/g, '/')}`
+        const remoteDirPath = remoteFilePath.substring(0, remoteFilePath.lastIndexOf('/'))
+
+        if (!createdDirs.has(remoteDirPath)) {
+          try {
+            await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', `"${remoteDirPath}"`])
+            createdDirs.add(remoteDirPath)
+          } catch (err) {
+            console.warn(`[OBB Push Folder] Failed to create dir ${remoteDirPath}:`, err.message)
+          }
+        }
+
         const progressPercent = Math.round((i / obbFiles.length) * 100)
+        sendProgress('PUSHING_OBB', progressPercent, `Copying: ${fileObj.name}`)
+        console.log(
+          `[OBB Push Folder] Pushing file ${i + 1}/${obbFiles.length}: ${fileObj.relativePath}`
+        )
 
-        sendProgress('PUSHING_OBB', progressPercent, `Copying: ${fileName}`)
-        console.log(`[OBB Push Folder] Pushing file ${i + 1}/${obbFiles.length}: ${fileName}`)
-
-        await runAdbCommand([...deviceFlag, 'push', localFilePath, remoteFilePath])
+        await runAdbCommand([...deviceFlag, 'push', fileObj.localPath, remoteFilePath])
       }
 
       sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
@@ -3470,7 +3691,7 @@ app.on('before-quit', async (event) => {
   event.preventDefault()
   console.log('[Cleanup] App is quitting, cleaning up temp folders...')
   await cleanupAllTempFolders()
-  
+
   console.log('[Cleanup] Killing ADB server to prevent conflicts...')
   try {
     const adbPath = getAdbPath()
