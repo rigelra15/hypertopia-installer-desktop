@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useGames } from '../contexts/GamesContext'
+import { useDownload } from '../contexts/DownloadContext'
 import DevicePreferenceModal from './DevicePreferenceModal'
 import GameDetailModal from './GameDetailModal'
 import coverImages from '../utils/coverImages'
@@ -523,6 +524,7 @@ const formatDownloadCount = (count) => {
 
 function GameCard({ game, selectedDevice, onClick }) {
   const { t } = useLanguage()
+  const { downloadInfo } = useDownload()
   const [coverUrl, setCoverUrl] = useState(null)
   const [loadingImage, setLoadingImage] = useState(true)
 
@@ -530,6 +532,10 @@ function GameCard({ game, selectedDevice, onClick }) {
   const gameStatus = game.gameStatus || ''
   const downloadCount = game.downloadCount || 0
   const isSupportedV76 = game.isSupportedV76 || false
+
+  const isActiveDownload =
+    downloadInfo?.gameTitle === gameTitle &&
+    (downloadInfo?.status === 'downloading' || downloadInfo?.status === 'preparing')
 
   // Fetch cover image from Firebase Storage only
   useEffect(() => {
@@ -626,7 +632,35 @@ function GameCard({ game, selectedDevice, onClick }) {
         )}
 
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+
+        {/* Downloading Overlay */}
+        {isActiveDownload && (
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[2px]">
+            <Icon
+              icon="mdi:cloud-download"
+              className="w-10 h-10 text-[#0081FB] mb-2 animate-bounce"
+            />
+            <div className="flex flex-col items-center">
+              <span className="text-white text-[11px] font-bold px-3 py-1 bg-[#0081FB]/20 border border-[#0081FB]/50 rounded-full shadow-lg">
+                {t('qgo_downloading') || 'Mengunduh...'}{' '}
+                {downloadInfo.status === 'downloading'
+                  ? `${Math.round(downloadInfo.progress || 0)}%`
+                  : ''}
+              </span>
+            </div>
+
+            {/* Minimal Progress Bar */}
+            {downloadInfo.status === 'downloading' && (
+              <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/50">
+                <div
+                  className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
+                  style={{ width: `${downloadInfo.progress || 0}%` }}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Top Left: Status Badges */}
         <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">

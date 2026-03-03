@@ -42,7 +42,7 @@ export function QuestGamesOptimizer({
   const [error, setError] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('version-desc')
-  const [confirmDownload, setConfirmDownload] = useState(null)
+
   const [showDownloadModal, setShowDownloadModal] = useState(false)
   const [deviceModel, setDeviceModel] = useState(null)
 
@@ -299,6 +299,15 @@ export function QuestGamesOptimizer({
 
   // Check if a specific version is downloaded locally
   const isVersionDownloaded = (itemVersion) => {
+    const fileName = itemVersion
+      ? `QuestGamesOptimizer_v${itemVersion}.apk`
+      : 'QuestGamesOptimizer.apk'
+
+    // If THIS specific file is currently downloading, it is NOT fully downloaded.
+    if (isDownloading && downloadInfo?.fileName === fileName) {
+      return false
+    }
+
     return downloadedFiles[itemVersion]?.exists === true
   }
 
@@ -358,9 +367,8 @@ export function QuestGamesOptimizer({
 
       if (matchingItem) {
         console.log('[DeepLinkDownload] QGO - Found matching version:', matchingItem.description)
-        // Open download confirmation modal
-        setConfirmDownload(matchingItem)
-        // Clear the pending download
+        // Download directly
+        handleDownload(matchingItem)
         if (onDeepLinkProcessed) {
           onDeepLinkProcessed()
         }
@@ -372,7 +380,7 @@ export function QuestGamesOptimizer({
           return itemVersion === maxVersion
         })
         if (latestItem) {
-          setConfirmDownload(latestItem)
+          handleDownload(latestItem)
         }
         if (onDeepLinkProcessed) {
           onDeepLinkProcessed()
@@ -435,21 +443,16 @@ export function QuestGamesOptimizer({
     }
   }
 
-  const handleDownload = (item) => {
-    setConfirmDownload(item)
-  }
+  const handleDownload = async (item) => {
+    if (!item?.url) return
 
-  const handleConfirmDownload = async () => {
-    if (!confirmDownload?.url) return
-
-    const version = extractVersion(confirmDownload.description)
+    const version = extractVersion(item.description)
     const fileName = version ? `QuestGamesOptimizer_v${version}.apk` : 'QuestGamesOptimizer.apk'
-    const gameTitle = confirmDownload.description || 'Quest Games Optimizer'
+    const gameTitle = item.description || 'Quest Games Optimizer'
 
     setShowDownloadModal(true)
-    setConfirmDownload(null)
 
-    const result = await startDownload(confirmDownload.url, fileName, gameTitle)
+    const result = await startDownload(item.url, fileName, gameTitle)
 
     if (result.success) {
       setShowDownloadModal(false)
@@ -1097,59 +1100,6 @@ export function QuestGamesOptimizer({
           </div>
         )}
       </div>
-
-      {/* Download Confirmation Modal */}
-      <AnimatePresence mode="wait">
-        {confirmDownload && (
-          <motion.div
-            key="confirm-download-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, y: 50 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 50 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
-            >
-              <h3 className="text-lg font-semibold text-white">
-                {t('qgo_confirm_title') || 'Download Confirmation'}
-              </h3>
-              <p className="mt-2 text-sm text-white/60">
-                {t('qgo_confirm_desc') || 'You are about to download:'}
-              </p>
-              <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
-                <p className="font-medium text-white">
-                  {confirmDownload.description || 'Quest Games Optimizer'}
-                </p>
-                {extractVersion(confirmDownload.description) && (
-                  <p className="mt-1 text-xs text-white/50">
-                    {t('qgo_version') || 'Version'}: v{extractVersion(confirmDownload.description)}
-                  </p>
-                )}
-              </div>
-              <div className="mt-6 flex justify-end gap-2">
-                <button
-                  onClick={() => setConfirmDownload(null)}
-                  className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white/70 transition-all hover:bg-white/5"
-                >
-                  {t('cancel') || 'Cancel'}
-                </button>
-                <button
-                  onClick={handleConfirmDownload}
-                  className="rounded-lg bg-gradient-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-[#0081FB]/20 transition-all hover:shadow-xl hover:shadow-[#0081FB]/30"
-                >
-                  {t('qgo_download') || 'Download'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Download Progress Modal */}
       <AnimatePresence mode="wait">
