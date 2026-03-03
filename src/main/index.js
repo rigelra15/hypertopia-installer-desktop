@@ -2593,8 +2593,9 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
                   console.log('[Download] Got file size from content-length:', totalBytes, 'bytes')
                 }
 
-                // Store stream for cancellation
+                // Store stream and filepath for cancellation
                 downloadState.activeStream = dest
+                downloadState.activeFilePath = filePath
 
                 response.data
                   .on('data', (chunk) => {
@@ -2713,6 +2714,66 @@ ipcMain.handle('open-external', async (event, url) => {
     return { success: true }
   } catch (error) {
     console.error('Failed to open external URL:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// IPC: List all downloaded files
+ipcMain.handle('list-downloaded-files', async (event) => {
+  try {
+    const extractPath = await new Promise((resolve) => {
+      event.sender
+        .executeJavaScript('localStorage.getItem("extractPath")')
+        .then(resolve)
+        .catch(() => resolve(null))
+    })
+
+    if (!extractPath) {
+      return { success: false, error: 'No extraction folder configured' }
+    }
+
+    const downloadFolder = path.join(extractPath, 'Downloads')
+    await fs.ensureDir(downloadFolder)
+
+    // Read directory
+    const files = await fs.readdir(downloadFolder)
+    const fileDetails = []
+
+    for (const file of files) {
+      if (file === 'temp' || file.startsWith('.')) continue // Skip temp and hidden
+      const fullPath = path.join(downloadFolder, file)
+      try {
+        const stats = await fs.stat(fullPath)
+
+        let type = 'unknown'
+        const lowerFile = file.toLowerCase()
+        if (stats.isDirectory()) type = 'folder'
+        else if (
+          lowerFile.endsWith('.zip') ||
+          lowerFile.endsWith('.rar') ||
+          lowerFile.endsWith('.7z')
+        )
+          type = 'archive'
+        else if (lowerFile.endsWith('.apk')) type = 'apk'
+
+        fileDetails.push({
+          name: file,
+          path: fullPath,
+          size: stats.size,
+          type: type,
+          lastModified: stats.mtimeMs
+        })
+      } catch (err) {
+        console.warn(`Error reading stats for ${file}:`, err.message)
+      }
+    }
+
+    // Sort by last modified (newest first)
+    fileDetails.sort((a, b) => b.lastModified - a.lastModified)
+
+    return { success: true, files: fileDetails }
+  } catch (error) {
+    console.error('Failed to list downloaded files:', error)
     return { success: false, error: error.message }
   }
 })

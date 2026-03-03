@@ -18,7 +18,7 @@ export function InstallerSidebar({
   onCollapsedChange,
   onNavigateToTab
 }) {
-  const { t, language, setLanguage } = useLanguage()
+  const { t, language } = useLanguage()
   const [file, setFile] = useState(null)
   const [appVersion, setAppVersion] = useState({ version: '1.0.0', build: '...' })
   const [status, setStatus] = useState({
@@ -481,21 +481,26 @@ export function InstallerSidebar({
             <div className="flex items-start gap-2 flex-none">
               <button
                 onClick={() => setIsLogModalOpen(true)}
-                className="relative rounded-lg bg-white/5 border border-white/10 p-1.5 text-white/50 hover:bg-[#0081FB]/20 hover:text-[#0081FB] transition-all"
+                className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 border border-white/10 text-white/50 hover:bg-[#0081FB]/20 hover:text-[#0081FB] transition-all shrink-0"
                 title="System Log"
               >
-                <Icon icon="mdi:console" className="text-sm" />
+                <Icon icon="mdi:console" className="text-lg" />
               </button>
               <button
                 onClick={handleOpenSettings}
-                className="relative rounded-lg bg-white/5 border border-white/10 p-1.5 text-white/50 hover:bg-white/10 hover:text-white transition-all"
+                className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-all shrink-0"
                 title={t('settings_title')}
               >
                 {/* Update available badge */}
                 {updateAvailable && (
                   <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-[#0a0a0a] animate-pulse" />
                 )}
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg
+                  className="h-[18px] w-[18px]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -510,36 +515,6 @@ export function InstallerSidebar({
                   />
                 </svg>
               </button>
-              <div className="relative group">
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="appearance-none bg-white/5 border border-white/10 rounded-lg pl-3 pr-6 py-1 text-[10px] font-bold text-white/70 hover:text-white uppercase cursor-pointer outline-none focus:ring-1 focus:ring-[#0081FB]/50 transition-all w-full"
-                  title="Change Language"
-                >
-                  <option value="en" className="bg-[#0a0a0a] text-white">
-                    EN
-                  </option>
-                  <option value="id" className="bg-[#0a0a0a] text-white">
-                    ID
-                  </option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-white/30 group-hover:text-white/70">
-                  <svg
-                    className="h-2.5 w-2.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </div>
-              </div>
             </div>
           </div>
 

@@ -67,7 +67,11 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white leading-tight mb-1">
-                    {t('confirm_install_title')}
+                    {mode === 'delete'
+                      ? t('delete_confirm_title') || 'Delete File?'
+                      : mode === 'view'
+                        ? t('view_details') || 'View Details'
+                        : t('confirm_install_title')}
                   </h3>
                   <div className="flex flex-wrap items-center gap-2 mt-2">
                     {/* Content Type Badge */}
@@ -105,9 +109,20 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
                       {formatSize(size)} TOTAL
                     </span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-1">{t('confirm_install_desc')}</p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    {mode === 'delete' ? t('delete_confirm_desc') : t('confirm_install_desc')}
+                  </p>
                 </div>
               </div>
+
+              {mode === 'delete' && (
+                <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3">
+                  <Icon icon="mdi:alert" className="h-5 w-5 shrink-0 text-red-400" />
+                  <p className="text-xs text-red-300">
+                    {t('delete_warning') || 'This action cannot be undone.'}
+                  </p>
+                </div>
+              )}
 
               <div className="bg-[#111520] rounded-xl p-4 space-y-3 mb-6 border border-[#2A3241]">
                 {fileData.manifestData && (
@@ -219,7 +234,23 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
                       onClick={onConfirm}
                       className="flex-1 px-4 py-2.5 bg-[#0081FB] hover:bg-[#006ACC] text-white rounded-xl font-medium transition-colors shadow-lg shadow-[#0081FB]/20"
                     >
-                      {t('setup_continue')}
+                      {t('install_btn') || 'Install'}
+                    </button>
+                  </>
+                ) : mode === 'delete' ? (
+                  <>
+                    <button
+                      onClick={onClose}
+                      className="flex-1 px-4 py-2.5 bg-[#2A3241] hover:bg-[#374151] text-gray-300 rounded-xl font-medium transition-colors"
+                    >
+                      {t('cancel')}
+                    </button>
+                    <button
+                      onClick={onConfirm}
+                      className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors shadow-lg shadow-red-500/20 flex items-center justify-center gap-2"
+                    >
+                      <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
+                      {t('delete') || 'Delete'}
                     </button>
                   </>
                 ) : (
@@ -245,7 +276,7 @@ ConfirmationModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onConfirm: PropTypes.func.isRequired,
-  mode: PropTypes.oneOf(['confirm', 'view']),
+  mode: PropTypes.oneOf(['confirm', 'view', 'delete']),
   fileData: PropTypes.shape({
     name: PropTypes.string,
     size: PropTypes.number,
