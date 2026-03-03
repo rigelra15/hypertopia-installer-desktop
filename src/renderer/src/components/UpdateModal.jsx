@@ -93,64 +93,71 @@ export default function UpdateModal({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="mb-4 flex items-center gap-3">
+            <div className="mb-6 flex items-center gap-4">
               <div
-                className={`shrink-0 rounded-full p-3 ${isReady ? 'bg-green-500/20' : 'bg-[#0081FB]/20'}`}
+                className={`flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full ${isReady ? 'bg-[#0d2818] border border-green-700/50' : 'bg-[#0a1929] border border-[#0066cc]/50'}`}
               >
                 {isReady ? (
-                  <Icon icon="line-md:confirm-circle" className="h-6 w-6 shrink-0 text-green-500" />
+                  <Icon
+                    icon="mdi:check-circle-outline"
+                    className="h-[26px] w-[26px] text-green-500"
+                  />
                 ) : (
                   <Icon
-                    icon="line-md:arrow-up-circle"
-                    className="h-6 w-6 shrink-0 text-[#0081FB]"
+                    icon="mdi:arrow-up-circle-outline"
+                    className="h-[26px] w-[26px] text-[#0081FB]"
                   />
                 )}
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">
+              <div className="flex flex-col justify-center">
+                <h2 className="text-[22px] font-bold tracking-tight text-white leading-tight mb-0.5">
                   {isReady
-                    ? t('update_ready_title') || 'Update Ready to Install'
+                    ? t('update_ready_title') || 'Pembaruan Siap Diinstal'
                     : t('update_new_version') || 'New Version Available!'}
                 </h2>
-                <p className="text-sm text-white/50">
-                  {t('update_current') || 'Current'}: v{currentVersion || 'Unknown'}
+                <p className="text-[13px] font-medium text-white/50">
+                  {t('update_current') || 'Saat ini'}: v{currentVersion || 'Unknown'}
                 </p>
               </div>
             </div>
 
             {/* Version info */}
-            <div className="mb-4 rounded-xl bg-white/5 p-4">
-              <div className="flex items-center justify-between">
+            <div className="mb-6 flex flex-col justify-between rounded-2xl bg-[#1e1e1e] p-5">
+              <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-white/50">
-                    {t('update_new_version_label') || 'New Version'}
+                  <p className="text-[13px] font-medium text-white/40">
+                    {t('update_new_version_label') || 'Versi Baru'}
                   </p>
-                  <p className="text-xl font-bold text-[#0081FB]">v{updateInfo.version}</p>
+                  <p className="mt-1 text-2xl font-bold tracking-tight text-[#0081FB]">
+                    v{updateInfo.version}
+                  </p>
                 </div>
                 {fileSize && (
                   <div className="text-right">
-                    <p className="text-sm text-white/50">{t('update_size') || 'Size'}</p>
-                    <p className="text-lg font-semibold text-white">{fileSize}</p>
+                    <p className="text-[13px] font-medium text-white/40">
+                      {t('update_size') || 'Ukuran'}
+                    </p>
+                    <p className="mt-1 text-lg font-bold tracking-tight text-white">{fileSize}</p>
                   </div>
                 )}
               </div>
 
               {/* Release date */}
-              {updateInfo.releaseDate && (
-                <p className="mt-2 text-xs text-white/40">
-                  {new Date(updateInfo.releaseDate).toLocaleDateString()}
-                </p>
-              )}
+              <p className="mt-6 text-[13px] font-medium text-white/40">
+                {updateInfo.releaseDate
+                  ? new Date(updateInfo.releaseDate).toLocaleDateString()
+                  : new Date().toLocaleDateString()}
+              </p>
             </div>
 
             {/* Progress bar (when downloading) */}
             {isDownloading && (
-              <div className="mb-4">
-                <div className="flex items-center justify-between text-xs text-white/50 mb-1">
+              <div className="mb-6">
+                <div className="flex items-center justify-between text-xs font-medium text-white/50 mb-2">
                   <span>{t('update_downloading') || 'Downloading...'}</span>
-                  <span>{downloadProgress.toFixed(0)}%</span>
+                  <span className="font-mono">{downloadProgress.toFixed(0)}%</span>
                 </div>
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden shadow-inner">
                   <motion.div
                     className="h-full bg-[#0081FB] rounded-full"
                     initial={{ width: 0 }}
@@ -160,14 +167,14 @@ export default function UpdateModal({
                 </div>
                 {/* Speed and ETA info */}
                 {(speedDisplay || etaDisplay) && (
-                  <div className="flex items-center justify-between text-xs text-white/40 mt-1.5">
-                    <span className="flex items-center gap-1.5">
-                      <Icon icon="mdi:speedometer" className="h-3 w-3 shrink-0" />
+                  <div className="flex items-center justify-between text-[11px] font-medium text-white/40 mt-2">
+                    <span className="flex items-center gap-1.5 font-mono">
+                      <Icon icon="mdi:speedometer" className="h-3.5 w-3.5" />
                       {speedDisplay || '-'}
                     </span>
                     {etaDisplay && (
-                      <span className="flex items-center gap-1.5">
-                        <Icon icon="mdi:clock-outline" className="h-3 w-3 shrink-0" />
+                      <span className="flex items-center gap-1.5 font-mono">
+                        <Icon icon="mdi:clock-outline" className="h-3.5 w-3.5" />
                         {etaDisplay} {t('update_remaining') || 'remaining'}
                       </span>
                     )}
@@ -177,38 +184,44 @@ export default function UpdateModal({
             )}
 
             {/* Buttons */}
-            <div className="flex gap-3">
+            <div className="flex gap-4">
               <button
                 onClick={onClose}
                 disabled={isDownloading && !isReady}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-[1] py-3.5 px-4 rounded-xl bg-transparent border border-white/10 hover:bg-white/5 hover:border-white/20 text-white/70 hover:text-white text-[15px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {t('update_later') || 'Later'}
+                {t('update_later') || 'Nanti'}
               </button>
 
               {isReady ? (
                 <button
                   onClick={onInstall}
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-green-500/20"
+                  className="flex-[1.5] py-3.5 px-4 rounded-xl bg-[#00d050] hover:bg-[#00e058] hover:scale-[1.02] active:scale-[0.98] text-white text-[15px] font-semibold transition-all flex items-center justify-center gap-2.5 shadow-[0_0_20px_rgba(0,208,80,0.2)]"
                 >
-                  <Icon icon="line-md:rotate-270" className="h-4 w-4 shrink-0" />
-                  {t('update_restart_now') || 'Restart App'}
+                  <Icon icon="mdi:reload" className="text-lg shrink-0" />
+                  <span className="max-w-[100px] leading-[1.15] text-center whitespace-normal">
+                    {t('update_restart_now') || 'Mulai Ulang Aplikasi'}
+                  </span>
                 </button>
               ) : (
                 <button
                   onClick={onDownload}
                   disabled={isDownloading}
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#0081FB] hover:bg-[#0081FB]/80 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#0081FB]/20"
+                  className="flex-[1.5] py-3.5 px-4 rounded-xl bg-[#0081FB] hover:bg-[#1a90ff] hover:scale-[1.02] active:scale-[0.98] text-white text-[15px] font-semibold transition-all flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(0,129,251,0.2)]"
                 >
                   {isDownloading ? (
                     <>
-                      <Icon icon="line-md:loading-loop" className="h-4 w-4 shrink-0" />
-                      {t('update_downloading') || 'Downloading...'}
+                      <Icon icon="line-md:loading-loop" className="text-lg shrink-0" />
+                      <span className="max-w-[100px] leading-[1.15] text-center whitespace-normal">
+                        Mengunduh {downloadProgress.toFixed(0)}%
+                      </span>
                     </>
                   ) : (
                     <>
-                      <Icon icon="line-md:download-loop" className="h-4 w-4 shrink-0" />
-                      {t('update_download_now') || 'Download Now'}
+                      <Icon icon="line-md:download-loop" className="text-lg shrink-0" />
+                      <span className="max-w-[100px] leading-[1.15] text-center whitespace-normal">
+                        {t('update_download_now') || 'Unduh Sekarang'}
+                      </span>
                     </>
                   )}
                 </button>

@@ -93,8 +93,7 @@ export default function GameDetailModal({
   const [selectedVersion, setSelectedVersion] = useState(0)
   const [showVersionSelector, setShowVersionSelector] = useState(false)
   const [showDownloadParts, setShowDownloadParts] = useState(false)
-  const [confirmDownload, setConfirmDownload] = useState(null) // For confirmation modal
-  const [showDownloadModal, setShowDownloadModal] = useState(false) // For progress modal
+  // For confirmation modal
   const [deviceModel, setDeviceModel] = useState(null) // Device model name for display
   const [downloadedFiles, setDownloadedFiles] = useState({}) // Track which files are already downloaded
   const [confirmDelete, setConfirmDelete] = useState(null) // For delete confirmation modal
@@ -386,6 +385,13 @@ export default function GameDetailModal({
   // Check if a specific file (by part index) is downloaded
   const isFileDownloaded = (partIndex = null) => {
     const fileName = getFileName(partIndex)
+
+    // If THIS specific file is currently downloading, it is NOT fully downloaded.
+    // This prevents partial/temp files from triggering the "Downloaded" state.
+    if (isDownloading && downloadInfo?.fileName === fileName) {
+      return false
+    }
+
     return downloadedFiles[fileName]?.exists || false
   }
 
@@ -587,15 +593,11 @@ export default function GameDetailModal({
     }
     fileName += '.zip'
 
-    setShowDownloadModal(true)
-
-    // Update download count when download starts
     await updateDownloadCount(partIndex)
 
     const result = await startDownload(url, fileName, gameTitle)
 
     if (result.success) {
-      setShowDownloadModal(false)
       // Update file size to database (only if not already set)
       if (downloadInfo.totalBytes > 0) {
         await updateStandaloneFileSize(gameTitle, downloadInfo.totalBytes)
@@ -606,17 +608,9 @@ export default function GameDetailModal({
         toast.success(`${t('download_success') || 'Download completed!'} ${fileName}`)
       }
     } else if (result.canceled) {
-      setShowDownloadModal(false)
     } else if (result.error) {
-      setShowDownloadModal(false)
       toast.error(`${t('download_failed') || 'Download failed:'} ${result.error}`)
     }
-  }
-
-  // Handle minimize download modal to background widget
-  const handleMinimizeDownload = () => {
-    setShowDownloadModal(false)
-    showDownloadWidget()
   }
 
   // Handle download button click - show confirmation modal
@@ -631,10 +625,10 @@ export default function GameDetailModal({
     if (downloadLinks.length > 1) {
       setShowDownloadParts(true)
     } else {
-      // Single link - show confirmation modal
+      // Single link - trigger download directly
       const link = downloadLinks[0]
       if (isDownloadableUrl(link) && window.api?.downloadFile) {
-        setConfirmDownload({ link, partIndex: null })
+        await downloadInApp(link, null)
       } else if (window.api?.openExternal) {
         await window.api.openExternal(link)
       } else {
@@ -643,18 +637,11 @@ export default function GameDetailModal({
     }
   }
 
-  // Handle confirm download from modal
-  const handleConfirmDownload = async () => {
-    if (!confirmDownload) return
-    setConfirmDownload(null)
-    await downloadInApp(confirmDownload.link, confirmDownload.partIndex)
-  }
-
   // Open single download link (for parts)
   const openDownloadLink = async (link, partIndex) => {
     if (isDownloadableUrl(link) && window.api?.downloadFile) {
-      // Show confirmation modal for parts too
-      setConfirmDownload({ link, partIndex })
+      // Trigger download directly for parts too
+      await downloadInApp(link, partIndex)
     } else if (window.api?.openExternal) {
       await window.api.openExternal(link)
     } else {
@@ -1363,191 +1350,6 @@ export default function GameDetailModal({
                         {t('delete') || 'Delete'}
                       </button>
                     </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Download Confirmation Modal */}
-            <AnimatePresence>
-              {confirmDownload && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-60 flex items-center justify-center bg-black/80"
-                  onClick={() => setConfirmDownload(null)}
-                >
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
-                  >
-                    <h3 className="text-lg font-semibold text-white">
-                      {t('qgo_confirm_title') || 'Download Confirmation'}
-                    </h3>
-                    <p className="mt-2 text-sm text-white/60">
-                      {t('qgo_confirm_desc') || 'You are about to download:'}
-                    </p>
-                    <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
-                      <p className="font-medium text-white">{gameTitle}</p>
-                      <p className="mt-1 text-xs text-white/50">
-                        {t('qgo_version') || 'Version'}:{' '}
-                        {getCurrentVersion().version || gameVersion}
-                        {confirmDownload.partIndex !== null &&
-                          ` - Part ${confirmDownload.partIndex + 1}`}
-                      </p>
-                      {game?.gameSize && (
-                        <p className="mt-1 text-xs text-white/50">
-                          {t('game_size') || 'Size'}: {game.gameSize}
-                        </p>
-                      )}
-                    </div>
-                    <div className="mt-6 flex justify-end gap-2">
-                      <button
-                        onClick={() => setConfirmDownload(null)}
-                        className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white/70 transition-all hover:bg-white/5"
-                      >
-                        {t('cancel') || 'Cancel'}
-                      </button>
-                      <button
-                        onClick={handleConfirmDownload}
-                        className="rounded-lg bg-linear-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-[#0081FB]/20 transition-all hover:shadow-xl hover:shadow-[#0081FB]/30"
-                      >
-                        {t('qgo_download') || 'Download'}
-                      </button>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Download Progress Modal */}
-            <AnimatePresence>
-              {showDownloadModal && isDownloading && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-60 flex items-center justify-center bg-black/80"
-                >
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
-                  >
-                    <div className="flex items-start justify-between">
-                      <h3 className="text-lg font-semibold text-white">
-                        {t('qgo_downloading') || 'Downloading...'}
-                      </h3>
-                      <button
-                        onClick={handleMinimizeDownload}
-                        className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
-                        title={t('minimize_to_background') || 'Minimize to background'}
-                      >
-                        <Icon icon="octicon:minimize-16" className="h-5 w-5" />
-                      </button>
-                    </div>
-
-                    <div className="mt-2 flex items-center gap-2">
-                      <p className="text-sm text-white/60 truncate flex-1">
-                        {downloadInfo.fileName || gameTitle}
-                      </p>
-                      {downloadInfo.fileName && (
-                        <span
-                          className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
-                            downloadInfo.fileName.toLowerCase().endsWith('.rar')
-                              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                              : downloadInfo.fileName.toLowerCase().endsWith('.7z')
-                                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                                : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                          }`}
-                        >
-                          {downloadInfo.fileName.split('.').pop()?.toUpperCase() || 'ZIP'}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Progress Bar */}
-                    {downloadInfo.status === 'downloading' && downloadInfo.totalBytes > 0 ? (
-                      <div className="mt-4">
-                        {(() => {
-                          // Use progress from context directly (already calculated by main process)
-                          const progressPercent = downloadInfo.progress || 0
-                          return (
-                            <>
-                              <div className="mb-2 flex items-center justify-between text-xs text-white/50">
-                                <span>
-                                  {formatBytes(downloadInfo.downloadedBytes)} /{' '}
-                                  {formatBytes(downloadInfo.totalBytes)}
-                                </span>
-                                <span>{Math.round(progressPercent)}%</span>
-                              </div>
-                              <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                                <motion.div
-                                  className="h-full bg-linear-to-r from-[#0081FB] to-[#00C2FF]"
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${progressPercent}%` }}
-                                  transition={{ duration: 0.3 }}
-                                />
-                              </div>
-                            </>
-                          )
-                        })()}
-
-                        {/* Speed and ETA */}
-                        <div className="mt-2 flex items-center justify-between text-xs text-white/40">
-                          <span className="flex items-center gap-1">
-                            <Icon icon="mdi:speedometer" className="h-3 w-3" />
-                            {formatSpeed(downloadInfo.speed)}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Icon icon="mdi:clock-outline" className="h-3 w-3" />
-                            {t('qgo_eta') || 'ETA'}:{' '}
-                            {formatEta(
-                              downloadInfo.totalBytes - downloadInfo.downloadedBytes,
-                              downloadInfo.speed
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-4 flex items-center justify-center py-4">
-                        <Icon icon="mdi:loading" className="h-8 w-8 animate-spin text-[#0081FB]" />
-                      </div>
-                    )}
-
-                    {/* Download Info */}
-                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/70">
-                      <Icon icon="mdi:download" className="h-5 w-5 animate-pulse text-[#0081FB]" />
-                      <span>
-                        {downloadInfo.status === 'preparing'
-                          ? t('qgo_preparing') || 'Preparing download...'
-                          : t('qgo_downloading_msg') || 'Downloading, please wait...'}
-                      </span>
-                    </div>
-
-                    {/* Minimize hint */}
-                    <p className="mt-4 text-center text-xs text-white/40">
-                      {t('download_minimize_hint') ||
-                        'Click the arrow to minimize and continue in background'}
-                    </p>
-
-                    {/* Cancel Download Button */}
-                    <button
-                      onClick={async () => {
-                        await cancelDownload()
-                        setShowDownloadModal(false)
-                        toast.info(t('download_cancelled') || 'Download Cancelled')
-                      }}
-                      className="mt-3 w-full py-2 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Icon icon="mdi:close-circle" className="w-4 h-4" />
-                      {t('cancel_download') || 'Cancel Download'}
-                    </button>
                   </motion.div>
                 </motion.div>
               )}
