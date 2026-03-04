@@ -14,9 +14,22 @@ export function LanguageProvider({ children }) {
     return localStorage.getItem('language') || 'id'
   })
 
-  // Save language to localStorage whenever it changes
+  // On mount: read from config file (file = source of truth)
+  useEffect(() => {
+    window.api.storeRead?.('hypertopia-config.json').then((config) => {
+      if (config?.language) {
+        setLanguage(config.language)
+        localStorage.setItem('language', config.language)
+      }
+    })
+  }, [])
+
+  // Save language to localStorage + config file whenever it changes
   useEffect(() => {
     localStorage.setItem('language', language)
+    window.api.storeRead?.('hypertopia-config.json').then((config) => {
+      window.api.storeWrite?.('hypertopia-config.json', { ...(config || {}), language })
+    })
   }, [language])
 
   const t = (key) => {
