@@ -8,7 +8,37 @@ import UpdateNotification from './UpdateNotification'
 import BrowseMethodModal from './BrowseMethodModal'
 import ConfirmationModal from './ConfirmationModal'
 import { SystemLogModal } from './SystemLogModal'
+import { Tooltip } from './Tooltip'
 import PropTypes from 'prop-types'
+import logoImage from '../assets/images/HyperTopiaLauncher.png'
+import { useDownload } from '../contexts/DownloadContext'
+import DownloadActivityPanel from './DownloadActivityPanel'
+
+// Shared battery helpers (same logic as DeviceSelector)
+const getBatteryIcon = (batteryStr) => {
+  if (!batteryStr || batteryStr === 'N/A') return 'fluent:battery-charge-0-20-regular'
+  const p = parseInt(batteryStr.replace('%', ''), 10)
+  if (isNaN(p)) return 'fluent:battery-charge-0-20-regular'
+  if (p >= 95) return 'fluent:battery-charge-10-20-regular'
+  if (p >= 85) return 'fluent:battery-charge-9-20-regular'
+  if (p >= 75) return 'fluent:battery-charge-8-20-regular'
+  if (p >= 65) return 'fluent:battery-charge-7-20-regular'
+  if (p >= 55) return 'fluent:battery-charge-6-20-regular'
+  if (p >= 45) return 'fluent:battery-charge-5-20-regular'
+  if (p >= 35) return 'fluent:battery-charge-4-20-regular'
+  if (p >= 25) return 'fluent:battery-charge-3-20-regular'
+  if (p >= 15) return 'fluent:battery-charge-2-20-regular'
+  if (p >= 5) return 'fluent:battery-charge-1-20-regular'
+  return 'fluent:battery-charge-0-20-regular'
+}
+const getBatteryColor = (batteryStr) => {
+  if (!batteryStr || batteryStr === 'N/A') return 'text-gray-300 dark:text-white/40'
+  const p = parseInt(batteryStr.replace('%', ''), 10)
+  if (isNaN(p)) return 'text-gray-300 dark:text-white/40'
+  if (p < 20) return 'text-red-500'
+  if (p < 50) return 'text-yellow-500'
+  return 'text-green-500'
+}
 
 export function InstallerSidebar({
   selectedDevice,
@@ -19,6 +49,7 @@ export function InstallerSidebar({
   onNavigateToTab
 }) {
   const { t, language } = useLanguage()
+  const { unseenCount, isDownloading } = useDownload()
   const [file, setFile] = useState(null)
   const [appVersion, setAppVersion] = useState({ version: '1.0.0', build: '...' })
   const [status, setStatus] = useState({
@@ -33,23 +64,76 @@ export function InstallerSidebar({
   const [installProgress, setInstallProgress] = useState(null)
   const [errorDetails, setErrorDetails] = useState(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isDownloadPanelOpen, setIsDownloadPanelOpen] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateInfo, setUpdateInfo] = useState(null)
   const [showBrowseModal, setShowBrowseModal] = useState(false)
   const [sourceType, setSourceType] = useState('archive') // 'archive' or 'folder'
   const [folderPath, setFolderPath] = useState(null)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(
+    () => localStorage.getItem('sidebar-collapsed') === 'true'
+  )
+
+  // On mount: read collapsed state from config file (file = source of truth after reinstall)
+  useEffect(() => {
+    window.api.storeRead?.('hypertopia-config.json').then((config) => {
+      if (config && typeof config.sidebarCollapsed === 'boolean') {
+        setIsCollapsed(config.sidebarCollapsed)
+        localStorage.setItem('sidebar-collapsed', config.sidebarCollapsed ? 'true' : 'false')
+      }
+    })
+  }, [])
   const [confirmModalOpen, setConfirmModalOpen] = useState(false)
   const [confirmModalMode, setConfirmModalMode] = useState('confirm')
   const [isLogModalOpen, setIsLogModalOpen] = useState(false)
+  const [showFileDetail, setShowFileDetail] = useState(false)
+  const [compactDeviceModel, setCompactDeviceModel] = useState(null)
+  const [compactDeviceBattery, setCompactDeviceBattery] = useState(null)
   const fileInputRef = useRef(null)
 
-  // Notify parent when collapsed state changes
+  // Persist and notify parent when collapsed state changes
   useEffect(() => {
+    localStorage.setItem('sidebar-collapsed', isCollapsed ? 'true' : 'false')
     if (onCollapsedChange) {
       onCollapsedChange(isCollapsed)
     }
+    // Persist to config file
+    window.api.storeRead?.('hypertopia-config.json').then((config) => {
+      window.api.storeWrite?.('hypertopia-config.json', { ...(config || {}), sidebarCollapsed: isCollapsed })
+    })
   }, [isCollapsed, onCollapsedChange])
+
+  // Keep device model name + battery in sync for compact mode display
+  useEffect(() => {
+    if (!selectedDevice) {
+      setCompactDeviceModel(null)
+      setCompactDeviceBattery(null)
+      return
+    }
+    let cancelled = false
+    const refresh = async () => {
+      try {
+        const result = await window.api.listDevices()
+        if (cancelled) return
+        const found = result.find((d) => d.serial === selectedDevice)
+        setCompactDeviceModel(found?.model || null)
+        if (found?.battery && found.battery !== 'N/A') {
+          const level = parseInt(found.battery.replace('%', ''), 10)
+          setCompactDeviceBattery({ level: isNaN(level) ? 0 : level, charging: !!found.isCharging })
+        } else {
+          setCompactDeviceBattery(null)
+        }
+      } catch {
+        // ignore
+      }
+    }
+    refresh()
+    const interval = setInterval(refresh, 3000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [selectedDevice])
 
   // Helper to add log entry with timestamp
   const addLogEntry = (message) => {
@@ -346,14 +430,14 @@ export function InstallerSidebar({
 
   return (
     <div
-      className={`relative flex h-full flex-col bg-[#0a0a0a] font-['Poppins'] text-white transition-all duration-300 ${
+      className={`relative flex h-full flex-col bg-white dark:bg-[#0a0a0a] font-['Poppins'] text-gray-900 dark:text-white transition-all duration-300 ${
         isCollapsed ? 'w-16' : 'w-full'
       }`}
     >
       {/* Toggle Button */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-6 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-[#0a0a0a] text-white/70 shadow-lg transition-all hover:border-[#0081FB] hover:bg-[#0081FB]/20 hover:text-[#0081FB] hover:scale-110"
+        className="absolute -right-3 top-6 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 dark:border-white/20 bg-white dark:bg-[#0a0a0a] text-gray-600 dark:text-white/70 transition-all hover:border-[#0081FB] hover:bg-[#0081FB]/20 hover:text-[#0081FB] hover:scale-110"
         title={
           isCollapsed
             ? t('expand_sidebar') || 'Expand Sidebar'
@@ -371,61 +455,240 @@ export function InstallerSidebar({
       </button>
 
       {isCollapsed ? (
-        // Collapsed View - Only show minimal info
-        <div className="flex h-full flex-col items-center justify-between p-4">
-          <div className="flex flex-col items-center gap-4">
-            {/* Status Indicator */}
-            {file && (
-              <div className="rounded-full bg-green-500/20 p-1">
-                <div className="h-2 w-2 rounded-full bg-green-500"></div>
+        // Collapsed View - Compact but useful
+        <div className="flex h-full flex-col items-center justify-between py-3 px-2 gap-2">
+
+          {/* TOP: Logo + settings shortcut */}
+          <div className="flex flex-col items-center gap-3 w-full">
+            {/* App Logo */}
+            <Tooltip content={t('expand_sidebar') || 'Expand Sidebar'} side="right">
+              <button
+                onClick={() => setIsCollapsed(false)}
+                className="flex items-center justify-center w-9 h-9 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all"
+              >
+                <img src={logoImage} alt="HyperTopia" className="w-7 h-7 object-contain" />
+              </button>
+            </Tooltip>
+
+            {/* Divider */}
+            <div className="w-6 h-px bg-gray-200 dark:bg-white/10" />
+
+            {/* Settings shortcut */}
+            <Tooltip content={t('settings_title') || 'Pengaturan'} side="right">
+              <button
+                onClick={handleOpenSettings}
+                className="relative flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 dark:text-white/40 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-800 dark:hover:text-white transition-all"
+              >
+                {updateAvailable && (
+                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 border border-white dark:border-[#0a0a0a]" />
+                )}
+                <Icon icon="mdi:cog-outline" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+
+            {/* Log shortcut */}
+            <Tooltip content="System Log" side="right">
+              <button
+                onClick={() => setIsLogModalOpen(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 dark:text-white/40 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-800 dark:hover:text-white transition-all"
+              >
+                <Icon icon="mdi:console" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+
+            {/* Download Activity shortcut */}
+            <Tooltip content={t('download_activity')} side="right">
+              <button
+                onClick={() => setIsDownloadPanelOpen(true)}
+                className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-all hover:bg-[#0081FB]/10 hover:text-[#0081FB] ${
+                  isDownloading
+                    ? 'text-[#0081FB]'
+                    : 'text-gray-500 dark:text-white/40'
+                }`}
+              >
+                {isDownloading && (
+                  <span className="absolute inset-0 rounded-lg animate-ping bg-[#0081FB]/30" />
+                )}
+                <Icon icon="mdi:download-circle-outline" className="h-4 w-4 relative z-10" />
+                {unseenCount > 0 && (
+                  <span className="absolute -top-1 -right-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#0081FB] text-[8px] font-bold text-white z-20">
+                    {unseenCount > 9 ? '9+' : unseenCount}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
+          </div>
+
+          {/* MIDDLE: File status + install actions */}
+          <div className="flex flex-col items-center gap-2 w-full flex-1 justify-center">
+            {/* File loaded status */}
+            {file ? (
+              <div className="flex flex-col items-center gap-2">
+                {/* File type badge – click to open detail */}
+                {(() => {
+                  const gameName = status?.manifestData?.gameName
+                    || (sourceType === 'folder' ? status?.apkName : file?.name)
+                    || ''
+                  const shortName = gameName.replace(/\.apk$/i, '')
+                  return (
+                    <Tooltip content={status.hasObb ? 'APK + OBB — klik untuk detail' : 'APK — klik untuk detail'} side="right">
+                      <button
+                        onClick={() => setShowFileDetail(true)}
+                        className={`group flex flex-col items-center gap-1 rounded-xl p-1.5 transition-all hover:scale-105 ${
+                          status.hasObb
+                            ? 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20'
+                            : 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-500/20'
+                        }`}
+                      >
+                        <Icon icon="dashicons:games" className="h-5 w-5 shrink-0" />
+                        {shortName && (
+                          <span
+                            className="text-[9px] font-semibold leading-none whitespace-nowrap"
+                            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', maxHeight: 64, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                          >
+                            {shortName.length > 14 ? shortName.slice(0, 14) + '\u2026' : shortName}
+                          </span>
+                        )}
+                      </button>
+                    </Tooltip>
+                  )
+                })()}
+
+                {/* APK install button */}
+                <Tooltip content={t('btn_apk') || 'Install APK'} side="right">
+                  <button
+                    onClick={() => handleInstall('apk')}
+                    disabled={!status.hasApk || isInstalling || status.hasObb || !selectedDevice}
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+                      !status.hasApk || isInstalling || status.hasObb || !selectedDevice
+                        ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-300 dark:text-white/20'
+                        : 'bg-[#0081FB]/10 text-[#0081FB] hover:bg-[#0081FB]/20'
+                    }`}
+                  >
+                    <Icon icon="mdi:package-down" className="h-4 w-4" />
+                  </button>
+                </Tooltip>
+
+                {/* Full install button */}
+                <Tooltip content={`${t('btn_full') || 'Install Full'} (APK + OBB)`} side="right">
+                  <button
+                    onClick={() => handleInstall('full')}
+                    disabled={!status.hasApk || !status.hasObb || isInstalling || !selectedDevice}
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+                      !status.hasApk || !status.hasObb || isInstalling || !selectedDevice
+                        ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-300 dark:text-white/20'
+                        : 'bg-purple-500/10 text-purple-500 dark:text-purple-400 hover:bg-purple-500/20'
+                    }`}
+                  >
+                    <Icon icon="mdi:lightning-bolt" className="h-4 w-4" />
+                  </button>
+                </Tooltip>
               </div>
+            ) : (
+              /* No file – browse shortcut */
+              <Tooltip content={t('browse_files') || 'Browse Files'} side="right">
+                <button
+                  onClick={() => setShowBrowseModal(true)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/30 hover:bg-[#0081FB]/10 hover:text-[#0081FB] transition-all"
+                >
+                  <Icon icon="mdi:folder-open-outline" className="h-5 w-5" />
+                </button>
+              </Tooltip>
             )}
 
+            {/* Spinning progress while installing */}
             {isInstalling && (
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#0081FB]/30 border-t-[#0081FB]"></div>
+              <div className="flex flex-col items-center gap-1">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#0081FB]/30 border-t-[#0081FB]" />
+                {installProgress && (
+                  <span className="text-[8px] font-bold text-[#0081FB] tabular-nums">
+                    {installProgress.percent}%
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
-          {/* Device Name - Rotated Text, Clickable to Expand */}
-          <button
-            onClick={() => setIsCollapsed(false)}
-            className={`group flex flex-col items-center gap-2 rounded-lg p-2 transition-all hover:bg-white/5 ${
-              selectedDevice ? 'text-green-400' : 'text-white/30'
-            }`}
-            title={t('expand_sidebar') || 'Expand Sidebar'}
-          >
-            <Icon
-              icon={
-                selectedDevice?.toLowerCase().includes('quest')
-                  ? 'ri:meta-fill'
-                  : 'fluent:phone-32-filled'
-              }
-              className="h-5 w-5 shrink-0"
-            />
-            {selectedDevice && (
-              <span
-                className="text-xs font-medium whitespace-nowrap group-hover:text-green-300"
-                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+          {/* BOTTOM: Device status */}
+          <div className="flex flex-col items-center gap-2 w-full">
+            <div className="w-6 h-px bg-gray-200 dark:bg-white/10" />
+
+            {/* Quick-nav: Standalone Games */}
+            <Tooltip content="Standalone Games" side="right">
+              <button
+                onClick={() => onNavigateToTab && onNavigateToTab('games')}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 dark:text-white/40 hover:bg-[#0081FB]/10 hover:text-[#0081FB] transition-all"
               >
-                {selectedDevice}
-              </span>
-            )}
-          </button>
+                <Icon icon="mdi:gamepad-variant" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+
+            {/* Quick-nav: QGO */}
+            <Tooltip content="Games Optimizer" side="right">
+              <button
+                onClick={() => onNavigateToTab && onNavigateToTab('qgo')}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 dark:text-white/40 hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400 transition-all"
+              >
+                <Icon icon="mdi:tune-variant" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+
+            <div className="w-6 h-px bg-gray-200 dark:bg-white/10" />
+
+            {/* Device icon + expand */}
+            <Tooltip
+              content={
+                selectedDevice
+                  ? (compactDeviceModel || selectedDevice) + (compactDeviceBattery ? ` · ${compactDeviceBattery.level}%${compactDeviceBattery.charging ? ' ⚡' : ''}` : '')
+                  : (t('no_device_connected') || 'Tidak ada perangkat')
+              }
+              side="right"
+            >
+            <button
+              onClick={() => setIsCollapsed(false)}
+              className={`group flex flex-col items-center gap-1.5 rounded-lg p-1.5 transition-all hover:bg-gray-100 dark:hover:bg-white/5 ${
+                selectedDevice
+                  ? 'text-[#0081FB]'
+                  : 'text-gray-400 dark:text-white/30'
+              }`}
+            >
+              <Icon
+                icon={
+                  (compactDeviceModel || '').toLowerCase().includes('quest')
+                    ? 'ri:meta-fill'
+                    : 'fluent:phone-32-filled'
+                }
+                className="h-5 w-5 shrink-0"
+              />
+              {selectedDevice && (
+                <span
+                  className="text-[9px] font-semibold whitespace-nowrap group-hover:text-[#0066d6] leading-none"
+                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', maxHeight: 64, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                >
+                  {(() => {
+                    const label = compactDeviceModel || selectedDevice
+                    return label.length > 12 ? label.slice(0, 12) + '…' : label
+                  })()}
+                </span>
+              )}
+              {compactDeviceBattery != null && (
+                <div className="flex flex-col items-center gap-0">
+                  <Icon
+                    icon={getBatteryIcon(compactDeviceBattery.level + '%')}
+                    className={`h-4 w-4 shrink-0 ${getBatteryColor(compactDeviceBattery.level + '%')}`}
+                  />
+                  <span className={`text-[8px] font-bold tabular-nums leading-none ${getBatteryColor(compactDeviceBattery.level + '%')}`}>
+                    {compactDeviceBattery.level}%
+                  </span>
+                </div>
+              )}
+            </button>
+            </Tooltip>
+          </div>
         </div>
       ) : (
         // Expanded View - Original content
         <>
-          <ErrorModal
-            isOpen={!!errorDetails}
-            onClose={() => setErrorDetails(null)}
-            error={errorDetails}
-          />
-          <BrowseMethodModal
-            isOpen={showBrowseModal}
-            onClose={() => setShowBrowseModal(false)}
-            onSelectArchive={handleSelectArchive}
-            onSelectFolder={handleSelectFolder}
-          />
           <ConfirmationModal
             isOpen={confirmModalOpen}
             onClose={handleCancelModal}
@@ -454,11 +717,11 @@ export function InstallerSidebar({
               <h1 className="text-xl font-bold tracking-tight">
                 <span className="text-[#0081FB]">HyperTopia</span> Installer
               </h1>
-              <p className="mt-1 text-xs font-light text-white/50">
-                v{appVersion.version} <span className="opacity-50">({appVersion.build})</span>
+              <p className="mt-1 text-xs font-light text-gray-600 dark:text-white/50">
+                v{appVersion.version} <span className="opacity-60">({appVersion.build})</span>
               </p>
               {extractPath && (
-                <div className="mt-2 flex items-center gap-1.5 text-[9px] text-white/30">
+                <div className="mt-2 flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-white/30">
                   <svg
                     className="h-3 w-3 flex-none"
                     fill="none"
@@ -480,20 +743,39 @@ export function InstallerSidebar({
             </div>
             <div className="flex items-start gap-2 flex-none">
               <button
+                onClick={() => setIsDownloadPanelOpen(true)}
+                className={`relative flex h-8 w-8 items-center justify-center rounded-lg border transition-all shrink-0 hover:bg-[#0081FB]/20 hover:text-[#0081FB] ${
+                  isDownloading
+                    ? 'bg-[#0081FB]/10 border-[#0081FB]/40 text-[#0081FB]'
+                    : 'bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-600 dark:text-white/50'
+                }`}
+                title={t('download_activity')}
+              >
+                {isDownloading && (
+                  <span className="absolute inset-0 rounded-lg animate-ping bg-[#0081FB]/25" />
+                )}
+                <Icon icon="mdi:download-circle-outline" className="text-lg relative z-10" />
+                {unseenCount > 0 && (
+                  <span className="absolute -top-1 -right-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#0081FB] text-[8px] font-bold text-white z-20">
+                    {unseenCount > 9 ? '9+' : unseenCount}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setIsLogModalOpen(true)}
-                className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 border border-white/10 text-white/50 hover:bg-[#0081FB]/20 hover:text-[#0081FB] transition-all shrink-0"
+                className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-white/50 hover:bg-[#0081FB]/20 hover:text-[#0081FB] transition-all shrink-0"
                 title="System Log"
               >
                 <Icon icon="mdi:console" className="text-lg" />
               </button>
               <button
                 onClick={handleOpenSettings}
-                className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-all shrink-0"
+                className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-white/50 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-all shrink-0"
                 title={t('settings_title')}
               >
                 {/* Update available badge */}
                 {updateAvailable && (
-                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-[#0a0a0a] animate-pulse" />
+                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-white dark:border-[#0a0a0a] animate-pulse" />
                 )}
                 <svg
                   className="h-[18px] w-[18px]"
@@ -533,7 +815,7 @@ export function InstallerSidebar({
             {!selectedDevice && file && status.hasApk && (
               <div className="mb-4 flex items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/10 p-3">
                 <svg
-                  className="h-5 w-5 shrink-0 text-orange-400"
+                  className="h-5 w-5 shrink-0 text-orange-600 dark:text-orange-400"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -546,10 +828,10 @@ export function InstallerSidebar({
                   />
                 </svg>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-orange-400">
+                  <p className="text-xs font-semibold text-orange-700 dark:text-orange-400">
                     {t('no_device_warning_title') || 'No VR Device Connected'}
                   </p>
-                  <p className="mt-0.5 text-[10px] text-orange-300/70">
+                  <p className="mt-0.5 text-[10px] text-orange-600 dark:text-orange-300/70">
                     {t('connect_to_install') || 'Connect your Meta Quest to install this game'}
                   </p>
                 </div>
@@ -562,7 +844,7 @@ export function InstallerSidebar({
                 className={`relative mb-6 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition-all ${
                   isDragOver
                     ? 'border-[#0081FB] bg-[#0081FB]/10 scale-[1.02]'
-                    : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+                    : 'border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:border-gray-400 dark:hover:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10'
                 }`}
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
@@ -576,7 +858,7 @@ export function InstallerSidebar({
                   accept=".zip,.rar"
                 />
 
-                <div className="mb-4 rounded-full p-4 bg-[#0081FB]/20 text-[#0081FB]">
+                <div className="mb-4 rounded-full p-4 bg-blue-100 dark:bg-[#0081FB]/20 text-[#0081FB]">
                   <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
@@ -586,21 +868,21 @@ export function InstallerSidebar({
                     />
                   </svg>
                 </div>
-                <p className="text-center text-sm font-medium text-white/90">
+                <p className="text-center text-sm font-medium text-gray-700 dark:text-white/90">
                   {t('drag_drop_full') || 'Drop Game File or Folder Here'}
                 </p>
-                <p className="mt-1 text-center text-xs text-white/50">
+                <p className="mt-1 text-center text-xs text-gray-500 dark:text-white/50">
                   {t('support_ext_full') || 'ZIP, RAR, or extracted folder'}
                 </p>
                 <button
                   onClick={() => setShowBrowseModal(true)}
-                  className="mt-4 rounded-lg px-4 py-2 text-xs font-medium transition-all bg-white/10 text-white hover:bg-white/20"
+                  className="mt-4 rounded-lg px-4 py-2 text-xs font-medium transition-all bg-gray-200 dark:bg-white/10 text-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-white/20"
                 >
                   {t('browse_files')}
                 </button>
               </div>
             ) : (
-              <div className="mb-6 rounded-2xl border border-white/10 bg-[#151921] p-5 shadow-lg">
+              <div className="mb-6 rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#151921] p-5 shadow-lg">
                 <div className="flex items-start gap-4">
                   <div
                     className={`shrink-0 rounded-xl p-3 ${
@@ -612,16 +894,16 @@ export function InstallerSidebar({
                     <Icon icon="dashicons:games" className="text-2xl" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="break-all text-base font-bold text-white mb-2.5">
+                    <p className="break-all text-base font-bold text-gray-900 dark:text-white mb-2.5">
                       {status?.manifestData?.gameName ||
                         (sourceType === 'folder' ? status.apkName || file.name : file.name)}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       <span
-                        className={`inline-flex items-center rounded bg-[#111520] px-2 py-1 text-[11px] font-bold tracking-wider ring-1 ring-inset ${
+                        className={`inline-flex items-center rounded bg-gray-100 dark:bg-[#111520] px-2 py-1 text-[11px] font-bold tracking-wider ring-1 ring-inset ${
                           status.hasObb
-                            ? 'text-indigo-400 ring-indigo-500/30'
-                            : 'text-emerald-400 ring-emerald-500/30'
+                            ? 'text-indigo-700 dark:text-indigo-400 ring-indigo-500/30'
+                            : 'text-emerald-700 dark:text-emerald-400 ring-emerald-500/30'
                         }`}
                       >
                         {status.hasObb
@@ -629,7 +911,7 @@ export function InstallerSidebar({
                           : t('badge_apk') || 'APK ONLY'}
                       </span>
 
-                      <span className="inline-flex items-center rounded bg-[#111520] px-2 py-1 text-[11px] font-bold tracking-wider text-gray-400 ring-1 ring-inset ring-gray-600/30">
+                      <span className="inline-flex items-center rounded bg-gray-100 dark:bg-[#111520] px-2 py-1 text-[11px] font-bold tracking-wider text-gray-600 dark:text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600/30">
                         {(() => {
                           const totalSize =
                             sourceType === 'folder'
@@ -650,10 +932,10 @@ export function InstallerSidebar({
                     </div>
                   </div>
                 </div>
-                <div className="mt-5 flex justify-end gap-3 border-t border-white/5 pt-4">
+                <div className="mt-5 flex justify-end gap-3 border-t border-gray-200 dark:border-white/5 pt-4">
                   <button
                     onClick={() => setShowBrowseModal(true)}
-                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white"
                   >
                     <Icon icon="mdi:swap-horizontal" className="text-sm" />
                     {t('change_method') ||
@@ -661,7 +943,7 @@ export function InstallerSidebar({
                   </button>
                   <button
                     onClick={openDetailsModal}
-                    className="flex items-center gap-1.5 rounded-lg bg-[#2A3241] px-4 py-1.5 text-xs font-medium text-gray-200 transition-colors hover:bg-[#374151] border border-[#374151]"
+                    className="flex items-center gap-1.5 rounded-lg bg-gray-200 dark:bg-[#2A3241] px-4 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 transition-colors hover:bg-gray-300 dark:hover:bg-[#374151] border border-gray-300 dark:border-[#374151]"
                   >
                     <Icon icon="mdi:eye-outline" className="text-sm" />
                     {t('view_details') || 'View Details'}
@@ -674,32 +956,32 @@ export function InstallerSidebar({
             <div className="mb-6 grid grid-cols-2 gap-3">
               <button
                 onClick={() => onNavigateToTab && onNavigateToTab('games')}
-                className="group flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 p-2.5 transition-all hover:border-[#0081FB]/50 hover:bg-[#0081FB]/10 text-left"
+                className="group flex items-center gap-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-2.5 transition-all hover:border-[#0081FB]/50 hover:bg-[#0081FB]/10 text-left"
               >
-                <div className="rounded-lg bg-[#0081FB]/20 p-1.5 text-[#0081FB] shrink-0 transition-all group-hover:bg-[#0081FB]/30">
+                <div className="rounded-lg bg-blue-100 dark:bg-[#0081FB]/20 p-1.5 text-[#0081FB] shrink-0 transition-all group-hover:bg-[#0081FB]/30">
                   <Icon icon="mdi:gamepad-variant" className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-white/90 group-hover:text-white truncate">
+                  <p className="text-xs font-semibold text-gray-700 dark:text-white/90 group-hover:text-gray-900 dark:group-hover:text-white truncate">
                     {language === 'id' ? 'Standalone Games' : 'Standalone Games'}
                   </p>
-                  <p className="text-[9px] text-white/50 group-hover:text-white/70 truncate mt-0.5">
+                  <p className="text-[9px] text-gray-600 dark:text-white/50 group-hover:text-gray-700 dark:group-hover:text-white/70 truncate mt-0.5">
                     {language === 'id' ? 'Download langsung' : 'Download directly'}
                   </p>
                 </div>
               </button>
               <button
                 onClick={() => onNavigateToTab && onNavigateToTab('qgo')}
-                className="group flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 p-2.5 transition-all hover:border-purple-500/50 hover:bg-purple-500/10 text-left"
+                className="group flex items-center gap-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-2.5 transition-all hover:border-purple-500/50 hover:bg-purple-500/10 text-left"
               >
-                <div className="rounded-lg bg-purple-500/20 p-1.5 text-purple-400 shrink-0 transition-all group-hover:bg-purple-500/30">
+                <div className="rounded-lg bg-purple-500/20 p-1.5 text-purple-700 dark:text-purple-400 shrink-0 transition-all group-hover:bg-purple-500/30">
                   <Icon icon="mdi:rocket-launch" className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-white/90 group-hover:text-white truncate">
+                  <p className="text-xs font-semibold text-gray-700 dark:text-white/90 group-hover:text-gray-900 dark:group-hover:text-white truncate">
                     Games Optimizer
                   </p>
-                  <p className="text-[9px] text-white/50 group-hover:text-white/70 truncate mt-0.5">
+                  <p className="text-[9px] text-gray-600 dark:text-white/50 group-hover:text-gray-700 dark:group-hover:text-white/70 truncate mt-0.5">
                     {language === 'id' ? 'Optimize VR games' : 'Optimize VR games'}
                   </p>
                 </div>
@@ -714,7 +996,9 @@ export function InstallerSidebar({
                     <p className="text-[10px] font-bold uppercase tracking-wider text-[#0081FB]">
                       {installProgress.step.replace('_', ' ')}
                     </p>
-                    <span className="text-xs font-bold text-white">{installProgress.percent}%</span>
+                    <span className="text-xs font-bold text-gray-900 dark:text-white">
+                      {installProgress.percent}%
+                    </span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-black/40">
                     <div
@@ -723,7 +1007,7 @@ export function InstallerSidebar({
                     ></div>
                   </div>
                   <p
-                    className="mt-2 break-all text-xs font-mono text-white/50"
+                    className="mt-2 break-all text-xs font-mono text-gray-600 dark:text-white/50"
                     title={installProgress.detail}
                   >
                     {installProgress.detail}
@@ -756,7 +1040,7 @@ export function InstallerSidebar({
           </div>
 
           {/* Action Buttons & Footer / Device Selector */}
-          <div className="flex-none border-t border-white/5 bg-[#111] p-4 flex flex-col gap-4 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] relative z-10">
+          <div className="flex-none border-t border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-[#111] p-4 flex flex-col gap-4 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_30px_rgba(0,0,0,0.5)] relative z-10">
             {/* Action Buttons */}
             <div className="flex flex-row gap-2">
               <button
@@ -766,7 +1050,7 @@ export function InstallerSidebar({
                 }
                 className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all ${
                   !file || !status.hasApk || isInstalling || status.hasObb || !selectedDevice
-                    ? 'cursor-not-allowed bg-white/5 text-white/20'
+                    ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20'
                     : 'bg-linear-to-r from-[#0081FB] to-[#00C2FF] text-white shadow-lg shadow-[#0081FB]/25 hover:shadow-[#0081FB]/40 hover:scale-[1.02] active:scale-[0.98]'
                 }`}
               >
@@ -792,7 +1076,7 @@ export function InstallerSidebar({
                 }
                 className={`group relative flex flex-1 items-center justify-center gap-1.5 overflow-hidden rounded-xl py-2 text-xs font-semibold transition-all ${
                   !file || !status.hasApk || !status.hasObb || isInstalling || !selectedDevice
-                    ? 'cursor-not-allowed bg-white/5 text-white/20'
+                    ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20'
                     : 'bg-linear-to-r from-purple-600 to-purple-400 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98]'
                 }`}
               >
@@ -818,7 +1102,7 @@ export function InstallerSidebar({
             </div>
 
             <div>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/30">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-white/30">
                 {t('connected_device')}
               </p>
               <DeviceSelector
@@ -829,24 +1113,73 @@ export function InstallerSidebar({
           </div>
 
           {/* Modals */}
-          <SettingsModal
-            isOpen={isSettingsOpen}
-            onClose={handleCloseSettings}
-            currentPath={extractPath}
-            appVersion={appVersion}
-            updateAvailable={updateAvailable}
-            updateInfo={updateInfo}
-            onUpdateNow={() => {
-              window.api.downloadUpdate()
-            }}
-          />
-          <SystemLogModal
-            isOpen={isLogModalOpen}
-            onClose={() => setIsLogModalOpen(false)}
-            logHistory={logHistory}
-          />
         </>
       )}
+
+      {/* Always-mounted DeviceSelector (hidden in compact) so ADB polling never stops */}
+      {isCollapsed && (
+        <div className="hidden">
+          <DeviceSelector
+            selectedSerial={selectedDevice}
+            onSelect={(serial) => onDeviceSelect(serial)}
+          />
+        </div>
+      )}
+
+      {/* Always-mounted modals – work in both collapsed and expanded states */}
+      <ErrorModal
+        isOpen={!!errorDetails}
+        onClose={() => setErrorDetails(null)}
+        error={errorDetails}
+      />
+      <BrowseMethodModal
+        isOpen={showBrowseModal}
+        onClose={() => setShowBrowseModal(false)}
+        onSelectArchive={handleSelectArchive}
+        onSelectFolder={handleSelectFolder}
+      />
+      <ConfirmationModal
+        isOpen={showFileDetail}
+        onClose={() => setShowFileDetail(false)}
+        onConfirm={() => setShowFileDetail(false)}
+        mode="view"
+        fileData={{
+          name: sourceType === 'folder' ? status?.apkName || file?.name : file?.name,
+          size:
+            sourceType === 'folder'
+              ? (status?.apkSize || 0) + (status?.obbSize || 0)
+              : file?.size || 0,
+          type: sourceType,
+          hasObb: status?.hasObb,
+          obbFolder: status?.obbFolder,
+          apkSize: status?.apkSize || 0,
+          obbSize: status?.obbSize || 0,
+          obbEntries: [],
+          obbFiles: status?.obbFiles || [],
+          manifestData: status?.manifestData
+        }}
+      />
+      <DownloadActivityPanel
+        isOpen={isDownloadPanelOpen}
+        onClose={() => setIsDownloadPanelOpen(false)}
+        onNavigateToManager={() => onNavigateToTab?.('manager:downloads')}
+      />
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={handleCloseSettings}
+        currentPath={extractPath}
+        appVersion={appVersion}
+        updateAvailable={updateAvailable}
+        updateInfo={updateInfo}
+        onUpdateNow={() => {
+          window.api.downloadUpdate()
+        }}
+      />
+      <SystemLogModal
+        isOpen={isLogModalOpen}
+        onClose={() => setIsLogModalOpen(false)}
+        logHistory={logHistory}
+      />
     </div>
   )
 }
