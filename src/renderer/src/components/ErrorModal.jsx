@@ -46,21 +46,23 @@ export function ErrorModal({ isOpen, onClose, error }) {
               opacity: { duration: 0.3 },
               x: { duration: 0.5, times: [0, 0.2, 0.4, 0.6, 0.8, 1] }
             }}
-            className="w-full max-w-sm max-h-[90vh] overflow-y-auto transform rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl custom-scrollbar"
+            className="w-full max-w-sm max-h-[90vh] overflow-y-auto transform rounded-2xl bg-white dark:bg-[#111] p-6 shadow-2xl custom-scrollbar"
           >
             <div className="mb-4 flex items-center justify-center rounded-full bg-red-500/10 p-4 text-red-500">
               <Icon icon="line-md:alert-twotone" className="h-8 w-8" />
             </div>
 
-            <h3 className="mb-2 text-center text-lg font-bold text-white">
+            <h3 className="mb-2 text-center text-lg font-bold text-gray-900 dark:text-white">
               {t('error_title') || 'Oops! Something went wrong'}
             </h3>
 
-            <p className="mb-6 text-center text-sm text-white/70">{friendlyMessage}</p>
+            <p className="mb-6 text-center text-sm text-gray-600 dark:text-white/70">
+              {friendlyMessage}
+            </p>
 
             <button
               onClick={onClose}
-              className="w-full rounded-xl bg-white/10 py-3 text-sm font-semibold text-white transition-all hover:bg-white/20 active:scale-[0.98]"
+              className="w-full rounded-xl bg-gray-100 dark:bg-white/10 py-3 text-sm font-semibold text-gray-700 dark:text-white transition-all hover:bg-gray-200 dark:hover:bg-white/20 active:scale-[0.98]"
             >
               {t('btn_close') || 'Close'}
             </button>

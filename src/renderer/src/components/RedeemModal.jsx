@@ -197,7 +197,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className="relative w-full max-w-md bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+          className="relative w-full max-w-md bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -215,16 +215,18 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
 
           {/* Content */}
           <div className="px-6 pb-6 pt-4 overflow-y-auto flex-1">
-            <h2 className="text-xl font-bold text-white text-center mb-2">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white text-center mb-2">
               {t('redeem_title') || 'Redeem Akses VR'}
             </h2>
-            <p className="text-sm text-white/50 text-center mb-4">
+            <p className="text-sm text-gray-500 dark:text-white/50 text-center mb-4">
               {t('redeem_desc') || 'Tukarkan nomor pesanan Shopee untuk mendapatkan akses'}
             </p>
 
             {/* Current Access Display (like website) */}
             <div className="mb-4">
-              <div className="text-xs text-white/50 mb-2">Akses yang sudah dimiliki:</div>
+              <div className="text-xs text-gray-500 dark:text-white/50 mb-2">
+                Akses yang sudah dimiliki:
+              </div>
               <div className="flex flex-wrap gap-2">
                 {allCategories.map((cat) => {
                   const hasAccess = accessTypes.some((t) => t.toLowerCase() === cat.toLowerCase())
@@ -234,7 +236,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
                       className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
                         hasAccess
                           ? 'bg-[#0081FB]/20 text-[#0081FB] border-[#0081FB]/30'
-                          : 'bg-white/5 text-white/30 border-white/10'
+                          : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/30 border-gray-200 dark:border-white/10'
                       }`}
                     >
                       {cat.toUpperCase()}
@@ -246,7 +248,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
 
             {/* Full Access Message */}
             {hasAllAccess && (
-              <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
+              <div className="mb-4 p-3 rounded-lg bg-[#0081FB]/10 border border-[#0081FB]/20 text-[#0081FB] text-sm">
                 <Icon icon="mdi:check-circle" className="inline h-4 w-4 mr-1" />
                 Akses Anda sudah lengkap (Standalone, PCVR, QGO). Tidak perlu melakukan penukaran
                 lagi.
@@ -255,7 +257,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
 
             {/* Cooldown Warning */}
             {cooldownTime > 0 && (
-              <div className="mb-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm">
+              <div className="mb-4 p-3 rounded-lg bg-[#0081FB]/10 border border-[#0081FB]/20 text-[#0081FB] text-sm">
                 <Icon icon="mdi:clock-outline" className="inline h-4 w-4 mr-1" />
                 Tunggu {cooldownTime} detik sebelum mencari lagi...
               </div>
@@ -265,7 +267,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
             {step === 'search' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-white/70 mb-2">
+                  <label className="block text-sm font-medium text-gray-600 dark:text-white/70 mb-2">
                     {t('order_number') || 'Nomor Pesanan'}
                   </label>
                   <input
@@ -273,7 +275,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
                     value={orderNumber}
                     onChange={(e) => setOrderNumber(e.target.value)}
                     placeholder="Contoh: 240101ABC123XYZ"
-                    className={`w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-[#0081FB]/50 ${hasAllAccess ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/30 focus:outline-none focus:border-[#0081FB]/50 ${hasAllAccess ? 'opacity-50 cursor-not-allowed' : ''}`}
                     disabled={loading || hasAllAccess}
                   />
                 </div>
@@ -300,30 +302,32 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
             {step === 'found' && orderData && (
               <div className="space-y-4">
                 {/* Order Info */}
-                <div className="bg-white/5 rounded-xl p-4 space-y-2">
-                  <div className="text-sm font-medium text-white/70 mb-2 flex items-center gap-2">
+                <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4 space-y-2">
+                  <div className="text-sm font-medium text-gray-600 dark:text-white/70 mb-2 flex items-center gap-2">
                     <Icon icon="mdi:clipboard-text" className="h-4 w-4" />
                     Informasi Pesanan
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/50 text-sm">Kategori</span>
-                    <span className="text-white text-sm font-medium">{orderData.category}</span>
+                    <span className="text-gray-500 dark:text-white/50 text-sm">Kategori</span>
+                    <span className="text-gray-900 dark:text-white text-sm font-medium">
+                      {orderData.category}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/50 text-sm">Varian</span>
-                    <span className="text-white text-sm font-medium">
+                    <span className="text-gray-500 dark:text-white/50 text-sm">Varian</span>
+                    <span className="text-gray-900 dark:text-white text-sm font-medium">
                       {orderData.orderName?.join(', ') || '-'}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/50 text-sm">Jumlah</span>
-                    <span className="text-white text-sm font-medium">
+                    <span className="text-gray-500 dark:text-white/50 text-sm">Jumlah</span>
+                    <span className="text-gray-900 dark:text-white text-sm font-medium">
                       {orderData.quantity || '-'}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/50 text-sm">Tanggal</span>
-                    <span className="text-white text-sm font-medium">
+                    <span className="text-gray-500 dark:text-white/50 text-sm">Tanggal</span>
+                    <span className="text-gray-900 dark:text-white text-sm font-medium">
                       {orderData.date ? new Date(orderData.date).toLocaleDateString('id-ID') : '-'}
                     </span>
                   </div>
@@ -332,8 +336,8 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
                     <span
                       className={`text-xs px-2 py-1 rounded-full ${
                         orderData.isRedeemed
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-yellow-500/20 text-yellow-400'
+                          ? 'bg-[#0081FB]/15 text-[#0081FB] border border-[#0081FB]/25'
+                          : 'bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-white/50 border border-gray-200 dark:border-white/10'
                       }`}
                     >
                       {orderData.isRedeemed ? 'Sudah Diklaim' : 'Belum Diklaim'}
@@ -344,7 +348,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
                 {/* Access Token Input (only if not redeemed) */}
                 {!orderData.isRedeemed && (
                   <div>
-                    <label className="block text-sm font-medium text-white/70 mb-2">
+                    <label className="block text-sm font-medium text-gray-600 dark:text-white/70 mb-2">
                       Token Akses <span className="text-red-400">*</span>
                     </label>
                     <input
@@ -352,10 +356,10 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
                       value={accessToken}
                       onChange={(e) => setAccessToken(e.target.value)}
                       placeholder="Masukkan token dari admin"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-[#0081FB]/50"
+                      className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/30 focus:outline-none focus:border-[#0081FB]/50"
                       disabled={loading}
                     />
-                    <p className="text-xs text-white/40 mt-1">
+                    <p className="text-xs text-gray-400 dark:text-white/40 mt-1">
                       💡 Token akses diberikan oleh admin untuk keamanan
                     </p>
                   </div>
@@ -365,7 +369,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
                 <div className="flex gap-3">
                   <button
                     onClick={resetToSearch}
-                    className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-xl font-medium transition-colors"
+                    className="flex-1 py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white rounded-xl font-medium transition-colors"
                   >
                     Kembali
                   </button>
@@ -393,8 +397,8 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
                 <div className="w-16 h-16 mx-auto bg-green-500/20 rounded-full flex items-center justify-center">
                   <Icon icon="mdi:check-circle" className="h-10 w-10 text-green-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-white">Berhasil!</h3>
-                <p className="text-sm text-white/60">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Berhasil!</h3>
+                <p className="text-sm text-gray-500 dark:text-white/60">
                   Email berhasil ditambahkan ke kategori terkait:
                 </p>
                 <div className="flex flex-wrap justify-center gap-2">
@@ -409,7 +413,7 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
                 </div>
                 <button
                   onClick={onClose}
-                  className="w-full py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-medium transition-colors mt-4"
+                  className="w-full py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-900 dark:text-white rounded-xl font-medium transition-colors mt-4"
                 >
                   Tutup
                 </button>
@@ -422,11 +426,11 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
                 <div className="w-16 h-16 mx-auto bg-red-500/20 rounded-full flex items-center justify-center">
                   <Icon icon="mdi:alert-circle" className="h-10 w-10 text-red-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-white">Error</h3>
-                <p className="text-sm text-white/60">{error}</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Error</h3>
+                <p className="text-sm text-gray-500 dark:text-white/60">{error}</p>
                 <button
                   onClick={resetToSearch}
-                  className="w-full py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-medium transition-colors"
+                  className="w-full py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-900 dark:text-white rounded-xl font-medium transition-colors"
                 >
                   Coba Lagi
                 </button>

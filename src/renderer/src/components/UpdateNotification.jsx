@@ -146,8 +146,8 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
             exit={{ opacity: 0, y: 10 }}
             className={`rounded-xl border overflow-hidden ${className} ${
               updateState === 'ready'
-                ? 'bg-[#0d2818] border-green-700'
-                : 'bg-[#0a1929] border-[#0066cc]'
+                ? 'bg-green-50 dark:bg-[#0d2818] border-green-300 dark:border-green-700'
+                : 'bg-blue-50 dark:bg-[#0a1929] border-blue-300 dark:border-[#0066cc]'
             }`}
           >
             <div className="p-3">
@@ -156,7 +156,9 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
                 <div className="flex items-center gap-2">
                   <div
                     className={`rounded-lg p-1.5 ${
-                      updateState === 'ready' ? 'bg-[#1a4028]' : 'bg-[#0a2840]'
+                      updateState === 'ready'
+                        ? 'bg-green-100 dark:bg-[#1a4028]'
+                        : 'bg-blue-100 dark:bg-[#0a2840]'
                     }`}
                   >
                     {updateState === 'downloading' ? (
@@ -168,7 +170,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
                     )}
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-white">
+                    <p className="text-xs font-medium text-gray-900 dark:text-white">
                       {updateState === 'ready'
                         ? t('update_ready') || 'Update Ready!'
                         : updateState === 'downloading'
@@ -176,7 +178,9 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
                           : t('update_available') || 'Update Available'}
                     </p>
                     {updateInfo?.version && (
-                      <p className="text-[10px] text-white/50">v{updateInfo.version}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-white/50">
+                        v{updateInfo.version}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -185,7 +189,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
                 {updateState !== 'downloading' && (
                   <button
                     onClick={handleDismiss}
-                    className="rounded p-1 text-white/30 hover:bg-white/10 hover:text-white/60 transition-colors"
+                    className="rounded p-1 text-gray-400 dark:text-white/30 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-600 dark:hover:text-white/60 transition-colors"
                   >
                     <Icon icon="mdi:close" className="h-3 w-3" />
                   </button>
@@ -195,7 +199,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
               {/* Progress bar (downloading state) */}
               {updateState === 'downloading' && (
                 <div className="mt-2">
-                  <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
                     <motion.div
                       className="h-full bg-[#0081FB] rounded-full"
                       initial={{ width: 0 }}
@@ -203,7 +207,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
                       transition={{ duration: 0.3 }}
                     />
                   </div>
-                  <p className="text-[10px] text-white/40 mt-1 text-right">
+                  <p className="text-[10px] text-gray-500 dark:text-white/40 mt-1 text-right">
                     {downloadProgress.toFixed(0)}%
                   </p>
                 </div>
@@ -213,7 +217,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
               {updateState === 'available' && !showModal && (
                 <button
                   onClick={() => setShowModal(true)}
-                  className="mt-2 w-full py-1.5 px-3 rounded-lg bg-[#0a2840] hover:bg-[#0d3355] border border-[#0066cc] text-[#0081FB] text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                  className="mt-2 w-full py-1.5 px-3 rounded-lg bg-blue-100 dark:bg-[#0a2840] hover:bg-blue-200 dark:hover:bg-[#0d3355] border border-blue-300 dark:border-[#0066cc] text-[#0081FB] text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
                 >
                   <Icon icon="line-md:download-loop" className="h-3.5 w-3.5" />
                   {t('update_download_now') || 'Download Now'}
@@ -223,7 +227,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
               {updateState === 'ready' && (
                 <button
                   onClick={handleInstall}
-                  className="mt-2 w-full py-1.5 px-3 rounded-lg bg-[#1a4028] hover:bg-[#225030] border border-green-700 text-green-400 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                  className="mt-2 w-full py-1.5 px-3 rounded-lg bg-green-100 dark:bg-[#1a4028] hover:bg-green-200 dark:hover:bg-[#225030] border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
                 >
                   <Icon icon="line-md:rotate-270" className="h-3.5 w-3.5" />
                   {t('update_restart') || 'Restart to Update'}

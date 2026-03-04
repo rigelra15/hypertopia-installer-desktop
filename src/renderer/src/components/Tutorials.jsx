@@ -12,23 +12,23 @@ export function Tutorials({ onNavigate }) {
 
   if (selectedTutorial) {
     return (
-      <div className="flex flex-1 flex-col bg-[#111] overflow-hidden">
+      <div className="flex flex-1 flex-col bg-gray-50 dark:bg-[#0a0a0a] overflow-hidden">
         {/* Detail Header */}
-        <div className="flex items-center gap-4 border-b border-white/10 bg-[#111] p-4">
+        <div className="flex items-center gap-4 border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#111] p-4">
           <button
             onClick={() => {
               setSelectedTutorial(null)
               setActiveTabId(null)
             }}
-            className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition-all hover:bg-white/10 hover:text-white"
+            className="flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-white/70 transition-all hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white"
           >
             <Icon icon="mdi:arrow-left" className="h-4 w-4" />
             <span>{t('tutorial_back')}</span>
           </button>
-          <div className="flex items-center gap-2 text-sm text-white/50">
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-white/50">
             <span>{t('tab_tutorials')}</span>
             <Icon icon="mdi:chevron-right" className="h-4 w-4" />
-            <span className="text-white">{t(selectedTutorial.titleKey)}</span>
+            <span className="text-gray-900 dark:text-white">{t(selectedTutorial.titleKey)}</span>
           </div>
         </div>
 
@@ -40,8 +40,12 @@ export function Tutorials({ onNavigate }) {
                 <Icon icon={selectedTutorial.icon} className="h-8 w-8" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">{t(selectedTutorial.titleKey)}</h2>
-                <p className="mt-2 text-white/60">{t(selectedTutorial.descriptionKey)}</p>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {t(selectedTutorial.titleKey)}
+                </h2>
+                <p className="mt-2 text-gray-600 dark:text-white/60">
+                  {t(selectedTutorial.descriptionKey)}
+                </p>
               </div>
             </div>
 
@@ -87,21 +91,21 @@ export function Tutorials({ onNavigate }) {
                   </div>
                 )}
 
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <Icon icon="mdi:format-list-numbered" className="text-[#0081FB]" />
                   {t('tutorial_steps')}
                 </h3>
 
                 {selectedTutorial.tabs && (
-                  <div className="flex flex-wrap gap-2 p-1 bg-white/5 rounded-xl border border-white/10 w-fit">
+                  <div className="flex flex-wrap gap-2 p-1 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 w-fit">
                     {selectedTutorial.tabs.map((tab) => (
                       <button
                         key={tab.id}
                         onClick={() => setActiveTabId(tab.id)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                           activeTabId === tab.id
-                            ? 'bg-[#0081FB] text-white shadow-lg shadow-[#0081FB]/20'
-                            : 'text-white/60 hover:text-white hover:bg-white/5'
+                            ? 'bg-[#0081FB] text-white'
+                            : 'text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/5'
                         }`}
                       >
                         {t(tab.titleKey)}
@@ -117,17 +121,19 @@ export function Tutorials({ onNavigate }) {
                   <div key={index} className="relative pl-8">
                     {/* Step Connector Line */}
                     {index !== array.length - 1 && (
-                      <div className="absolute left-[11px] top-8 -bottom-6 w-0.5 bg-white/10"></div>
+                      <div className="absolute left-[11px] top-8 -bottom-6 w-0.5 bg-gray-200 dark:bg-white/10"></div>
                     )}
 
                     {/* Step Number Bubble */}
-                    <div className="absolute left-0 top-0 flex h-6 w-6 items-center justify-center rounded-full bg-[#0081FB] text-xs font-bold text-white ring-4 ring-[#111]">
+                    <div className="absolute left-0 top-0 flex h-6 w-6 items-center justify-center rounded-full bg-[#0081FB] text-xs font-bold text-white ring-4 ring-gray-50 dark:ring-[#0a0a0a]">
                       {index + 1}
                     </div>
 
                     {/* Step Content */}
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-4 transition-all hover:border-white/20 hover:bg-white/10">
-                      <p className="text-sm leading-relaxed text-white/90">{t(step.textKey)}</p>
+                    <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 p-4 transition-all hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/10">
+                      <p className="text-sm leading-relaxed text-gray-700 dark:text-white/90">
+                        {t(step.textKey)}
+                      </p>
 
                       {step.link && (
                         <button
@@ -141,7 +147,7 @@ export function Tutorials({ onNavigate }) {
 
                       {step.image && (
                         <div
-                          className="mt-4 overflow-hidden rounded-lg border border-white/10 cursor-zoom-in group/image w-fit"
+                          className="mt-4 overflow-hidden rounded-lg border border-gray-200 dark:border-white/10 cursor-zoom-in group/image w-fit"
                           onClick={() => setPreviewImage(step.image)}
                         >
                           <img
@@ -155,9 +161,12 @@ export function Tutorials({ onNavigate }) {
                       {/* Sub Steps (Nested Content) */}
                       {step.subSteps &&
                         step.subSteps.map((subStep, subIndex) => (
-                          <div key={subIndex} className="mt-6 pt-6 border-t border-white/10">
+                          <div
+                            key={subIndex}
+                            className="mt-6 pt-6 border-t border-gray-200 dark:border-white/10"
+                          >
                             {subStep.textKey && (
-                              <p className="text-sm leading-relaxed text-white/90">
+                              <p className="text-sm leading-relaxed text-gray-700 dark:text-white/90">
                                 {t(subStep.textKey)}
                               </p>
                             )}
@@ -174,7 +183,7 @@ export function Tutorials({ onNavigate }) {
 
                             {subStep.image && (
                               <div
-                                className="mt-4 overflow-hidden rounded-lg border border-white/10 cursor-zoom-in group/image w-fit"
+                                className="mt-4 overflow-hidden rounded-lg border border-gray-200 dark:border-white/10 cursor-zoom-in group/image w-fit"
                                 onClick={() => setPreviewImage(subStep.image)}
                               >
                                 <img
@@ -204,7 +213,7 @@ export function Tutorials({ onNavigate }) {
               <img
                 src={previewImage}
                 alt="Preview"
-                className="max-h-[90vh] max-w-full rounded-lg object-contain shadow-2xl"
+                className="max-h-[90vh] max-w-full rounded-lg object-contain"
               />
               <button
                 className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors"
@@ -220,74 +229,41 @@ export function Tutorials({ onNavigate }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-[#111] overflow-hidden">
+    <div className="flex flex-1 flex-col bg-gray-50 dark:bg-[#0a0a0a] overflow-hidden">
       {/* Header */}
-      <div className="border-b border-white/10 bg-[#111] p-4 text-center md:text-left">
-        <h2 className="text-lg font-bold text-white flex items-center gap-2 justify-center md:justify-start">
-          <Icon icon="mdi:book-open-page-variant" className="text-[#0081FB] hidden md:block" />
-          <span className="text-[#0081FB]">HyperTopia</span> {t('tutorials_title') || 'Tutorials'}
-        </h2>
-        <p className="text-xs text-white/40">
-          {t('tutorials_subtitle') || 'Guides and help for using the installer'}
-        </p>
+      <div className="border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#111] p-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0081FB]/10">
+            <Icon icon="mdi:book-open-page-variant" className="h-5 w-5 text-[#0081FB]" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <span className="text-[#0081FB]">HyperTopia</span> {t('tutorials_title') || 'Tutorials'}
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-white/50">
+              {t('tutorials_subtitle') || 'Guides and help for using the installer'}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Info Banner - Read Tutorials First */}
-      <div className="flex items-start gap-2 border-b border-green-500/20 bg-green-500/5 px-4 py-3">
-        <Icon icon="mdi:lightbulb-outline" className="h-4 w-4 shrink-0 text-green-500 mt-0.5" />
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] text-white/80 leading-relaxed">
-            <span className="font-semibold text-green-400">{t('tutorials_info_title')}</span>{' '}
-            {t('tutorials_info_desc')}
-          </p>
+      <div className="border-b border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#191919] p-4">
+        <div className="p-4 bg-[#0081FB]/10 border-l-4 border-[#0081FB] rounded">
+          <div className="flex items-start gap-2">
+            <Icon icon="mdi:lightbulb-outline" className="h-4 w-4 shrink-0 text-[#0081FB] mt-0.5" />
+            <p className="text-sm text-gray-800 dark:text-white/90 leading-relaxed">
+              <span className="font-semibold text-[#0081FB]">{t('tutorials_info_title')}</span>{' '}
+              {t('tutorials_info_desc')}
+            </p>
+          </div>
         </div>
       </div>
 
       {/* List Content */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {tutorials.map((tutorial, index) => {
-            // Unique gradient theme per card
-            const themes = [
-              {
-                gradient: 'from-[#0081FB] to-[#00D4FF]',
-                iconBg: 'bg-[#0081FB]/10',
-                iconHoverBg: 'group-hover:bg-[#0081FB]',
-                accent: 'text-[#0081FB]',
-                borderHover: 'hover:border-[#0081FB]/40',
-                glow: 'group-hover:shadow-[#0081FB]/10',
-                badgeBg: 'bg-[#0081FB]/10 text-[#0081FB]'
-              },
-              {
-                gradient: 'from-[#A855F7] to-[#D946EF]',
-                iconBg: 'bg-purple-500/10',
-                iconHoverBg: 'group-hover:bg-purple-500',
-                accent: 'text-purple-400',
-                borderHover: 'hover:border-purple-500/40',
-                glow: 'group-hover:shadow-purple-500/10',
-                badgeBg: 'bg-purple-500/10 text-purple-400'
-              },
-              {
-                gradient: 'from-[#10B981] to-[#34D399]',
-                iconBg: 'bg-emerald-500/10',
-                iconHoverBg: 'group-hover:bg-emerald-500',
-                accent: 'text-emerald-400',
-                borderHover: 'hover:border-emerald-500/40',
-                glow: 'group-hover:shadow-emerald-500/10',
-                badgeBg: 'bg-emerald-500/10 text-emerald-400'
-              },
-              {
-                gradient: 'from-[#F59E0B] to-[#F97316]',
-                iconBg: 'bg-amber-500/10',
-                iconHoverBg: 'group-hover:bg-amber-500',
-                accent: 'text-amber-400',
-                borderHover: 'hover:border-amber-500/40',
-                glow: 'group-hover:shadow-amber-500/10',
-                badgeBg: 'bg-amber-500/10 text-amber-400'
-              }
-            ]
-            const theme = themes[index % themes.length]
-
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {tutorials.map((tutorial) => {
             // Count total steps
             const stepCount = tutorial.tabs
               ? tutorial.tabs.reduce((sum, tab) => sum + (tab.steps?.length || 0), 0)
@@ -300,47 +276,36 @@ export function Tutorials({ onNavigate }) {
                   setSelectedTutorial(tutorial)
                   setActiveTabId(tutorial.tabs?.[0]?.id || null)
                 }}
-                className={`group relative overflow-hidden rounded-2xl border border-white/8 bg-white/3 text-left transition-all duration-300 ${theme.borderHover} hover:bg-white/6 hover:shadow-xl ${theme.glow} hover:-translate-y-0.5 flex flex-col`}
+                className="group relative overflow-hidden rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0f0f0f] text-left transition-colors hover:border-[#0081FB]/30 flex flex-col"
               >
-                {/* Gradient Top Bar */}
-                <div
-                  className={`h-1 w-full bg-linear-to-r ${theme.gradient} opacity-80 group-hover:opacity-100 transition-opacity`}
-                />
+                {/* Top accent strip */}
+                <div className="h-0.5 w-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF]" />
 
                 {/* Card Content */}
                 <div className="p-4 flex flex-col flex-1">
                   {/* Icon Row */}
                   <div className="flex items-start justify-between mb-4">
-                    <div
-                      className={`w-11 h-11 rounded-xl ${theme.iconBg} ${theme.iconHoverBg} group-hover:text-white flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg`}
-                    >
-                      <Icon
-                        icon={tutorial.icon}
-                        className={`h-5 w-5 ${theme.accent} group-hover:text-white transition-colors`}
-                      />
+                    <div className="w-11 h-11 rounded-xl bg-[#0081FB]/10 flex items-center justify-center transition-colors group-hover:bg-[#0081FB]/20">
+                      <Icon icon={tutorial.icon} className="h-5 w-5 text-[#0081FB]" />
                     </div>
                     {/* Step Count Badge */}
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme.badgeBg}`}
-                    >
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#0081FB]/10 text-[#0081FB]">
                       {stepCount} {t('steps') || 'steps'}
                     </span>
                   </div>
 
                   {/* Title */}
-                  <h3 className="font-bold text-[13px] text-white mb-1.5 line-clamp-2 group-hover:text-white/95 transition-colors">
+                  <h3 className="font-semibold text-[13px] text-gray-900 dark:text-white mb-1.5 line-clamp-2">
                     {t(tutorial.titleKey)}
                   </h3>
 
                   {/* Description */}
-                  <p className="text-[11px] text-white/40 line-clamp-2 flex-1 leading-relaxed">
+                  <p className="text-[11px] text-gray-500 dark:text-white/50 line-clamp-2 flex-1 leading-relaxed">
                     {t(tutorial.descriptionKey)}
                   </p>
 
                   {/* Read More CTA */}
-                  <div
-                    className={`flex items-center text-xs font-semibold ${theme.accent} mt-4 pt-3 border-t border-white/6`}
-                  >
+                  <div className="flex items-center text-xs font-semibold text-[#0081FB] mt-4 pt-3 border-t border-gray-200 dark:border-white/10">
                     <span>{t('tutorial_read_guide')}</span>
                     <Icon
                       icon="mdi:arrow-right"
@@ -348,11 +313,6 @@ export function Tutorials({ onNavigate }) {
                     />
                   </div>
                 </div>
-
-                {/* Subtle corner glow on hover */}
-                <div
-                  className={`absolute -top-12 -right-12 w-24 h-24 bg-linear-to-br ${theme.gradient} rounded-full opacity-0 group-hover:opacity-[0.07] blur-2xl transition-opacity duration-500`}
-                />
               </button>
             )
           })}

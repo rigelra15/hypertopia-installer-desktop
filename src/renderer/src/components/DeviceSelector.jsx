@@ -129,7 +129,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
         <button
           onClick={() => setIsOpen(!isOpen)}
           disabled={isLoading && devices.length === 0}
-          className="w-full flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white/70 transition-all hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#0081FB]/50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3 py-2 text-xs font-medium text-gray-600 dark:text-white/70 transition-all hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-[#0081FB]/50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {/* Selected Device Display */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -139,7 +139,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
                   {selectedDevice.model}
                   {selectedDevice.state === 'unauthorized' ? ' (Unauthorized)' : ''}
                 </span>
-                <span className="text-white/30">-</span>
+                <span className="text-gray-400 dark:text-white/30">-</span>
                 <Icon
                   icon={getBatteryIcon(selectedDevice.battery)}
                   className={`h-4 w-4 shrink-0 ${getBatteryColor(selectedDevice.battery)}`}
@@ -149,7 +149,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
                 </span>
               </>
             ) : (
-              <span className="text-white/40">
+              <span className="text-gray-400 dark:text-white/40">
                 {devices.length === 0
                   ? isLoading && !hasScannedOnce
                     ? t('scanning')
@@ -177,15 +177,15 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
 
         {/* Dropdown Menu */}
         {isOpen && devices.length > 0 && (
-          <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-lg border border-white/10 bg-[#0a0a0a] py-1 shadow-xl">
+          <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-lg bg-white dark:bg-[#0a0a0a] py-1 shadow-xl">
             {devices.map((dev) => (
               <button
                 key={dev.serial}
                 onClick={() => handleSelectDevice(dev.serial)}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-all hover:bg-white/10 ${
+                className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-all hover:bg-gray-100 dark:hover:bg-white/10 ${
                   dev.serial === selectedSerial
-                    ? 'bg-[#0081FB]/20 text-white'
-                    : 'text-white/70 hover:text-white'
+                    ? 'bg-[#0081FB]/20 text-gray-900 dark:text-white'
+                    : 'text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
                 {/* Device Info */}
@@ -198,7 +198,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
                   </div>
                 </div>
 
-                <span className="text-white/30">-</span>
+                <span className="text-gray-400 dark:text-white/30">-</span>
 
                 {/* Battery Icon */}
                 <Icon
@@ -227,8 +227,8 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
       {selectedSerial &&
         devices.find((d) => d.serial === selectedSerial)?.storage?.total &&
         devices.find((d) => d.serial === selectedSerial)?.storage?.total !== '0' && (
-          <div className="mt-3 rounded-lg border border-white/5 bg-white/5 p-3">
-            <div className="flex items-center justify-between text-[10px] text-white/70 mb-1">
+          <div className="mt-3 rounded-lg border border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-3">
+            <div className="flex items-center justify-between text-[10px] text-gray-600 dark:text-white/70 mb-1">
               <span>{t('storage_label')}</span>
               <span>
                 {devices.find((d) => d.serial === selectedSerial)?.storage?.free}{' '}
@@ -236,7 +236,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
                 {devices.find((d) => d.serial === selectedSerial)?.storage?.total}
               </span>
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${(() => {
                   const device = devices.find((d) => d.serial === selectedSerial)
@@ -250,7 +250,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
                 }}
               ></div>
             </div>
-            <div className="mt-1 text-right text-[9px] text-white/40">
+            <div className="mt-1 text-right text-[9px] text-gray-400 dark:text-white/40">
               {devices.find((d) => d.serial === selectedSerial)?.storage?.percent || '0%'}{' '}
               {t('storage_used')}
             </div>
@@ -267,11 +267,11 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
             </span>
 
             {/* Tooltip Popup */}
-            <div className="pointer-events-none absolute bottom-full right-0 z-100 mb-2 w-64 translate-y-1 rounded-xl border border-white/10 bg-[#1a1a1a] p-3.5 shadow-2xl opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
+            <div className="pointer-events-none absolute bottom-full right-0 z-100 mb-2 w-64 translate-y-1 rounded-xl bg-white dark:bg-[#1a1a1a] p-3.5 shadow-2xl opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
               <p className="mb-2 text-[11px] font-bold text-yellow-400">
                 {t('troubleshoot_title')}
               </p>
-              <ul className="space-y-1.5 text-[10px] leading-relaxed text-white/70">
+              <ul className="space-y-1.5 text-[10px] leading-relaxed text-gray-600 dark:text-white/70">
                 <li className="flex items-start gap-1.5">
                   <span className="mt-0.5 shrink-0 text-yellow-500">•</span>
                   <span>{t('troubleshoot_cable')}</span>
@@ -290,7 +290,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
                 </li>
               </ul>
               {/* Tooltip Arrow */}
-              <div className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-b border-r border-white/10 bg-[#1a1a1a]"></div>
+              <div className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-b border-r border-gray-200 dark:border-white/10 bg-white dark:bg-[#1a1a1a]"></div>
             </div>
           </div>
         </div>

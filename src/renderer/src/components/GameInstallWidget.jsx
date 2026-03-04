@@ -159,17 +159,17 @@ export default function GameInstallWidget({
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="fixed bottom-4 right-4 z-50"
       >
-        <div className="rounded-2xl border border-white/20 bg-[#111] shadow-2xl overflow-hidden min-w-[300px] max-w-[360px]">
+        <div className="rounded-2xl bg-white dark:bg-[#111] shadow-2xl overflow-hidden min-w-[300px] max-w-[360px]">
           {/* Header - Always visible, clickable to expand/collapse */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center justify-between p-3 hover:bg-white/5 transition-colors"
+            className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className={`shrink-0 rounded-full p-2 ${getStepBgColor()}`}>{getStepIcon()}</div>
               <div className="text-left min-w-0 flex-1">
-                <p className="text-sm font-semibold text-white truncate">{getStepLabel()}</p>
-                <p className="text-xs text-white/50 truncate">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{getStepLabel()}</p>
+                <p className="text-xs text-gray-500 dark:text-white/50 truncate">
                   {isComplete
                     ? gameTitle
                     : isError
@@ -187,21 +187,21 @@ export default function GameInstallWidget({
                     e.stopPropagation()
                     onClose?.()
                   }}
-                  className="p-1 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-400 dark:text-white/50 hover:text-gray-900 dark:hover:text-white transition-colors"
                 >
                   <Icon icon="mdi:close" className="h-4 w-4" />
                 </button>
               )}
               <Icon
                 icon="mdi:chevron-down"
-                className={`h-5 w-5 text-white/50 transition-transform ${isExpanded ? '' : 'rotate-180'}`}
+                className={`h-5 w-5 text-gray-400 dark:text-white/50 transition-transform ${isExpanded ? '' : 'rotate-180'}`}
               />
             </div>
           </button>
 
           {/* Progress bar - Always visible in collapsed state too */}
           {!isComplete && !isError && (
-            <div className="h-1 bg-white/10">
+            <div className="h-1 bg-gray-200 dark:bg-white/10">
               <motion.div
                 className={`h-full bg-gradient-to-r ${getProgressColor()}`}
                 initial={{ width: 0 }}
@@ -221,10 +221,10 @@ export default function GameInstallWidget({
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-                <div className="p-3 pt-2 border-t border-white/5">
+                <div className="p-3 pt-2 border-t border-gray-100 dark:border-white/5">
                   {/* Game title - only show when in progress, not when complete */}
                   {!isComplete && (
-                    <div className="flex items-center gap-2 text-xs text-white/60 mb-2">
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-white/60 mb-2">
                       <Icon icon="mdi:gamepad-variant" className="h-3.5 w-3.5" />
                       <span className="truncate">{gameTitle}</span>
                     </div>
@@ -234,7 +234,7 @@ export default function GameInstallWidget({
                   {!isComplete && !isError && step === 'DOWNLOADING' && totalBytes > 0 && (
                     <div className="space-y-2 mb-3">
                       {/* Size progress */}
-                      <div className="flex items-center justify-between text-xs text-white/60">
+                      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-white/60">
                         <span>
                           {formatSize(downloadedBytes)} / {formatSize(totalBytes)}
                         </span>
@@ -247,7 +247,7 @@ export default function GameInstallWidget({
                       </div>
 
                       {/* Speed info */}
-                      <div className="flex items-center gap-2 text-xs text-white/40">
+                      <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-white/40">
                         <Icon icon="mdi:speedometer" className="h-3.5 w-3.5" />
                         <span>{speedDisplay}</span>
                       </div>
@@ -272,7 +272,7 @@ export default function GameInstallWidget({
                                   ? 'bg-green-500'
                                   : isActive
                                     ? `bg-gradient-to-r ${getProgressColor()}`
-                                    : 'bg-white/10'
+                                    : 'bg-gray-200 dark:bg-white/10'
                               }`}
                             />
                             {idx < 2 && <div className="w-1" />}
@@ -284,7 +284,7 @@ export default function GameInstallWidget({
 
                   {/* Other step details */}
                   {!isComplete && !isError && step !== 'DOWNLOADING' && (
-                    <div className="flex items-center gap-2 py-2 text-sm text-white/60">
+                    <div className="flex items-center gap-2 py-2 text-sm text-gray-500 dark:text-white/60">
                       <Icon icon="mdi:loading" className="h-4 w-4 animate-spin" />
                       <span>{detail || getStepLabel()}</span>
                     </div>
@@ -299,7 +299,7 @@ export default function GameInstallWidget({
                       </div>
                       <button
                         onClick={() => onClose?.()}
-                        className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 text-sm font-medium transition-colors"
+                        className="w-full py-2 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 dark:text-white/70 text-sm font-medium transition-colors"
                       >
                         {t('close') || 'Close'}
                       </button>
@@ -310,14 +310,14 @@ export default function GameInstallWidget({
                   {isComplete && (
                     <div className="space-y-2">
                       {totalBytes > 0 && (
-                        <div className="flex items-center gap-2 text-xs text-white/40">
+                        <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-white/40">
                           <Icon icon="mdi:harddisk" className="h-3.5 w-3.5" />
                           <span>{formatSize(totalBytes)}</span>
                         </div>
                       )}
                       <button
                         onClick={() => onClose?.()}
-                        className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 text-sm font-medium transition-colors"
+                        className="w-full py-2 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 dark:text-white/70 text-sm font-medium transition-colors"
                       >
                         {t('close') || 'Close'}
                       </button>
@@ -326,7 +326,7 @@ export default function GameInstallWidget({
 
                   {/* Info text when not complete/error */}
                   {!isComplete && !isError && (
-                    <p className="text-xs text-white/40 text-center">
+                    <p className="text-xs text-gray-400 dark:text-white/40 text-center">
                       {t('install_background_info') || 'Installation running in background'}
                     </p>
                   )}

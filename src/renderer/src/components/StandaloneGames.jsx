@@ -39,7 +39,8 @@ const compareVersions = (versionA, versionB) => {
 export function StandaloneGames({
   selectedDevice: connectedDevice,
   pendingDeepLinkDownload,
-  onDeepLinkProcessed
+  onDeepLinkProcessed,
+  onGameCountChange
 }) {
   const { t } = useLanguage()
   const { user, accessTypes } = useAuth()
@@ -66,9 +67,17 @@ export function StandaloneGames({
   const [totalItems, setTotalItems] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
 
+  // Report filtered count up to parent for tab badge
+  useEffect(() => {
+    if (totalItems > 0) onGameCountChange?.(totalItems)
+  }, [totalItems, onGameCountChange])
+
   // Game detail modal state
   const [selectedGame, setSelectedGame] = useState(null)
   const [showGameDetail, setShowGameDetail] = useState(false)
+
+  // View mode: 'grid' | 'list'
+  const [viewMode, setViewMode] = useState('grid')
 
   const FIREBASE_DB_URL =
     'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
@@ -244,17 +253,17 @@ export function StandaloneGames({
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[#111]">
+    <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-[#111]">
       {/* Header */}
-      <div className="flex flex-col gap-3 border-b border-white/10 bg-[#191919] p-4">
+      <div className="flex flex-col gap-3 border-b border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-[#191919] p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-[#0081FB] to-[#00C2FF] shadow-lg shadow-[#0081FB]/20">
               <Icon icon="mdi:gamepad-variant" className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">{t('standalone_games_title')}</h2>
-              <p className="text-xs text-white/50">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('standalone_games_title')}</h2>
+              <p className="text-xs text-gray-500 dark:text-white/50">
                 {isLoading
                   ? t('standalone_games_loading')
                   : `${totalItems} ${t('standalone_games_count')}`}
@@ -264,7 +273,7 @@ export function StandaloneGames({
           <button
             onClick={handleRefresh}
             disabled={isLoading}
-            className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm text-white/70 transition-all hover:bg-white/10 hover:text-white disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-gray-200 dark:bg-white/5 px-3 py-2 text-sm text-gray-500 dark:text-white/70 transition-all hover:bg-gray-300 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
           >
             <Icon
               icon={isLoading ? 'mdi:loading' : 'mdi:refresh'}
@@ -280,7 +289,7 @@ export function StandaloneGames({
           <div className="relative flex-1">
             <Icon
               icon="mdi:magnify"
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40"
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-white/40"
             />
             <input
               type="text"
@@ -296,7 +305,7 @@ export function StandaloneGames({
                 }, 300)
               }}
               placeholder={t('search_placeholder')}
-              className="w-full rounded-lg border border-white/10 bg-[#0a0a0a] py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-[#0081FB]/50 transition-colors"
+              className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] py-2 pl-10 pr-4 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/30 outline-none focus:border-[#0081FB]/50 transition-colors"
             />
           </div>
 
@@ -304,7 +313,7 @@ export function StandaloneGames({
           <select
             value={itemsPerPage}
             onChange={(e) => setItemsPerPage(Number(e.target.value))}
-            className="rounded-lg border border-white/10 bg-[#0a0a0a] px-2 py-2 text-sm text-white outline-none focus:border-[#0081FB]/50 transition-colors cursor-pointer"
+            className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] px-2 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-[#0081FB]/50 transition-colors cursor-pointer"
           >
             {ITEMS_PER_PAGE_OPTIONS.map((option) => (
               <option key={option} value={option}>
@@ -317,7 +326,7 @@ export function StandaloneGames({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="rounded-lg border border-white/10 bg-[#0a0a0a] px-3 py-2 text-sm text-white outline-none focus:border-[#0081FB]/50 transition-colors cursor-pointer"
+            className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-[#0081FB]/50 transition-colors cursor-pointer"
           >
             <option value="added">{t('sort_by_added') || 'Terbaru'}</option>
             <option value="name">{t('sort_by_name') || 'Nama'}</option>
@@ -332,7 +341,7 @@ export function StandaloneGames({
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
               devicePreference
                 ? 'border-blue-500/50 bg-blue-500/10 text-blue-400'
-                : 'border-white/10 bg-[#0a0a0a] text-white/70 hover:bg-white/5 hover:text-white'
+                : 'border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] text-gray-500 dark:text-white/70 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
             }`}
             title={t('device_preference_title') || 'Select Device'}
           >
@@ -350,7 +359,7 @@ export function StandaloneGames({
           {/* Sort Order Toggle */}
           <button
             onClick={toggleSortOrder}
-            className="flex items-center justify-center rounded-lg border border-white/10 bg-[#0a0a0a] p-2 text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+            className="flex items-center justify-center rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] p-2 text-gray-500 dark:text-white/70 transition-colors hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white"
             title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
           >
             <Icon
@@ -358,6 +367,32 @@ export function StandaloneGames({
               className="h-5 w-5"
             />
           </button>
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center rounded-lg border border-gray-200 dark:border-white/10 overflow-hidden">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center justify-center p-2 transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-[#0081FB] text-white'
+                  : 'bg-white dark:bg-[#0a0a0a] text-gray-500 dark:text-white/70 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
+              }`}
+              title={t('view_grid') || 'Grid View'}
+            >
+              <Icon icon="mdi:view-grid" className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center justify-center p-2 transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-[#0081FB] text-white'
+                  : 'bg-white dark:bg-[#0a0a0a] text-gray-500 dark:text-white/70 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
+              }`}
+              title={t('view_list') || 'List View'}
+            >
+              <Icon icon="mdi:view-list" className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -366,15 +401,15 @@ export function StandaloneGames({
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Icon icon="mdi:loading" className="h-10 w-10 animate-spin text-[#0081FB]" />
-            <p className="mt-4 text-sm text-white/50">{t('standalone_games_loading')}</p>
+            <p className="mt-4 text-sm text-gray-500 dark:text-white/50">{t('standalone_games_loading')}</p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
               <Icon icon="mdi:alert-circle-outline" className="h-8 w-8 text-red-500" />
             </div>
-            <p className="mt-4 text-sm text-white/70">{t('standalone_games_error')}</p>
-            <p className="mt-1 text-xs text-white/40">{error}</p>
+            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">{t('standalone_games_error')}</p>
+            <p className="mt-1 text-xs text-gray-400 dark:text-white/40">{error}</p>
             <button
               onClick={handleRefresh}
               className="mt-4 flex items-center gap-2 rounded-lg bg-[#0081FB] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0081FB]/80"
@@ -385,23 +420,27 @@ export function StandaloneGames({
           </div>
         ) : games.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
-              <Icon icon="mdi:gamepad-variant-outline" className="h-8 w-8 text-white/30" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-white/5">
+              <Icon icon="mdi:gamepad-variant-outline" className="h-8 w-8 text-gray-300 dark:text-white/30" />
             </div>
-            <p className="mt-4 text-sm text-white/70">
+            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
               {searchQuery ? t('search_no_results') : t('standalone_games_empty')}
             </p>
           </div>
         ) : (
           <>
-            {/* Games Grid */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {/* Games Grid / List */}
+            <div className={viewMode === 'grid'
+              ? 'grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+              : 'flex flex-col gap-2'
+            }>
               {games.map((game) => (
                 <GameCard
                   key={game.id}
                   game={game}
                   isEligible={isEligible}
                   selectedDevice={devicePreference}
+                  viewMode={viewMode}
                   onClick={() => {
                     setSelectedGame(game)
                     setShowGameDetail(true)
@@ -414,7 +453,7 @@ export function StandaloneGames({
             {totalPages > 1 && (
               <div className="mt-6 flex flex-col items-center gap-3">
                 {/* Page Info */}
-                <p className="text-xs text-white/40">
+                <p className="text-xs text-gray-400 dark:text-white/40">
                   {t('showing') || 'Showing'} {(currentPage - 1) * itemsPerPage + 1}-
                   {Math.min(currentPage * itemsPerPage, totalItems)} {t('of') || 'of'} {totalItems}{' '}
                   {t('standalone_games_count')}
@@ -426,7 +465,7 @@ export function StandaloneGames({
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-white/70 transition-colors hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <Icon icon="mdi:chevron-left" className="h-5 w-5" />
                   </button>
@@ -434,7 +473,7 @@ export function StandaloneGames({
                   {/* Page Numbers */}
                   {getPageNumbers().map((page, index) =>
                     page === '...' ? (
-                      <span key={`ellipsis-${index}`} className="px-2 text-white/30">
+                      <span key={`ellipsis-${index}`} className="px-2 text-gray-400 dark:text-white/30">
                         ...
                       </span>
                     ) : (
@@ -444,7 +483,7 @@ export function StandaloneGames({
                         className={`flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-medium transition-colors ${
                           currentPage === page
                             ? 'bg-[#0081FB] text-white'
-                            : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                            : 'border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-white/70 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                         }`}
                       >
                         {page}
@@ -456,7 +495,7 @@ export function StandaloneGames({
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-white/70 transition-colors hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <Icon icon="mdi:chevron-right" className="h-5 w-5" />
                   </button>
@@ -522,7 +561,29 @@ const formatDownloadCount = (count) => {
   return count.toString()
 }
 
-function GameCard({ game, selectedDevice, onClick }) {
+// Deterministic gradient based on game title — used as cover placeholder
+const PLACEHOLDER_GRADIENTS = [
+  ['#1a237e', '#4527a0'],
+  ['#4a148c', '#7b1fa2'],
+  ['#880e4f', '#c2185b'],
+  ['#bf360c', '#e64a19'],
+  ['#1b5e20', '#388e3c'],
+  ['#006064', '#0097a7'],
+  ['#0d47a1', '#1976d2'],
+  ['#37474f', '#546e7a'],
+  ['#4e342e', '#6d4c41'],
+  ['#212121', '#455a64']
+]
+function getPlaceholderStyle(title) {
+  let hash = 0
+  for (let i = 0; i < title.length; i++) {
+    hash = (hash * 31 + title.charCodeAt(i)) & 0xffffffff
+  }
+  const [from, to] = PLACEHOLDER_GRADIENTS[Math.abs(hash) % PLACEHOLDER_GRADIENTS.length]
+  return { background: `linear-gradient(145deg, ${from} 0%, ${to} 100%)` }
+}
+
+function GameCard({ game, selectedDevice, viewMode, onClick }) {
   const { t } = useLanguage()
   const { downloadInfo } = useDownload()
   const [coverUrl, setCoverUrl] = useState(null)
@@ -565,12 +626,10 @@ function GameCard({ game, selectedDevice, onClick }) {
   // Get version display text - sorted from highest to lowest
   const getVersionDisplay = () => {
     if (versions.length > 0) {
-      // Sort versions from highest to lowest
       const sortedVersions = [...versions].sort((a, b) =>
         compareVersions(a?.version || '', b?.version || '')
       )
       const highestVersion = sortedVersions[0]?.version || ''
-
       if (versions.length > 1) {
         const lowestVersion = sortedVersions[sortedVersions.length - 1]?.version || ''
         if (highestVersion && lowestVersion && highestVersion !== lowestVersion) {
@@ -600,25 +659,228 @@ function GameCard({ game, selectedDevice, onClick }) {
     return Object.entries(game).filter(([k, v]) => k.startsWith('supportMetaQuest') && v)
   }
 
+  // Map selectedDevice to supportMetaQuest key
+  const deviceToKeyMap = {
+    quest1: 'supportMetaQuest1',
+    quest2: 'supportMetaQuest2',
+    quest3: 'supportMetaQuest3',
+    quest3s: 'supportMetaQuest3S',
+    questPro: 'supportMetaQuestPro'
+  }
+  const selectedKey = selectedDevice ? deviceToKeyMap[selectedDevice] : null
+
+  // ── STATUS BADGE (shared) ─────────────────────────────────────────────────
+  const StatusBadge = () => {
+    if (gameStatus === 'new')
+      return (
+        <span className="px-2 py-0.5 text-[10px] font-bold text-white bg-blue-600 rounded-md shadow-sm flex items-center gap-1 w-fit">
+          <Icon icon="streamline-flex:new-badge-highlight-solid" className="w-3 h-3" />
+          {t('badge_new') || 'NEW'}
+        </span>
+      )
+    if (gameStatus === 'update')
+      return (
+        <span className="px-2 py-0.5 text-[10px] font-bold text-white bg-yellow-500 rounded-md shadow-sm flex items-center gap-1 w-fit">
+          <Icon icon="mdi:update" className="w-3 h-3" />
+          {t('badge_update') || 'UPDATE'}
+        </span>
+      )
+    if (gameStatus === 'coming_soon')
+      return (
+        <span className="px-2 py-0.5 text-[10px] font-bold text-white bg-purple-600 rounded-md shadow-sm flex items-center gap-1 w-fit">
+          <Icon icon="mdi:clock-outline" className="w-3 h-3" />
+          {t('badge_coming_soon') || 'SOON'}
+        </span>
+      )
+    return null
+  }
+
+  // ── V76+ BADGE (shared) ───────────────────────────────────────────────────
+  const hasV76 = isSupportedV76 || versions.some((v) => v?.isSupportedV76)
+  const V76Badge = ({ tooltipDir = 'right' }) =>
+    hasV76 ? (
+      <div className="relative group/v76 shrink-0">
+        <span className="px-2 py-0.5 text-[10px] font-bold text-white bg-red-500 rounded-md shadow-sm flex items-center gap-1 cursor-help">
+          <Icon icon="mdi:alert-circle" className="w-3 h-3" />
+          v76+
+        </span>
+        <div
+          className={`absolute ${tooltipDir === 'left' ? 'left-0' : 'right-0'} top-full mt-1.5 w-48 px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/15 rounded-lg shadow-xl opacity-0 invisible group-hover/v76:opacity-100 group-hover/v76:visible transition-all duration-200 pointer-events-none z-30`}
+        >
+          <p className="text-[10px] text-gray-800 dark:text-white/90 font-semibold mb-0.5">
+            {t('v76_tooltip_title') || 'Firmware v76+ Required'}
+          </p>
+          <p className="text-[10px] text-gray-500 dark:text-white/50 leading-relaxed">
+            {t('v76_tooltip_desc') ||
+              'Game ini membutuhkan Quest firmware versi 76 ke atas untuk bisa dimainkan.'}
+          </p>
+          <div
+            className={`absolute -top-1 ${tooltipDir === 'left' ? 'left-3' : 'right-3'} w-2 h-2 bg-white dark:bg-[#1a1a1a] border-l border-t border-gray-200 dark:border-white/15 rotate-45`}
+          />
+        </div>
+      </div>
+    ) : null
+
+  // ── DEVICE BADGES (shared) ────────────────────────────────────────────────
+  const DeviceBadges = ({ compact = false }) => {
+    const supportedEntries = getSupportedDevices()
+    if (supportedEntries.length === 0)
+      return (
+        <span
+          className={`${compact ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-1'} rounded bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/40 font-medium`}
+        >
+          {t('not_supported') || 'Unknown'}
+        </span>
+      )
+    return supportedEntries.map(([quest]) => {
+      const questInfo = getQuestInfo(quest)
+      const isSelected = quest === selectedKey
+      return (
+        <span
+          key={quest}
+          className={`${compact ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-1'} rounded font-semibold flex items-center gap-1 border ${
+            isSelected
+              ? 'bg-blue-500 text-white border-blue-500'
+              : 'bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-white/60 border-gray-200 dark:border-white/10'
+          }`}
+          title={questInfo.fullName}
+        >
+          <Icon icon="tabler:device-vision-pro" className="w-3 h-3" />
+          {questInfo.label}
+        </span>
+      )
+    })
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // LIST MODE
+  // ────────────────────────────────────────────────────────────────────────────
+  if (viewMode === 'list') {
+    return (
+      <div
+        onClick={onClick}
+        className="group flex flex-row w-full rounded-xl bg-white dark:bg-[#1a1a1a] cursor-pointer hover:shadow-lg hover:shadow-[#0081FB]/10 transition-all duration-200 overflow-hidden border border-gray-100 dark:border-white/5 hover:border-[#0081FB]/20"
+      >
+        {/* Cover thumbnail */}
+        <div className="relative w-[120px] shrink-0 bg-gray-100 dark:bg-[#0a0a0a] overflow-hidden">
+          {loadingImage && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-[#111]">
+              <div className="w-6 h-6 border-2 border-gray-200 dark:border-white/10 border-t-[#0081FB] rounded-full animate-spin" />
+            </div>
+          )}
+          {!loadingImage && !coverUrl && (
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
+              style={getPlaceholderStyle(gameTitle)}
+            >
+              {/* Giant initial as texture */}
+              <span className="absolute text-[90px] font-black text-white/6 select-none leading-none">
+                {gameTitle.charAt(0).toUpperCase()}
+              </span>
+              <Icon icon="tabler:device-vision-pro" className="w-8 h-8 text-white/50 relative z-10" />
+            </div>
+          )}
+          {coverUrl && (
+            <img
+              src={coverUrl}
+              alt={gameTitle}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          )}
+          {/* subtle gradient */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/20 pointer-events-none" />
+
+          {/* Downloading overlay */}
+          {isActiveDownload && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60">
+              <Icon icon="mdi:cloud-download" className="w-7 h-7 text-[#0081FB] animate-bounce" />
+              {downloadInfo.status === 'downloading' && (
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
+                    style={{ width: `${downloadInfo.progress || 0}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex flex-col flex-1 px-3 py-2.5 gap-1.5 min-w-0 justify-between">
+          {/* Row 1: title + badges */}
+          <div className="flex items-start gap-2">
+            <h3
+              className="flex-1 font-bold text-sm text-gray-900 dark:text-white leading-tight line-clamp-1 min-w-0"
+              title={gameTitle}
+            >
+              {gameTitle}
+            </h3>
+            <div className="flex items-center gap-1 shrink-0">
+              <StatusBadge />
+              <V76Badge tooltipDir="left" />
+            </div>
+          </div>
+
+          {/* Row 2: device badges */}
+          <div className="flex flex-wrap gap-1">
+            <DeviceBadges compact />
+          </div>
+
+          {/* Row 3: version + downloads */}
+          <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-white/5">
+            <div className="flex items-center gap-1 text-gray-500 dark:text-white/50 text-xs">
+              <Icon icon="mdi:download" className="w-3 h-3" />
+              <span>{formatDownloadCount(getTotalDownloadCount())}</span>
+            </div>
+            <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-white/40 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">
+              {versions.length > 1 && (
+                <Icon icon="mdi:layers-outline" className="w-3 h-3 text-[#0081FB]" />
+              )}
+              <span>{getVersionDisplay()}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // GRID MODE (default)
+  // ────────────────────────────────────────────────────────────────────────────
   return (
     <div
       onClick={onClick}
-      className="group flex flex-col w-full h-full rounded-2xl border-2 border-white/10 bg-[#1a1a1a] cursor-pointer hover:border-[#0081FB]/50 hover:shadow-xl hover:shadow-[#0081FB]/10 transition-all duration-300 overflow-hidden"
+      className="group flex flex-col w-full h-full rounded-2xl bg-white dark:bg-[#1a1a1a] cursor-pointer hover:shadow-xl hover:shadow-[#0081FB]/10 transition-all duration-300 overflow-hidden"
     >
       {/* Image Header Container */}
-      <div className="relative w-full h-48 sm:h-56 bg-[#0a0a0a] overflow-hidden">
+      <div className="relative w-full h-48 sm:h-56 bg-gray-100 dark:bg-[#0a0a0a] overflow-hidden">
         {/* Spinner while loading */}
         {loadingImage && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#111]">
-            <div className="w-8 h-8 border-3 border-white/10 border-t-[#0081FB] rounded-full animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-[#111]">
+            <div className="w-8 h-8 border-3 border-gray-200 dark:border-white/10 border-t-[#0081FB] rounded-full animate-spin" />
           </div>
         )}
 
         {/* Placeholder when no image available */}
         {!loadingImage && !coverUrl && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1a1a1a]">
-            <Icon icon="mdi:image-off" className="w-14 h-14 text-white/20" />
-            <span className="text-white/30 text-xs mt-2">No Image Cover</span>
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
+            style={getPlaceholderStyle(gameTitle)}
+          >
+            {/* Giant initial as background texture */}
+            <span className="absolute text-[180px] font-black text-white/5 select-none leading-none tracking-tight">
+              {gameTitle.charAt(0).toUpperCase()}
+            </span>
+            {/* Centered icon + label */}
+            <div className="relative z-10 flex flex-col items-center gap-2">
+              <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center backdrop-blur-sm">
+                <Icon icon="tabler:device-vision-pro" className="w-9 h-9 text-white/75" />
+              </div>
+              <span className="text-white/40 text-[10px] font-medium px-4 text-center line-clamp-2 max-w-[140px] leading-tight">
+                {gameTitle}
+              </span>
+            </div>
           </div>
         )}
 
@@ -649,8 +911,6 @@ function GameCard({ game, selectedDevice, onClick }) {
                   : ''}
               </span>
             </div>
-
-            {/* Minimal Progress Bar */}
             {downloadInfo.status === 'downloading' && (
               <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/50">
                 <div
@@ -664,56 +924,16 @@ function GameCard({ game, selectedDevice, onClick }) {
 
         {/* Top Left: Status Badges */}
         <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
-          {/* New Badge */}
-          {gameStatus === 'new' && (
-            <span className="px-2 py-1 text-[10px] font-bold text-white bg-blue-600 rounded-md shadow-sm w-fit flex items-center gap-1">
-              <Icon icon="streamline-flex:new-badge-highlight-solid" className="w-3 h-3" />
-              {t('badge_new') || 'NEW'}
-            </span>
-          )}
-
-          {/* Update Badge */}
-          {gameStatus === 'update' && (
-            <span className="px-2 py-1 text-[10px] font-bold text-white bg-yellow-500 rounded-md shadow-sm w-fit flex items-center gap-1">
-              <Icon icon="mdi:update" className="w-3 h-3" />
-              {t('badge_update') || 'UPDATE'}
-            </span>
-          )}
-
-          {/* Coming Soon Badge */}
-          {gameStatus === 'coming_soon' && (
-            <span className="px-2 py-1 text-[10px] font-bold text-white bg-purple-600 rounded-md shadow-sm w-fit flex items-center gap-1">
-              <Icon icon="mdi:clock-outline" className="w-3 h-3" />
-              {t('badge_coming_soon') || 'SOON'}
-            </span>
-          )}
+          <StatusBadge />
         </div>
 
-        {/* Top Right: v76+ Badge with Tooltip */}
-        {(isSupportedV76 || versions.some((v) => v?.isSupportedV76)) && (
-          <div className="absolute top-3 right-3 z-20 group/v76">
-            <span className="px-2 py-1 text-[10px] font-bold text-white bg-red-500 rounded-md shadow-sm flex items-center gap-1 cursor-help">
-              <Icon icon="mdi:alert-circle" className="w-3 h-3" />
-              v76+
-            </span>
-            {/* Tooltip */}
-            <div className="absolute right-0 top-full mt-1.5 w-48 px-3 py-2 bg-[#1a1a1a] border border-white/15 rounded-lg shadow-xl opacity-0 invisible group-hover/v76:opacity-100 group-hover/v76:visible transition-all duration-200 pointer-events-none">
-              <p className="text-[10px] text-white/90 font-semibold mb-0.5">
-                {t('v76_tooltip_title') || 'Firmware v76+ Required'}
-              </p>
-              <p className="text-[10px] text-white/50 leading-relaxed">
-                {t('v76_tooltip_desc') ||
-                  'Game ini membutuhkan Quest firmware versi 76 ke atas untuk bisa dimainkan.'}
-              </p>
-              {/* Arrow */}
-              <div className="absolute -top-1 right-3 w-2 h-2 bg-[#1a1a1a] border-l border-t border-white/15 rotate-45" />
-            </div>
-          </div>
-        )}
+        {/* Top Right: v76+ Badge */}
+        <div className="absolute top-3 right-3 z-20">
+          <V76Badge tooltipDir="right" />
+        </div>
 
         {/* Bottom Content: Title */}
         <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
-          {/* Title */}
           <h3
             className="text-white font-bold text-lg leading-tight mb-1 line-clamp-2 drop-shadow-md"
             title={gameTitle}
@@ -724,62 +944,23 @@ function GameCard({ game, selectedDevice, onClick }) {
       </div>
 
       {/* Footer Content */}
-      <div className="flex flex-col p-3 gap-2 bg-[#151515] grow justify-between">
+      <div className="flex flex-col p-3 gap-2 bg-gray-50 dark:bg-[#151515] grow justify-between">
         {/* Device Support Badges */}
         <div className="flex flex-wrap gap-1.5">
-          {(() => {
-            const supportedEntries = getSupportedDevices()
-
-            if (supportedEntries.length === 0) {
-              return (
-                <span className="text-[10px] px-2 py-1 rounded bg-white/5 text-white/40 font-medium">
-                  {t('not_supported') || 'Unknown'}
-                </span>
-              )
-            }
-
-            // Map selectedDevice to supportMetaQuest key
-            const deviceToKeyMap = {
-              quest1: 'supportMetaQuest1',
-              quest2: 'supportMetaQuest2',
-              quest3: 'supportMetaQuest3',
-              quest3s: 'supportMetaQuest3S',
-              questPro: 'supportMetaQuestPro'
-            }
-            const selectedKey = selectedDevice ? deviceToKeyMap[selectedDevice] : null
-
-            return supportedEntries.map(([quest]) => {
-              const questInfo = getQuestInfo(quest)
-              const isSelected = quest === selectedKey
-              return (
-                <span
-                  key={quest}
-                  className={`text-[10px] px-2 py-1 rounded font-semibold flex items-center gap-1 border ${
-                    isSelected
-                      ? 'bg-blue-500 text-white border-blue-500'
-                      : 'bg-white/5 text-white/60 border-white/10'
-                  }`}
-                  title={questInfo.fullName}
-                >
-                  <Icon icon="tabler:device-vision-pro" className="w-3 h-3" />
-                  {questInfo.label}
-                </span>
-              )
-            })
-          })()}
+          <DeviceBadges />
         </div>
 
         {/* Download Count & Version */}
-        <div className="flex items-center justify-between pt-2 border-t border-white/10 mt-auto">
+        <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-white/10 mt-auto">
           <div
-            className="flex items-center gap-1 text-white/50 text-xs font-medium"
+            className="flex items-center gap-1 text-gray-500 dark:text-white/50 text-xs font-medium"
             title={t('downloaded') || 'Downloads'}
           >
             <Icon icon="mdi:download" className="w-3.5 h-3.5" />
             <span>{formatDownloadCount(getTotalDownloadCount())}</span>
           </div>
 
-          <div className="flex items-center gap-1 text-xs font-medium text-white/40 bg-white/5 px-2 py-0.5 rounded">
+          <div className="flex items-center gap-1 text-xs font-medium text-gray-400 dark:text-white/40 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">
             {versions.length > 1 && (
               <Icon icon="mdi:layers-outline" className="w-3.5 h-3.5 text-[#0081FB]" />
             )}
@@ -812,12 +993,14 @@ GameCard.propTypes = {
   }).isRequired,
   isEligible: PropTypes.bool,
   selectedDevice: PropTypes.string,
+  viewMode: PropTypes.string,
   onClick: PropTypes.func
 }
 
 GameCard.defaultProps = {
   isEligible: false,
   selectedDevice: null,
+  viewMode: 'grid',
   onClick: () => {}
 }
 
@@ -829,13 +1012,15 @@ StandaloneGames.propTypes = {
     url: PropTypes.string,
     type: PropTypes.string
   }),
-  onDeepLinkProcessed: PropTypes.func
+  onDeepLinkProcessed: PropTypes.func,
+  onGameCountChange: PropTypes.func
 }
 
 StandaloneGames.defaultProps = {
   selectedDevice: null,
   pendingDeepLinkDownload: null,
-  onDeepLinkProcessed: null
+  onDeepLinkProcessed: null,
+  onGameCountChange: null
 }
 
 export default StandaloneGames

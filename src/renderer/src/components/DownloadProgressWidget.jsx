@@ -71,15 +71,15 @@ export default function DownloadProgressWidget({
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className="fixed bottom-4 right-4 z-40"
         >
-          <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] shadow-[0_10px_40px_rgba(0,0,0,0.8)] overflow-hidden min-w-[280px] max-w-[320px]">
+          <div className="rounded-2xl bg-white dark:bg-[#1a1a1a] shadow-[0_10px_40px_rgba(0,0,0,0.3)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.8)] overflow-hidden min-w-[280px] max-w-[320px]">
             {/* Header - Always visible, clickable to expand/collapse */}
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="w-full flex items-center justify-between p-3.5 transition-colors hover:bg-white/5"
+              className="w-full flex items-center justify-between p-3.5 transition-colors hover:bg-gray-50 dark:hover:bg-white/5"
             >
               <div className="flex items-center gap-3">
                 <div
-                  className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full ${isReady ? 'bg-[#0d2818] border border-green-700/50' : 'bg-[#0a1929] border border-[#0066cc]/50'}`}
+                  className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full ${isReady ? 'bg-green-50 dark:bg-[#0d2818] border border-green-300 dark:border-green-700/50' : 'bg-blue-50 dark:bg-[#0a1929] border border-blue-300 dark:border-[#0066cc]/50'}`}
                 >
                   {isReady ? (
                     <Icon
@@ -94,12 +94,12 @@ export default function DownloadProgressWidget({
                   )}
                 </div>
                 <div className="flex flex-col justify-center text-left">
-                  <p className="text-[15px] font-bold text-white leading-tight mb-0.5">
+                  <p className="text-[15px] font-bold text-gray-900 dark:text-white leading-tight mb-0.5">
                     {isReady
                       ? t('update_ready_title') || 'Pembaruan Siap Diinstal'
                       : t('update_downloading') || 'Mengunduh Pembaruan...'}
                   </p>
-                  <p className="text-[12px] font-medium text-white/50">
+                  <p className="text-[12px] font-medium text-gray-500 dark:text-white/50">
                     {isReady
                       ? `v${updateInfo?.version || 'Unknown'}`
                       : `${progressPercent.toFixed(0)}% • ${speedDisplay}`}
@@ -108,13 +108,13 @@ export default function DownloadProgressWidget({
               </div>
               <Icon
                 icon="mdi:chevron-down"
-                className={`h-5 w-5 text-white/50 transition-transform ${isExpanded ? '' : 'rotate-180'}`}
+                className={`h-5 w-5 text-gray-400 dark:text-white/50 transition-transform ${isExpanded ? '' : 'rotate-180'}`}
               />
             </button>
 
             {/* Progress bar - Always visible in collapsed state too */}
             {!isReady && (
-              <div className="h-1 bg-white/5 shadow-inner">
+              <div className="h-1 bg-gray-200 dark:bg-white/5 shadow-inner">
                 <motion.div
                   className="h-full bg-[#0081FB]"
                   initial={{ width: 0 }}
@@ -137,9 +137,9 @@ export default function DownloadProgressWidget({
                   <div className="p-3.5 pt-0">
                     {/* Download details */}
                     {!isReady && (
-                      <div className="space-y-2 mb-3 mt-3 border-t border-white/5 pt-3">
+                      <div className="space-y-2 mb-3 mt-3 border-t border-gray-200 dark:border-white/5 pt-3">
                         {/* Size progress */}
-                        <div className="flex items-center justify-between text-[11px] font-medium text-white/40">
+                        <div className="flex items-center justify-between text-[11px] font-medium text-gray-400 dark:text-white/40">
                           <span>
                             {formatSize(downloadedBytes)} / {formatSize(totalBytes)}
                           </span>
@@ -152,7 +152,7 @@ export default function DownloadProgressWidget({
                         </div>
 
                         {/* Info text when downloading */}
-                        <p className="text-[11px] font-medium text-white/30 text-center mt-2.5">
+                        <p className="text-[11px] font-medium text-gray-400 dark:text-white/30 text-center mt-2.5">
                           {t('update_background_info') || 'Pembaruan diunduh di latar belakang'}
                         </p>
                       </div>

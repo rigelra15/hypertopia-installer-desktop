@@ -21,6 +21,9 @@ export function GamesProvider({ children }) {
   const [qgoLoading, setQgoLoading] = useState(false)
   const [qgoLastFetch, setQgoLastFetch] = useState(0)
 
+  // Total games count (updated from any fetchGames call)
+  const [gamesTotalCount, setGamesTotalCount] = useState(null)
+
   // Track last fetch time per cache key
   const lastFetchTimeRef = useRef({})
   const hasPreloaded = useRef(false)
@@ -102,6 +105,9 @@ export function GamesProvider({ children }) {
             ...prev,
             [cacheKey]: result.pagination
           }))
+          if (result.pagination.totalItems != null) {
+            setGamesTotalCount(result.pagination.totalItems)
+          }
         }
 
         // Record fetch time
@@ -264,6 +270,9 @@ export function GamesProvider({ children }) {
     qgoLoading,
     fetchQgoLinks,
 
+    // Counts
+    gamesTotalCount,
+
     // Preload
     preloadData
   }
@@ -275,6 +284,7 @@ GamesProvider.propTypes = {
   children: PropTypes.node.isRequired
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useGames() {
   const context = useContext(GamesContext)
   if (!context) {

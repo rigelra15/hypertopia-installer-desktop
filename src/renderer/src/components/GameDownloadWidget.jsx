@@ -126,7 +126,7 @@ export default function GameDownloadWidget({
         >
           <motion.div
             layout
-            className={`rounded-2xl border border-white/20 bg-[#111] shadow-2xl overflow-hidden min-w-[300px] ${isExpanded ? 'max-w-[450px] w-[400px]' : 'max-w-[360px]'}`}
+            className={`rounded-2xl bg-white dark:bg-[#111] shadow-2xl overflow-hidden min-w-[300px] ${isExpanded ? 'max-w-[450px] w-[400px]' : 'max-w-[360px]'}`}
           >
             {isExpanded ? (
               /* --- EXPANDED MODE --- (Mimics the old central modal) */
@@ -137,7 +137,7 @@ export default function GameDownloadWidget({
                 className="p-5 flex flex-col gap-4 relative"
               >
                 <div className="flex items-start justify-between">
-                  <h3 className="text-lg font-semibold text-white">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {isComplete
                       ? t('download_complete') || 'Download Complete'
                       : t('qgo_downloading') || 'Downloading...'}
@@ -148,7 +148,7 @@ export default function GameDownloadWidget({
                       setIsExpanded(false)
                       setShowCancelConfirm(false)
                     }}
-                    className="rounded-lg p-1.5 text-white/50 hover:bg-white/10 hover:text-white transition-colors absolute top-4 right-4"
+                    className="rounded-lg p-1.5 text-gray-400 dark:text-white/50 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-colors absolute top-4 right-4"
                     title={t('minimize_to_background') || 'Minimize to background'}
                   >
                     <Icon icon="octicon:minimize-16" className="h-5 w-5" />
@@ -156,7 +156,7 @@ export default function GameDownloadWidget({
                 </div>
 
                 <div className="mt-1 flex items-center gap-2 pr-8">
-                  <p className="text-sm text-white/60 truncate flex-1">{fileName || gameTitle}</p>
+                  <p className="text-sm text-gray-500 dark:text-white/60 truncate flex-1">{fileName || gameTitle}</p>
                   {fileName && !isComplete && (
                     <span
                       className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
@@ -175,13 +175,13 @@ export default function GameDownloadWidget({
                 {/* Progress Bar */}
                 {status === 'downloading' && totalBytes > 0 && !isComplete ? (
                   <div className="mt-2">
-                    <div className="mb-2 flex items-center justify-between text-xs text-white/50">
+                    <div className="mb-2 flex items-center justify-between text-xs text-gray-500 dark:text-white/50">
                       <span>
                         {formatSize(downloadedBytes)} / {formatSize(totalBytes)}
                       </span>
                       <span>{Math.round(progressPercent)}%</span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
                       <motion.div
                         className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF]"
                         initial={{ width: 0 }}
@@ -191,7 +191,7 @@ export default function GameDownloadWidget({
                     </div>
 
                     {/* Speed and ETA */}
-                    <div className="mt-3 flex items-center justify-between text-xs text-white/40">
+                    <div className="mt-3 flex items-center justify-between text-xs text-gray-400 dark:text-white/40">
                       <span className="flex items-center gap-1.5">
                         <Icon icon="mdi:speedometer" className="h-3.5 w-3.5" />
                         {speedDisplay}
@@ -205,7 +205,7 @@ export default function GameDownloadWidget({
                     </div>
                   </div>
                 ) : isComplete ? (
-                  <div className="mt-2 flex items-center gap-2 text-xs text-white/40">
+                  <div className="mt-2 flex items-center gap-2 text-xs text-gray-400 dark:text-white/40">
                     <Icon icon="mdi:harddisk" className="h-4 w-4" />
                     <span>{formatSize(totalBytes)}</span>
                   </div>
@@ -230,7 +230,7 @@ export default function GameDownloadWidget({
                               e.stopPropagation()
                               setShowCancelConfirm(false)
                             }}
-                            className="flex-1 py-2 px-3 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-medium transition-colors border border-white/10"
+                            className="flex-1 py-2 px-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-white rounded-lg text-sm font-medium transition-colors border border-gray-200 dark:border-white/10"
                           >
                             {t('no_back') || 'No, Back'}
                           </button>
@@ -264,7 +264,7 @@ export default function GameDownloadWidget({
                 {isComplete && (
                   <button
                     onClick={() => onClose?.()}
-                    className="w-full py-2.5 mt-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 text-sm font-medium transition-colors"
+                    className="w-full py-2.5 mt-2 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 dark:text-white/70 text-sm font-medium transition-colors"
                   >
                     {autoCloseCountdown
                       ? `${t('close') || 'Tutup'} (${autoCloseCountdown})`
@@ -279,7 +279,7 @@ export default function GameDownloadWidget({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsExpanded(true)}
-                className="w-full flex flex-col hover:bg-white/5 transition-colors cursor-pointer relative"
+                className="w-full flex flex-col hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer relative"
               >
                 <div className="flex items-center justify-between p-3 pb-2.5">
                   <div className="flex items-center gap-3 w-full pr-10">
@@ -295,7 +295,7 @@ export default function GameDownloadWidget({
                       )}
                     </div>
                     <div className="text-left min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-white truncate">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                         {isComplete
                           ? t('download_complete') || 'Download Complete'
                           : status === 'preparing'
@@ -303,7 +303,7 @@ export default function GameDownloadWidget({
                             : t('downloading') || 'Downloading...'}
                       </p>
                       <div className="flex items-center gap-1.5">
-                        <p className="text-xs text-white/50 truncate">
+                        <p className="text-xs text-gray-500 dark:text-white/50 truncate">
                           {isComplete
                             ? gameTitle || fileName
                             : status === 'preparing'
@@ -344,14 +344,14 @@ export default function GameDownloadWidget({
                           e.stopPropagation()
                           onClose?.()
                         }}
-                        className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-400 dark:text-white/50 hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
                         <Icon icon="mdi:close" className="h-4 w-4" />
                       </button>
                     )}
                     {/* Arrow to expand */}
                     {!isComplete && (
-                      <button className="p-1 text-white/50" title={t('expand') || 'Expand'}>
+                      <button className="p-1 text-gray-400 dark:text-white/50" title={t('expand') || 'Expand'}>
                         <Icon icon="mdi:chevron-up" className="h-5 w-5" />
                       </button>
                     )}
@@ -361,7 +361,7 @@ export default function GameDownloadWidget({
                 {/* Progress bar and details in compact mode */}
                 {!isComplete && status === 'downloading' && (
                   <div className="px-3 pb-3">
-                    <div className="h-1 bg-white/10 w-full mb-2">
+                    <div className="h-1 bg-gray-200 dark:bg-white/10 w-full mb-2">
                       <motion.div
                         className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF]"
                         initial={{ width: 0 }}
@@ -370,7 +370,7 @@ export default function GameDownloadWidget({
                       />
                     </div>
 
-                    <div className="flex items-center justify-between text-[10px] text-white/40">
+                    <div className="flex items-center justify-between text-[10px] text-gray-400 dark:text-white/40">
                       <span>
                         {formatSize(downloadedBytes)} / {formatSize(totalBytes)}
                       </span>

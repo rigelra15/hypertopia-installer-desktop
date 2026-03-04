@@ -1,16 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 body {
   margin: 0;
   padding: 0;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background-color: #0f172a; /* Slate 900 fallback */
-  color: white;
+  background-color: #f8fafc;
+  color: #1e293b;
   -webkit-font-smoothing: antialiased;
   font-family: 'Poppins', sans-serif;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.dark body,
+body.dark,
+:root.dark body {
+  background-color: #0f172a;
+  color: white;
 }
 
 #root {
@@ -25,14 +37,20 @@ body {
 .title-bar {
   position: relative;
   height: 32px;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
   display: flex;
   justify-content: space-between;
   align-items: center;
   z-index: 9999;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
   -webkit-app-region: no-drag;
   flex-shrink: 0;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.dark .title-bar {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
 }
 
 .title-bar-drag-region {
@@ -50,8 +68,12 @@ body {
   gap: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: #e2e8f0;
+  color: #475569;
   user-select: none;
+}
+
+.dark .title-bar-title {
+  color: #e2e8f0;
 }
 
 .title-bar-icon {
@@ -74,10 +96,14 @@ body {
   justify-content: center;
   background: transparent;
   border: none;
-  color: #cbd5e1;
+  color: #64748b;
   cursor: pointer;
   transition: all 0.15s ease;
   font-size: 16px;
+}
+
+.dark .title-bar-button {
+  color: #cbd5e1;
 }
 
 .title-bar-button:hover {

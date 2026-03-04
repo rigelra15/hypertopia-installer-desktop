@@ -281,17 +281,17 @@ export function LiveAssist() {
   // ============ ADMIN UI ============
   if (isAdmin) {
     return (
-      <div className="flex flex-1 flex-col bg-[#111] overflow-hidden">
+      <div className="flex flex-1 flex-col bg-white dark:bg-[#111] overflow-hidden">
         {/* Header */}
-        <div className="border-b border-white/10 bg-[#111] p-4 text-center md:text-left">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2 justify-center md:justify-start">
+        <div className="border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#111] p-4 text-center md:text-left">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 justify-center md:justify-start">
             <Icon icon="mdi:headset" className="text-[#0081FB] hidden md:block" />
             <span className="text-[#0081FB]">Live</span> Assist
             <span className="ml-2 px-2 py-0.5 bg-[#0081FB]/20 text-[#0081FB] text-xs rounded-full font-medium">
               ADMIN
             </span>
           </h2>
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-gray-400 dark:text-white/40">
             {t('live_assist_admin_subtitle') ||
               'Manage and respond to user support requests via TeamViewer'}
           </p>
@@ -312,16 +312,16 @@ export function LiveAssist() {
           {status === 'idle' ? (
             <>
               {/* Admin Dashboard */}
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 mb-6">
+              <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-6 mb-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="rounded-xl bg-[#0081FB]/10 p-3 text-[#0081FB]">
                     <Icon icon="mdi:headset" className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-white">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
                       {t('live_assist_admin_panel') || 'Admin Dashboard'}
                     </h3>
-                    <p className="text-xs text-white/50">
+                    <p className="text-xs text-gray-500 dark:text-white/50">
                       {t('live_assist_admin_info') ||
                         'View and respond to incoming TeamViewer support requests'}
                     </p>
@@ -334,7 +334,7 @@ export function LiveAssist() {
                     <p className="text-2xl font-bold text-[#0081FB]">
                       {pendingRequests.filter((r) => r.status === 'waiting').length}
                     </p>
-                    <p className="text-xs text-white/50">
+                    <p className="text-xs text-gray-500 dark:text-white/50">
                       {t('live_assist_pending') || 'Pending Requests'}
                     </p>
                   </div>
@@ -342,7 +342,7 @@ export function LiveAssist() {
                     <p className="text-2xl font-bold text-emerald-400">
                       {pendingRequests.filter((r) => r.status === 'in_progress').length}
                     </p>
-                    <p className="text-xs text-white/50">
+                    <p className="text-xs text-gray-500 dark:text-white/50">
                       {t('live_assist_active') || 'Active Sessions'}
                     </p>
                   </div>
@@ -350,8 +350,8 @@ export function LiveAssist() {
               </div>
 
               {/* Pending Requests List */}
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-                <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+              <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-6">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                   <Icon icon="mdi:clock-outline" className="h-5 w-5 text-[#0081FB]" />
                   {t('live_assist_waiting_list') || 'Waiting Queue'}
                 </h3>
@@ -360,9 +360,9 @@ export function LiveAssist() {
                   <div className="text-center py-8">
                     <Icon
                       icon="mdi:inbox-outline"
-                      className="h-12 w-12 text-white/20 mx-auto mb-3"
+                      className="h-12 w-12 text-gray-200 dark:text-white/20 mx-auto mb-3"
                     />
-                    <p className="text-white/40 text-sm">
+                    <p className="text-gray-400 dark:text-white/40 text-sm">
                       {t('live_assist_no_requests') || 'No pending support requests'}
                     </p>
                   </div>
@@ -374,7 +374,7 @@ export function LiveAssist() {
                         className={`p-4 rounded-xl border transition-all ${
                           request.status === 'in_progress'
                             ? 'border-emerald-500/30 bg-emerald-500/5'
-                            : 'border-white/10 bg-white/5 hover:bg-white/10'
+                            : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -383,8 +383,8 @@ export function LiveAssist() {
                               {index + 1}
                             </div>
                             <div className="min-w-0">
-                              <p className="font-medium text-white truncate">{request.userName}</p>
-                              <p className="text-xs text-white/50 truncate">{request.userEmail}</p>
+                              <p className="font-medium text-gray-900 dark:text-white truncate">{request.userName}</p>
+                              <p className="text-xs text-gray-500 dark:text-white/50 truncate">{request.userEmail}</p>
                               {/* TeamViewer Info */}
                               <div className="mt-2 space-y-1">
                                 <div className="flex items-center gap-2 text-xs">
@@ -392,14 +392,14 @@ export function LiveAssist() {
                                     icon="mdi:monitor-dashboard"
                                     className="h-3.5 w-3.5 text-[#0081FB] shrink-0"
                                   />
-                                  <span className="text-white/70">ID: {request.teamviewerId}</span>
+                                  <span className="text-gray-600 dark:text-white/70">ID: {request.teamviewerId}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-xs">
                                   <Icon
                                     icon="mdi:key"
                                     className="h-3.5 w-3.5 text-amber-400 shrink-0"
                                   />
-                                  <span className="text-white/70">
+                                  <span className="text-gray-600 dark:text-white/70">
                                     Pass: {request.teamviewerPassword}
                                   </span>
                                 </div>
@@ -407,16 +407,16 @@ export function LiveAssist() {
                                   <div className="flex items-start gap-2 text-xs mt-1">
                                     <Icon
                                       icon="mdi:message-text"
-                                      className="h-3.5 w-3.5 text-white/40 shrink-0 mt-0.5"
+                                      className="h-3.5 w-3.5 text-gray-400 dark:text-white/40 shrink-0 mt-0.5"
                                     />
-                                    <span className="text-white/50">{request.description}</span>
+                                    <span className="text-gray-500 dark:text-white/50">{request.description}</span>
                                   </div>
                                 )}
                               </div>
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-2 shrink-0">
-                            <span className="text-xs text-white/30">
+                            <span className="text-xs text-gray-400 dark:text-white/30">
                               {formatDate(request.createdAt)}
                             </span>
                             {request.status === 'in_progress' ? (
@@ -434,7 +434,7 @@ export function LiveAssist() {
                                 {t('live_assist_accept') || 'Accept'}
                               </button>
                             ) : (
-                              <span className="px-3 py-1.5 bg-white/5 text-white/40 rounded-lg text-xs">
+                              <span className="px-3 py-1.5 bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/40 rounded-lg text-xs">
                                 {t('live_assist_in_queue') || 'In Queue'}
                               </span>
                             )}
@@ -454,7 +454,7 @@ export function LiveAssist() {
                   <Icon icon="mdi:account" className="h-6 w-6 text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white">{activeRequest.userName}</h3>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">{activeRequest.userName}</h3>
                   <p className="text-xs text-emerald-400">{activeRequest.userEmail}</p>
                 </div>
                 <div className="ml-auto flex items-center gap-2 text-emerald-400 text-sm">
@@ -464,31 +464,31 @@ export function LiveAssist() {
               </div>
 
               {/* TeamViewer Connection Info */}
-              <div className="rounded-xl bg-white/5 border border-white/10 p-5 mb-6">
-                <h4 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              <div className="rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 p-5 mb-6">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                   <Icon icon="simple-icons:teamviewer" className="h-4 w-4 text-[#0081FB]" />
                   TeamViewer Connection Details
                 </h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-white/40 mb-1 block">TeamViewer ID</label>
-                    <div className="bg-white/5 rounded-lg px-4 py-3 text-white font-mono text-lg select-all border border-white/10">
+                    <label className="text-xs text-gray-400 dark:text-white/40 mb-1 block">TeamViewer ID</label>
+                    <div className="bg-gray-50 dark:bg-white/5 rounded-lg px-4 py-3 text-gray-900 dark:text-white font-mono text-lg select-all border border-gray-200 dark:border-white/10">
                       {activeRequest.teamviewerId}
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-white/40 mb-1 block">Password</label>
-                    <div className="bg-white/5 rounded-lg px-4 py-3 text-white font-mono text-lg select-all border border-white/10">
+                    <label className="text-xs text-gray-400 dark:text-white/40 mb-1 block">Password</label>
+                    <div className="bg-gray-50 dark:bg-white/5 rounded-lg px-4 py-3 text-gray-900 dark:text-white font-mono text-lg select-all border border-gray-200 dark:border-white/10">
                       {activeRequest.teamviewerPassword}
                     </div>
                   </div>
                 </div>
                 {activeRequest.description && (
-                  <div className="mt-4 p-3 rounded-lg bg-white/5 border border-white/10">
-                    <p className="text-xs text-white/40 mb-1">
+                  <div className="mt-4 p-3 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10">
+                    <p className="text-xs text-gray-400 dark:text-white/40 mb-1">
                       {t('live_assist_issue_desc') || 'Issue Description'}
                     </p>
-                    <p className="text-sm text-white/70">{activeRequest.description}</p>
+                    <p className="text-sm text-gray-600 dark:text-white/70">{activeRequest.description}</p>
                   </div>
                 )}
               </div>
@@ -512,14 +512,14 @@ export function LiveAssist() {
 
   // ============ USER UI ============
   return (
-    <div className="flex flex-1 flex-col bg-[#111] overflow-hidden">
+    <div className="flex flex-1 flex-col bg-white dark:bg-[#111] overflow-hidden">
       {/* Header */}
-      <div className="border-b border-white/10 bg-[#111] p-4 text-center md:text-left">
-        <h2 className="text-lg font-bold text-white flex items-center gap-2 justify-center md:justify-start">
+      <div className="border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#111] p-4 text-center md:text-left">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 justify-center md:justify-start">
           <Icon icon="mdi:headset" className="text-[#0081FB] hidden md:block" />
           <span className="text-[#0081FB]">Live</span> Assist
         </h2>
-        <p className="text-xs text-white/40">
+        <p className="text-xs text-gray-400 dark:text-white/40">
           {t('live_assist_subtitle') || 'Get remote help from HyperTopia team via TeamViewer'}
         </p>
       </div>
@@ -527,16 +527,16 @@ export function LiveAssist() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         {/* Info Card - How it Works */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 mb-6">
+        <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-6 mb-6">
           <div className="flex items-start gap-4">
             <div className="rounded-xl bg-[#0081FB]/10 p-3 text-[#0081FB]">
               <Icon icon="mdi:information-outline" className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="font-semibold text-white mb-2">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
                 {t('live_assist_info_title') || 'How Live Assist Works'}
               </h3>
-              <ul className="text-sm text-white/60 space-y-2">
+              <ul className="text-sm text-gray-600 dark:text-white/60 space-y-2">
                 <li className="flex items-start gap-2">
                   <Icon
                     icon="mdi:numeric-1-circle"
@@ -579,10 +579,10 @@ export function LiveAssist() {
                 <Icon icon="simple-icons:teamviewer" className="h-5 w-5 text-[#0081FB]" />
               </div>
               <div>
-                <p className="text-sm font-medium text-white">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
                   {t('live_assist_need_tv') || "Don't have TeamViewer yet?"}
                 </p>
-                <p className="text-xs text-white/50">
+                <p className="text-xs text-gray-500 dark:text-white/50">
                   {t('live_assist_tv_desc') ||
                     'Download TeamViewer for free to enable remote assistance'}
                 </p>
@@ -611,7 +611,7 @@ export function LiveAssist() {
         {/* Status Cards */}
         {status === 'idle' || status === 'ended' ? (
           // Idle / Ended State
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+          <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-8 text-center">
             <div className="mx-auto mb-6 w-20 h-20 rounded-full bg-[#0081FB]/10 flex items-center justify-center">
               <Icon icon="mdi:headset" className="h-10 w-10 text-[#0081FB]" />
             </div>
@@ -623,10 +623,10 @@ export function LiveAssist() {
               </div>
             )}
 
-            <h3 className="text-xl font-bold text-white mb-2">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
               {t('live_assist_ready_title') || 'Ready to Connect'}
             </h3>
-            <p className="text-sm text-white/50 mb-6">
+            <p className="text-sm text-gray-500 dark:text-white/50 mb-6">
               {t('live_assist_ready_desc') ||
                 'Click the button below to request remote assistance from our team'}
             </p>
@@ -648,16 +648,16 @@ export function LiveAssist() {
           </div>
         ) : status === 'form' ? (
           // TeamViewer Form
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 rounded-xl bg-[#0081FB]/10 flex items-center justify-center">
                 <Icon icon="simple-icons:teamviewer" className="h-6 w-6 text-[#0081FB]" />
               </div>
               <div>
-                <h3 className="font-bold text-white">
+                <h3 className="font-bold text-gray-900 dark:text-white">
                   {t('live_assist_form_title') || 'Enter TeamViewer Details'}
                 </h3>
-                <p className="text-xs text-white/50">
+                <p className="text-xs text-gray-500 dark:text-white/50">
                   {t('live_assist_form_desc') ||
                     'Open TeamViewer and enter your ID and password below'}
                 </p>
@@ -667,7 +667,7 @@ export function LiveAssist() {
             <div className="space-y-4">
               {/* TeamViewer ID */}
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-1.5">
+                <label className="block text-sm font-medium text-gray-600 dark:text-white/70 mb-1.5">
                   <Icon
                     icon="mdi:monitor-dashboard"
                     className="inline h-4 w-4 mr-1 text-[#0081FB]"
@@ -679,13 +679,13 @@ export function LiveAssist() {
                   value={teamviewerId}
                   onChange={(e) => setTeamviewerId(e.target.value)}
                   placeholder="e.g. 123 456 789"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-[#0081FB]/50 focus:ring-1 focus:ring-[#0081FB]/30 transition-all font-mono text-lg"
+                  className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:border-[#0081FB]/50 focus:ring-1 focus:ring-[#0081FB]/30 transition-all font-mono text-lg"
                 />
               </div>
 
               {/* TeamViewer Password */}
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-1.5">
+                <label className="block text-sm font-medium text-gray-600 dark:text-white/70 mb-1.5">
                   <Icon icon="mdi:key" className="inline h-4 w-4 mr-1 text-amber-400" />
                   Password <span className="text-red-400">*</span>
                 </label>
@@ -696,16 +696,16 @@ export function LiveAssist() {
                   placeholder={
                     t('live_assist_tv_password_placeholder') || 'Password from TeamViewer'
                   }
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-[#0081FB]/50 focus:ring-1 focus:ring-[#0081FB]/30 transition-all font-mono text-lg"
+                  className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:border-[#0081FB]/50 focus:ring-1 focus:ring-[#0081FB]/30 transition-all font-mono text-lg"
                 />
               </div>
 
               {/* Issue Description (Optional) */}
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-1.5">
-                  <Icon icon="mdi:message-text" className="inline h-4 w-4 mr-1 text-white/50" />
+                <label className="block text-sm font-medium text-gray-600 dark:text-white/70 mb-1.5">
+                  <Icon icon="mdi:message-text" className="inline h-4 w-4 mr-1 text-gray-400 dark:text-white/50" />
                   {t('live_assist_desc_label') || 'Describe your issue'}{' '}
-                  <span className="text-white/30">({t('optional') || 'optional'})</span>
+                  <span className="text-gray-400 dark:text-white/30">({t('optional') || 'optional'})</span>
                 </label>
                 <textarea
                   value={description}
@@ -715,7 +715,7 @@ export function LiveAssist() {
                     'Briefly describe what you need help with...'
                   }
                   rows={3}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-[#0081FB]/50 focus:ring-1 focus:ring-[#0081FB]/30 transition-all resize-none text-sm"
+                  className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:border-[#0081FB]/50 focus:ring-1 focus:ring-[#0081FB]/30 transition-all resize-none text-sm"
                 />
               </div>
 
@@ -737,7 +737,7 @@ export function LiveAssist() {
                     setStatus('idle')
                     setError(null)
                   }}
-                  className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl font-medium transition-all"
+                  className="px-6 py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 dark:text-white/70 rounded-xl font-medium transition-all"
                 >
                   {t('cancel') || 'Cancel'}
                 </button>
@@ -757,36 +757,36 @@ export function LiveAssist() {
             <div className="mx-auto mb-6 w-20 h-20 rounded-full bg-[#0081FB]/20 flex items-center justify-center">
               <Icon icon="mdi:loading" className="h-10 w-10 text-[#0081FB] animate-spin" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
               {t('live_assist_waiting_title') || 'Waiting in Queue...'}
             </h3>
-            <p className="text-sm text-white/50 mb-4">
+            <p className="text-sm text-gray-500 dark:text-white/50 mb-4">
               {t('live_assist_waiting_desc') ||
                 'Our team will connect to your computer via TeamViewer shortly.'}
             </p>
 
             {/* Queue Position */}
             {queuePosition > 0 && (
-              <div className="mb-4 inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-white/5 border border-white/10">
+              <div className="mb-4 inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10">
                 <div className="flex items-center gap-2 text-[#0081FB]">
                   <Icon icon="mdi:account-group" className="h-5 w-5" />
                   <span className="text-sm font-medium">
                     {t('live_assist_queue_position') || 'Queue Position'}:
                   </span>
                 </div>
-                <span className="text-2xl font-bold text-white">#{queuePosition}</span>
-                <span className="text-xs text-white/40">/ {totalInQueue}</span>
+                <span className="text-2xl font-bold text-gray-900 dark:text-white">#{queuePosition}</span>
+                <span className="text-xs text-gray-400 dark:text-white/40">/ {totalInQueue}</span>
               </div>
             )}
 
             {/* TeamViewer reminder */}
-            <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10 max-w-md mx-auto text-left">
-              <p className="text-xs text-white/60 mb-2 flex items-center gap-2">
+            <div className="mb-6 p-4 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 max-w-md mx-auto text-left">
+              <p className="text-xs text-gray-500 dark:text-white/60 mb-2 flex items-center gap-2">
                 <Icon icon="mdi:information" className="h-4 w-4 text-[#0081FB]" />
                 {t('live_assist_keep_open') ||
                   'Make sure TeamViewer is open and running on your computer'}
               </p>
-              <div className="flex items-center gap-2 text-xs text-white/40">
+              <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-white/40">
                 <Icon icon="mdi:monitor-dashboard" className="h-3.5 w-3.5" />
                 <span>ID: {teamviewerId}</span>
               </div>
@@ -799,7 +799,7 @@ export function LiveAssist() {
 
             <button
               onClick={cancelRequest}
-              className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-all"
+              className="px-6 py-2 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-white rounded-lg font-medium transition-all"
             >
               {t('cancel') || 'Cancel'}
             </button>
@@ -810,10 +810,10 @@ export function LiveAssist() {
             <div className="mx-auto mb-6 w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center">
               <Icon icon="mdi:monitor-share" className="h-10 w-10 text-emerald-400" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
               {t('live_assist_connected_title') || 'Support is Connected!'}
             </h3>
-            <p className="text-sm text-white/50 mb-4">
+            <p className="text-sm text-gray-500 dark:text-white/50 mb-4">
               {t('live_assist_connected_desc') ||
                 'Our team is now connecting to your computer via TeamViewer. Please stay on your computer.'}
             </p>
@@ -823,8 +823,8 @@ export function LiveAssist() {
               <span>{t('live_assist_session_active') || 'Session Active'}</span>
             </div>
 
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10 max-w-md mx-auto mb-6">
-              <p className="text-xs text-white/50">
+            <div className="p-4 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 max-w-md mx-auto mb-6">
+              <p className="text-xs text-gray-500 dark:text-white/50">
                 {t('live_assist_tv_connected_info') ||
                   'If you see a TeamViewer window pop up, please accept the connection from our support agent.'}
               </p>
@@ -832,7 +832,7 @@ export function LiveAssist() {
 
             <button
               onClick={cancelRequest}
-              className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-all"
+              className="px-6 py-2 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-white rounded-lg font-medium transition-all"
             >
               {t('live_assist_end_session') || 'End Session'}
             </button>
