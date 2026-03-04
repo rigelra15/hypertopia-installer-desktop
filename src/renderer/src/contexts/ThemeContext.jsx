@@ -5,14 +5,14 @@ import PropTypes from 'prop-types'
 const ThemeContext = createContext()
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light')
+  const [theme, setTheme] = useState(localStorage.getItem('hypertopia-theme-v2') || 'light')
 
   // On mount: read from config file (file = source of truth, overrides localStorage)
   useEffect(() => {
     window.api.storeRead?.('hypertopia-config.json').then((config) => {
-      if (config?.theme) {
-        setTheme(config.theme)
-        localStorage.setItem('theme', config.theme)
+      if (config?.appThemeV2) {
+        setTheme(config.appThemeV2)
+        localStorage.setItem('hypertopia-theme-v2', config.appThemeV2)
       }
     })
   }, [])
@@ -34,10 +34,10 @@ export function ThemeProvider({ children }) {
     }
 
     applyTheme(theme)
-    localStorage.setItem('theme', theme)
+    localStorage.setItem('hypertopia-theme-v2', theme)
     // Persist to config file (read-modify-write)
     window.api.storeRead?.('hypertopia-config.json').then((config) => {
-      window.api.storeWrite?.('hypertopia-config.json', { ...(config || {}), theme })
+      window.api.storeWrite?.('hypertopia-config.json', { ...(config || {}), appThemeV2: theme })
     })
 
     // Listen for system theme changes
