@@ -79,7 +79,6 @@ export default function GameDetailModal({
     downloadComplete,
     startDownload,
     showWidget,
-    showDownloadWidget,
     cancelDownload,
     // Install context
     startInstall: startInstallWidget,
@@ -595,7 +594,7 @@ export default function GameDetailModal({
 
     await updateDownloadCount(partIndex)
 
-    const result = await startDownload(url, fileName, gameTitle)
+    const result = await startDownload(url, fileName, gameTitle, version)
 
     if (result.success) {
       // Update file size to database (only if not already set)
@@ -603,12 +602,12 @@ export default function GameDetailModal({
         await updateStandaloneFileSize(gameTitle, downloadInfo.totalBytes)
       }
       // Only show toast if widget is NOT visible (to avoid duplicate notification)
-      // Widget already shows completion status with game info
       if (!showWidget) {
         toast.success(`${t('download_success') || 'Download completed!'} ${fileName}`)
       }
-    } else if (result.canceled) {
-    } else if (result.error) {
+    } else if (result.queued) {
+      toast.success(`${gameTitle} ${t('queued_for_download') || 'ditambahkan ke antrian unduhan'}`)
+    } else if (result.error && !result.canceled) {
       toast.error(`${t('download_failed') || 'Download failed:'} ${result.error}`)
     }
   }
@@ -693,7 +692,7 @@ export default function GameDetailModal({
     })
 
     // Also start the install widget for background tracking
-    startInstallWidget(gameTitle)
+    startInstallWidget(gameTitle, version)
 
     try {
       // Update download count when install starts
@@ -746,22 +745,22 @@ export default function GameDetailModal({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-2xl bg-[#111] rounded-2xl shadow-2xl border border-white/10"
+              className="relative w-full max-w-2xl bg-white dark:bg-[#111] rounded-2xl shadow-2xl"
             >
               {/* Header / Image Area */}
               <div className="relative h-56 md:h-72 w-full overflow-hidden rounded-t-2xl">
                 {/* Loading spinner */}
                 {loadingImage && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a]">
-                    <div className="w-10 h-10 border-3 border-white/10 border-t-[#0081FB] rounded-full animate-spin" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-[#0a0a0a]">
+                    <div className="w-10 h-10 border-3 border-gray-200 dark:border-white/10 border-t-[#0081FB] rounded-full animate-spin" />
                   </div>
                 )}
 
                 {/* Placeholder */}
                 {!loadingImage && !coverUrl && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1a1a1a]">
-                    <Icon icon="mdi:image-off" className="w-16 h-16 text-white/20" />
-                    <span className="text-white/30 text-sm mt-2">No Cover Image</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 dark:bg-[#1a1a1a]">
+                    <Icon icon="mdi:image-off" className="w-16 h-16 text-gray-300 dark:text-white/20" />
+                    <span className="text-gray-400 dark:text-white/30 text-sm mt-2">No Cover Image</span>
                   </div>
                 )}
 
@@ -832,12 +831,12 @@ export default function GameDetailModal({
               <div className="p-6">
                 {/* Stats row */}
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="flex items-center gap-2 text-white/60 bg-white/5 px-3 py-2 rounded-lg text-sm font-medium">
+                  <div className="flex items-center gap-2 text-gray-700 dark:text-white/70 bg-gray-100 dark:bg-white/5 px-3 py-2 rounded-lg text-sm font-medium">
                     <Icon icon="mdi:download" className="w-4 h-4" />
                     {formatDownloadCount(getTotalDownloadCount())}
                   </div>
                   {versions.length > 1 && (
-                    <div className="flex items-center gap-2 text-white/60 bg-white/5 px-3 py-2 rounded-lg text-sm font-medium">
+                    <div className="flex items-center gap-2 text-gray-700 dark:text-white/70 bg-gray-100 dark:bg-white/5 px-3 py-2 rounded-lg text-sm font-medium">
                       <Icon icon="mdi:layers-outline" className="w-4 h-4 text-[#0081FB]" />
                       {versions.length} {t('versions') || 'versions'}
                     </div>
@@ -850,34 +849,34 @@ export default function GameDetailModal({
                     {/* Version selector */}
                     {(versions.length > 0 || gameVersion) && (
                       <div className="relative version-selector">
-                        <label className="block text-sm font-medium text-white/50 mb-2">
+                        <label className="block text-sm font-medium text-gray-500 dark:text-white/50 mb-2">
                           {t('select_version') || 'Select Version'}
                         </label>
                         <button
                           onClick={() => setShowVersionSelector(!showVersionSelector)}
-                          className="w-full h-12 bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-between px-4 rounded-xl border border-white/10"
+                          className="w-full h-12 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between px-4 rounded-xl border border-gray-200 dark:border-white/10"
                         >
-                          <span className="font-semibold text-white">
+                          <span className="font-semibold text-gray-900 dark:text-white">
                             {currentVersion.version || gameVersion}
                           </span>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-white/40 font-medium flex items-center gap-1">
+                            <span className="text-xs text-gray-600 dark:text-white/50 font-medium flex items-center gap-1">
                               <Icon icon="mdi:download" className="w-3.5 h-3.5" />
                               {formatDownloadCount(currentVersion.downloadCount || 0)}
                             </span>
                             {currentVersion.isSupportedV76 && (
-                              <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-bold">
+                              <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full font-bold">
                                 v76+
                               </span>
                             )}
                             {currentVersion.mixedReality === 'yes' && (
-                              <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full font-bold">
+                              <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full font-bold">
                                 MR
                               </span>
                             )}
                             <Icon
                               icon="heroicons:chevron-down"
-                              className={`w-5 h-5 text-white/50 transition-transform ${showVersionSelector ? 'rotate-180' : ''}`}
+                              className={`w-5 h-5 text-gray-400 dark:text-white/50 transition-transform ${showVersionSelector ? 'rotate-180' : ''}`}
                             />
                           </div>
                         </button>
@@ -889,7 +888,7 @@ export default function GameDetailModal({
                               initial={{ opacity: 0, y: -10 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -10 }}
-                              className="absolute top-full left-0 right-0 mt-2 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl z-20 overflow-hidden max-h-48 overflow-y-auto custom-scrollbar"
+                              className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-20 overflow-hidden max-h-48 overflow-y-auto custom-scrollbar"
                             >
                               {[...versions]
                                 .map((version, originalIndex) => ({ ...version, originalIndex }))
@@ -901,24 +900,24 @@ export default function GameDetailModal({
                                       setSelectedVersion(version.originalIndex)
                                       setShowVersionSelector(false)
                                     }}
-                                    className={`w-full text-left px-4 py-3 hover:bg-white/10 transition-colors flex justify-between items-center ${
+                                    className={`w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors flex justify-between items-center ${
                                       version.originalIndex === selectedVersion
                                         ? 'bg-[#0081FB]/10'
                                         : ''
                                     }`}
                                   >
                                     <span
-                                      className={`font-medium ${version.originalIndex === selectedVersion ? 'text-[#0081FB]' : 'text-white'}`}
+                                      className={`font-medium ${version.originalIndex === selectedVersion ? 'text-[#0081FB]' : 'text-gray-900 dark:text-white'}`}
                                     >
                                       {version.version}
                                     </span>
                                     <div className="flex items-center gap-2">
-                                      <span className="text-xs text-white/40 font-medium flex items-center gap-1">
+                                      <span className="text-xs text-gray-600 dark:text-white/50 font-medium flex items-center gap-1">
                                         <Icon icon="mdi:download" className="w-3.5 h-3.5" />
                                         {formatDownloadCount(version.downloadCount || 0)}
                                       </span>
                                       {version.isSupportedV76 && (
-                                        <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                        <span className="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded text-[10px] font-bold">
                                           v76+
                                         </span>
                                       )}
@@ -944,7 +943,7 @@ export default function GameDetailModal({
                               <button
                                 onClick={handleDeleteAllParts}
                                 disabled={isDownloading || isInstalling}
-                                className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-red-500/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                                className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-red-500/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
                               >
                                 <Icon icon="mdi:delete-sweep" className="w-5 h-5" />
                                 {t('delete_all_files') || 'Delete All Downloaded Files'}
@@ -957,7 +956,7 @@ export default function GameDetailModal({
                                   isDownloading ||
                                   isInstalling
                                 }
-                                className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-1"
+                                className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-1"
                               >
                                 {isDownloading ? (
                                   <div className="flex items-center gap-2">
@@ -971,7 +970,7 @@ export default function GameDetailModal({
                                       {t('download') || 'Download'}
                                     </div>
                                     {areAnyPartsDownloaded() && (
-                                      <span className="text-xs text-white/70 font-normal">
+                                      <span className="text-xs text-white/90 font-normal">
                                         {t('some_parts_downloaded') ||
                                           'Some parts already downloaded'}
                                       </span>
@@ -989,7 +988,7 @@ export default function GameDetailModal({
                                 disabled={
                                   isDownloading || (showWidget && !downloadComplete) || isInstalling
                                 }
-                                className="flex-1 py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-red-500/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                                className="flex-1 py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-red-500/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
                               >
                                 <Icon icon="mdi:delete" className="w-5 h-5" />
                                 {t('delete_file') || 'Delete File'}
@@ -1002,7 +1001,7 @@ export default function GameDetailModal({
                                   isDownloading ||
                                   isInstalling
                                 }
-                                className="flex-1 py-3.5 bg-linear-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 disabled:from-white/10 disabled:to-white/10 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-green-500/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-0.5"
+                                className="flex-1 py-3.5 bg-linear-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 disabled:from-gray-200 disabled:to-gray-200 dark:disabled:from-white/10 dark:disabled:to-white/10 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-green-500/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-0.5"
                               >
                                 {isInstalling ? (
                                   <div className="flex items-center gap-2">
@@ -1016,12 +1015,12 @@ export default function GameDetailModal({
                                       {t('install_game') || 'Install Game'}
                                     </div>
                                     {connectedDevice && deviceModel && (
-                                      <span className="text-xs text-white/70 font-normal">
+                                      <span className="text-xs text-white/90 font-normal">
                                         {t('device') || 'Device'}: {deviceModel}
                                       </span>
                                     )}
                                     {!connectedDevice && (
-                                      <span className="text-xs text-white/50 font-normal">
+                                      <span className="text-xs text-gray-500 dark:text-white/50 font-normal">
                                         {t('no_device_connected') || 'No device connected'}
                                       </span>
                                     )}
@@ -1038,7 +1037,7 @@ export default function GameDetailModal({
                                 isDownloading ||
                                 isInstalling
                               }
-                              className="w-full py-3.5 bg-linear-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 disabled:from-white/10 disabled:to-white/10 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-green-500/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-0.5"
+                              className="w-full py-3.5 bg-linear-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 disabled:from-gray-200 disabled:to-gray-200 dark:disabled:from-white/10 dark:disabled:to-white/10 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-green-500/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-0.5"
                             >
                               {isInstalling ? (
                                 <div className="flex items-center gap-2">
@@ -1057,7 +1056,7 @@ export default function GameDetailModal({
                                     {t('download_and_install') || 'Download & Install to Quest'}
                                   </div>
                                   {deviceModel && (
-                                    <span className="text-xs text-white/70 font-normal">
+                                    <span className="text-xs text-white/90 font-normal">
                                       {t('device') || 'Device'}: {deviceModel}
                                     </span>
                                   )}
@@ -1073,7 +1072,7 @@ export default function GameDetailModal({
                                 isDownloading ||
                                 isInstalling
                               }
-                              className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                              className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
                             >
                               {isDownloading ? (
                                 <>
@@ -1092,7 +1091,7 @@ export default function GameDetailModal({
                       ) : (
                         <button
                           disabled
-                          className="w-full py-3.5 bg-white/10 text-white/50 rounded-xl font-medium text-base cursor-not-allowed flex items-center justify-center gap-2"
+                          className="w-full py-3.5 bg-gray-100 dark:bg-white/10 text-gray-400 dark:text-white/50 rounded-xl font-medium text-base cursor-not-allowed flex items-center justify-center gap-2"
                         >
                           <Icon icon="mdi:clock-outline" className="w-5 h-5" />
                           {t('coming_soon') || 'Coming Soon'}
@@ -1101,7 +1100,7 @@ export default function GameDetailModal({
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 bg-white/5 rounded-xl text-center text-white/50 text-sm">
+                  <div className="p-4 bg-gray-100 dark:bg-white/5 rounded-xl text-center text-gray-500 dark:text-white/50 text-sm">
                     {!user
                       ? t('login_required') || 'Please login to download'
                       : t('not_eligible') || 'You are not eligible to access downloads'}
@@ -1127,21 +1126,24 @@ export default function GameDetailModal({
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="relative bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/10"
+                    className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
                   >
-                    <div className="flex justify-between items-center p-4 border-b border-white/10">
-                      <h3 className="font-bold text-lg text-white">
+                    <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-white/10">
+                      <h3 className="font-bold text-lg text-gray-900 dark:text-white">
                         {t('download_parts') || 'Download Parts'}
                       </h3>
                       <button
                         onClick={() => setShowDownloadParts(false)}
-                        className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors"
                       >
-                        <Icon icon="mdi:close" className="w-5 h-5 text-white/60" />
+                        <Icon
+                          icon="mdi:close"
+                          className="w-5 h-5 text-gray-500 dark:text-white/60"
+                        />
                       </button>
                     </div>
                     <div className="p-4 space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
-                      <p className="text-sm text-red-400 mb-3">
+                      <p className="text-sm text-red-600 dark:text-red-400 mb-3">
                         {t('download_all_parts_warning') ||
                           'You must download all parts for the game to work!'}
                       </p>
@@ -1149,13 +1151,13 @@ export default function GameDetailModal({
                       {/* Download Progress */}
                       {isDownloading && (
                         <div className="mb-4 p-3 rounded-xl border border-[#0081FB]/30 bg-[#0081FB]/5">
-                          <p className="text-sm text-white/80 mb-2 truncate">
+                          <p className="text-sm text-gray-800 dark:text-white/80 mb-2 truncate">
                             {downloadInfo.fileName}
                           </p>
 
                           {downloadInfo.status === 'downloading' && downloadInfo.totalBytes > 0 ? (
                             <>
-                              <div className="flex items-center justify-between text-xs text-white/50 mb-1">
+                              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-white/50 mb-1">
                                 <span>
                                   {formatBytes(downloadInfo.downloadedBytes)} /{' '}
                                   {formatBytes(downloadInfo.totalBytes)}
@@ -1167,7 +1169,7 @@ export default function GameDetailModal({
                                   %
                                 </span>
                               </div>
-                              <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
                                 <div
                                   className="h-full bg-linear-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
                                   style={{
@@ -1175,7 +1177,7 @@ export default function GameDetailModal({
                                   }}
                                 />
                               </div>
-                              <div className="mt-2 flex items-center justify-between text-xs text-white/40">
+                              <div className="mt-2 flex items-center justify-between text-xs text-gray-400 dark:text-white/40">
                                 <span className="flex items-center gap-1">
                                   <Icon icon="mdi:speedometer" className="h-3 w-3" />
                                   {formatSpeed(downloadInfo.speed)}
@@ -1196,7 +1198,7 @@ export default function GameDetailModal({
                                 icon="mdi:loading"
                                 className="h-6 w-6 animate-spin text-[#0081FB]"
                               />
-                              <span className="ml-2 text-sm text-white/60">
+                              <span className="ml-2 text-sm text-gray-500 dark:text-white/60">
                                 {t('qgo_preparing') || 'Preparing...'}
                               </span>
                             </div>
@@ -1207,7 +1209,7 @@ export default function GameDetailModal({
                               await cancelDownload()
                               toast.info(t('download_cancelled') || 'Download Cancelled')
                             }}
-                            className="mt-3 w-full py-2 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                            className="mt-3 w-full py-2 px-4 bg-red-100 hover:bg-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/30 text-red-700 dark:text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                           >
                             <Icon icon="mdi:close-circle" className="w-4 h-4" />
                             {t('cancel_download') || 'Cancel Download'}
@@ -1228,7 +1230,7 @@ export default function GameDetailModal({
                               className={`w-full flex items-center justify-between p-3 border rounded-xl transition-colors ${
                                 partDownloaded
                                   ? 'border-green-500/30 bg-green-500/5'
-                                  : 'border-white/10 hover:bg-[#0081FB]/10 hover:border-[#0081FB]/30'
+                                  : 'border-gray-200 dark:border-white/10 hover:bg-blue-50 dark:hover:bg-[#0081FB]/10 hover:border-blue-300 dark:hover:border-[#0081FB]/30'
                               }`}
                             >
                               <div className="flex items-center gap-3">
@@ -1246,9 +1248,11 @@ export default function GameDetailModal({
                                   )}
                                 </div>
                                 <div className="flex flex-col">
-                                  <span className="font-medium text-white">Part {idx + 1}</span>
+                                  <span className="font-medium text-gray-900 dark:text-white">
+                                    Part {idx + 1}
+                                  </span>
                                   {partDownloaded && fileInfo?.size && (
-                                    <span className="text-[10px] text-green-400/70">
+                                    <span className="text-[10px] text-green-700 dark:text-green-400">
                                       {formatBytes(fileInfo.size)} -{' '}
                                       {t('downloaded') || 'Downloaded'}
                                     </span>
@@ -1300,17 +1304,17 @@ export default function GameDetailModal({
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     onClick={(e) => e.stopPropagation()}
-                    className="relative w-full max-w-md rounded-2xl border border-red-500/30 bg-[#111] p-6 shadow-2xl"
+                    className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#111] p-6 shadow-2xl"
                   >
                     <div className="flex items-center gap-3 mb-4">
                       <div className="p-3 rounded-full bg-red-500/20">
                         <Icon icon="mdi:delete-alert" className="w-6 h-6 text-red-400" />
                       </div>
-                      <h3 className="text-lg font-semibold text-white">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                         {t('delete_confirm_title') || 'Delete Downloaded File?'}
                       </h3>
                     </div>
-                    <p className="text-sm text-white/60">
+                    <p className="text-sm text-gray-500 dark:text-white/60">
                       {confirmDelete.isMultiple
                         ? t('delete_confirm_desc_multiple') ||
                           'You are about to delete the following files:'
@@ -1320,24 +1324,27 @@ export default function GameDetailModal({
                       {confirmDelete.isMultiple ? (
                         <div className="space-y-1">
                           {confirmDelete.files.map((file, idx) => (
-                            <p key={idx} className="font-mono text-sm text-white/80 truncate">
+                            <p
+                              key={idx}
+                              className="font-mono text-sm text-gray-700 dark:text-white/80 truncate"
+                            >
                               {file}
                             </p>
                           ))}
                         </div>
                       ) : (
-                        <p className="font-mono text-sm text-white/80 truncate">
+                        <p className="font-mono text-sm text-gray-700 dark:text-white/80 truncate">
                           {confirmDelete.fileName}
                         </p>
                       )}
                     </div>
-                    <p className="mt-3 text-xs text-red-400/70">
+                    <p className="mt-3 text-xs text-red-600 dark:text-red-400">
                       {t('delete_warning') || 'This action cannot be undone.'}
                     </p>
                     <div className="mt-6 flex justify-end gap-2">
                       <button
                         onClick={() => setConfirmDelete(null)}
-                        className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white/70 transition-all hover:bg-white/5"
+                        className="rounded-lg border border-gray-300 dark:border-white/10 px-4 py-2 text-sm font-medium text-gray-600 dark:text-white/70 transition-all hover:bg-gray-100 dark:hover:bg-white/5"
                       >
                         {t('cancel') || 'Cancel'}
                       </button>
@@ -1372,18 +1379,18 @@ export default function GameDetailModal({
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="relative bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/10 p-6"
+                    className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6"
                   >
-                    <h3 className="text-lg font-semibold text-white">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                       {t('install_confirm_title') || 'Download & Install'}
                     </h3>
-                    <p className="mt-2 text-sm text-white/60">
+                    <p className="mt-2 text-sm text-gray-500 dark:text-white/60">
                       {t('install_confirm_desc') ||
                         'This will download and install the APK directly to your Meta Quest device:'}
                     </p>
-                    <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
-                      <p className="font-medium text-white">{gameTitle}</p>
-                      <p className="mt-1 text-xs text-white/50">
+                    <div className="mt-4 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
+                      <p className="font-medium text-gray-900 dark:text-white">{gameTitle}</p>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-white/50">
                         {t('qgo_version') || 'Version'}: {currentVersion.version || gameVersion}
                       </p>
                       <p className="mt-1 text-xs text-green-400 flex items-center gap-1">
@@ -1394,7 +1401,7 @@ export default function GameDetailModal({
                     <div className="mt-6 flex justify-end gap-2">
                       <button
                         onClick={() => setConfirmInstall(null)}
-                        className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white/70 transition-all hover:bg-white/5"
+                        className="rounded-lg border border-gray-300 dark:border-white/10 px-4 py-2 text-sm font-medium text-gray-600 dark:text-white/70 transition-all hover:bg-gray-100 dark:hover:bg-white/5"
                       >
                         {t('cancel') || 'Cancel'}
                       </button>
@@ -1424,11 +1431,11 @@ export default function GameDetailModal({
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="relative bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/10 p-6"
+                    className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6"
                   >
                     {/* Header with minimize button */}
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="text-lg font-semibold text-white">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                         {installProgress.step === 'DOWNLOADING'
                           ? t('qgo_downloading') || 'Downloading...'
                           : installProgress.step === 'EXTRACTING'
@@ -1447,19 +1454,19 @@ export default function GameDetailModal({
                           setShowInstallModal(false)
                           // Widget is already showing via context
                         }}
-                        className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-white/50 hover:text-gray-900 dark:hover:text-white transition-colors"
                         title={t('minimize') || 'Minimize to widget'}
                       >
                         <Icon icon="octicon:minimize-16" className="h-5 w-5" />
                       </button>
                     </div>
 
-                    <p className="text-sm text-white/60">{gameTitle}</p>
+                    <p className="text-sm text-gray-500 dark:text-white/60">{gameTitle}</p>
 
                     {/* Show actual filename from Google Drive with extension badge */}
                     {installProgress.gdFileName && (
                       <div className="mt-1 flex items-center gap-2">
-                        <p className="text-xs text-white/40 truncate flex-1">
+                        <p className="text-xs text-gray-400 dark:text-white/40 truncate flex-1">
                           {installProgress.gdFileName}
                         </p>
                         <span
@@ -1478,11 +1485,11 @@ export default function GameDetailModal({
 
                     {/* Progress */}
                     <div className="mt-4">
-                      <div className="mb-2 flex items-center justify-between text-xs text-white/50">
+                      <div className="mb-2 flex items-center justify-between text-xs text-gray-500 dark:text-white/50">
                         <span>{installProgress.detail}</span>
                         <span>{Math.round(installProgress.percent)}%</span>
                       </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
                         <div
                           className="h-full bg-linear-to-r from-green-500 to-emerald-400 transition-all duration-300"
                           style={{ width: `${installProgress.percent}%` }}
@@ -1491,7 +1498,7 @@ export default function GameDetailModal({
 
                       {/* Speed and progress info for download phase */}
                       {installProgress.step === 'DOWNLOADING' && installProgress.totalBytes > 0 && (
-                        <div className="mt-2 flex items-center justify-between text-xs text-white/40">
+                        <div className="mt-2 flex items-center justify-between text-xs text-gray-600 dark:text-white/50">
                           <span className="flex items-center gap-1">
                             <Icon icon="mdi:speedometer" className="h-3 w-3" />
                             {formatSpeed(installProgress.speed)}
@@ -1512,7 +1519,7 @@ export default function GameDetailModal({
                             setShowInstallModal(false)
                             toast.info(t('download_cancelled') || 'Download Cancelled')
                           }}
-                          className="mt-3 w-full py-2 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                          className="mt-3 w-full py-2 px-4 bg-red-100 hover:bg-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/30 text-red-700 dark:text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                         >
                           <Icon icon="mdi:close-circle" className="w-4 h-4" />
                           {t('cancel_download_install') || 'Cancel Download & Install'}
@@ -1521,7 +1528,7 @@ export default function GameDetailModal({
                     </div>
 
                     {/* Status info */}
-                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/70">
+                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-white/70">
                       {installProgress.step === 'COMPLETED' ? (
                         <>
                           <Icon icon="mdi:check-circle" className="h-5 w-5 text-green-500" />

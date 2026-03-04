@@ -86,7 +86,7 @@ export async function getCoverUrl(name) {
       _urlCache[name] = cached
       return cached
     }
-  } catch (e) {
+  } catch {
     // ignore
   }
 
@@ -118,7 +118,7 @@ export async function getCoverUrl(name) {
       try {
         localStorage.setItem(`gameBackgroundUrl_${name}`, url)
         localStorage.setItem(`lastFetchTime_${name}`, String(Date.now()))
-      } catch (e) {
+      } catch {
         // ignore
       }
       return url
@@ -141,7 +141,7 @@ export async function getCoverUrl(name) {
       const url = await getDownloadURL(storageRef)
       _urlCache[name] = url
       return url
-    } catch (e) {
+    } catch {
       // ignore
     }
   }

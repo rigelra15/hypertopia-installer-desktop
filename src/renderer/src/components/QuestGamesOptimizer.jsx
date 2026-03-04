@@ -18,14 +18,8 @@ export function QuestGamesOptimizer({
 }) {
   const { t } = useLanguage()
   const { user, accessTypes } = useAuth()
-  const {
-    isDownloading,
-    downloadInfo,
-    startDownload,
-    showWidget,
-    showDownloadWidget,
-    cancelDownload
-  } = useDownload()
+  const { isDownloading, downloadInfo, startDownload, showDownloadWidget, cancelDownload } =
+    useDownload()
   const {
     qgoLinks: cachedQgoLinks,
     qgoDownloadStats: cachedQgoStats,
@@ -48,10 +42,13 @@ export function QuestGamesOptimizer({
 
   // Installed QGO detection
   const [installedQgoVersion, setInstalledQgoVersion] = useState(null)
-  const [isCheckingInstalled, setIsCheckingInstalled] = useState(false)
+  const [_isCheckingInstalled, setIsCheckingInstalled] = useState(false)
 
   // Downloaded files tracking
   const [downloadedFiles, setDownloadedFiles] = useState({}) // { version: { exists, path, size } }
+
+  // Delete confirmation modal
+  const [deleteConfirm, setDeleteConfirm] = useState(null) // { item, fileName }
 
   // Install state
   const [confirmInstall, setConfirmInstall] = useState(null)
@@ -293,7 +290,7 @@ export function QuestGamesOptimizer({
   }
 
   // Check if ANY version of QGO is installed (for showing uninstall on any item)
-  const isAnyQgoInstalled = () => {
+  const _isAnyQgoInstalled = () => {
     return installedQgoVersion !== null
   }
 
@@ -452,7 +449,13 @@ export function QuestGamesOptimizer({
 
     setShowDownloadModal(true)
 
-    const result = await startDownload(item.url, fileName, gameTitle)
+    const result = await startDownload(item.url, fileName, gameTitle, version)
+
+    if (result.queued) {
+      setShowDownloadModal(false)
+      toast.success(`${gameTitle} ${t('queued_for_download') || 'ditambahkan ke antrian unduhan'}`)
+      return
+    }
 
     if (result.success) {
       setShowDownloadModal(false)
@@ -469,7 +472,6 @@ export function QuestGamesOptimizer({
       }
       // Refresh download stats to show updated count
       await handleRefresh()
-      // Toast notification is handled by the download complete notification
     } else if (result.canceled) {
       setShowDownloadModal(false)
     } else if (result.error) {
@@ -478,17 +480,18 @@ export function QuestGamesOptimizer({
     }
   }
 
-  // Handle delete downloaded file
-  const handleDeleteFile = async (item) => {
+  // Handle delete downloaded file — opens custom confirm modal
+  const handleDeleteFile = (item) => {
     const version = extractVersion(item.description)
     const fileName = version ? `QuestGamesOptimizer_v${version}.apk` : 'QuestGamesOptimizer.apk'
+    setDeleteConfirm({ item, fileName, version })
+  }
 
-    const confirmed = window.confirm(
-      t('qgo_confirm_delete_file') || `Are you sure you want to delete ${fileName}?`
-    )
-
-    if (!confirmed) return
-
+  // Called when user confirms deletion inside the modal
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm) return
+    const { fileName, version } = deleteConfirm
+    setDeleteConfirm(null)
     try {
       const result = await window.api.deleteDownloadedFile(fileName)
       if (result.success) {
@@ -616,7 +619,7 @@ export function QuestGamesOptimizer({
   }
 
   // Handle install button click
-  const handleInstall = (item) => {
+  const _handleInstall = (item) => {
     setConfirmInstall(item)
   }
 
@@ -776,13 +779,13 @@ export function QuestGamesOptimizer({
   if (!user) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
-        <div className="rounded-full bg-white/5 p-6">
-          <Icon icon="mdi:account-alert" className="h-12 w-12 text-white/40" />
+        <div className="rounded-full bg-gray-100 dark:bg-white/5 p-6">
+          <Icon icon="mdi:account-alert" className="h-12 w-12 text-gray-400 dark:text-white/40" />
         </div>
-        <h2 className="text-xl font-bold text-white/70">
+        <h2 className="text-xl font-bold text-gray-600 dark:text-white/70">
           {t('qgo_login_required') || 'Login Required'}
         </h2>
-        <p className="max-w-md text-sm text-white/50">
+        <p className="max-w-md text-sm text-gray-500 dark:text-white/50">
           {t('qgo_login_desc') || 'Please login to access Quest Games Optimizer'}
         </p>
       </div>
@@ -796,10 +799,10 @@ export function QuestGamesOptimizer({
         <div className="rounded-full bg-red-500/10 p-6">
           <Icon icon="mdi:lock-outline" className="h-12 w-12 text-red-400" />
         </div>
-        <h2 className="text-xl font-bold text-white/70">
+        <h2 className="text-xl font-bold text-gray-600 dark:text-white/70">
           {t('qgo_no_access_title') || 'Access Restricted'}
         </h2>
-        <p className="max-w-md text-sm text-white/50">
+        <p className="max-w-md text-sm text-gray-500 dark:text-white/50">
           {t('qgo_no_access_desc') ||
             'You do not have access to Quest Games Optimizer. Please contact support if you believe this is an error.'}
         </p>
@@ -808,17 +811,17 @@ export function QuestGamesOptimizer({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[#0a0a0a]">
+    <div className="flex h-full flex-col overflow-hidden bg-gray-50 dark:bg-[#0a0a0a]">
       {/* Header */}
-      <div className="border-b border-white/10 bg-[#111] p-6">
+      <div className="border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#111] p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1.5 shadow-lg">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1.5">
               <img src={QGOLogo} alt="QGO Logo" className="h-full w-full object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {t('qgo_title') || 'Quest Games Optimizer'}
                 </h2>
                 {/* Show installed version badge */}
@@ -829,7 +832,7 @@ export function QuestGamesOptimizer({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-gray-500 dark:text-white/50">
                 {isLoading
                   ? t('qgo_loading') || 'Loading...'
                   : `${filteredLinks.length} ${t('qgo_versions') || 'versions available'}`}
@@ -839,7 +842,7 @@ export function QuestGamesOptimizer({
           <button
             onClick={handleRefresh}
             disabled={isLoading}
-            className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm text-white/70 transition-all hover:bg-white/10 hover:text-white disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-white/5 px-3 py-2 text-sm text-gray-500 dark:text-white/70 transition-all hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
           >
             <Icon
               icon={isLoading ? 'mdi:loading' : 'mdi:refresh'}
@@ -851,9 +854,9 @@ export function QuestGamesOptimizer({
       </div>
       {/* Info Card */}
       {hasQgoAccess && (
-        <div className="border-b border-white/10 bg-[#191919] p-4">
+        <div className="border-b border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#191919] p-4">
           <div className="p-4 bg-[#0081FB]/10 border-l-4 border-[#0081FB] rounded">
-            <div className="text-sm text-white/90">
+            <div className="text-sm text-gray-800 dark:text-white/90">
               {t('language_code') === 'id' || t('qgo_download') === 'Unduh' ? (
                 <>
                   Aplikasi Quest Games Optimizer terhubung dengan email:{' '}
@@ -871,26 +874,26 @@ export function QuestGamesOptimizer({
       )}
 
       {/* Search and Sort Controls */}
-      <div className="flex flex-col gap-3 border-b border-white/10 bg-[#191919] p-4">
+      <div className="flex flex-col gap-3 border-b border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#191919] p-4">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Icon
               icon="mdi:magnify"
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40"
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-white/40"
             />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('qgo_search_placeholder') || 'Search version...'}
-              className="w-full rounded-lg border border-white/10 bg-[#0a0a0a] py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-[#0081FB]/50 transition-colors"
+              className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] py-2 pl-10 pr-4 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/30 outline-none focus:border-[#0081FB]/50 transition-colors"
             />
           </div>
 
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="rounded-lg border border-white/10 bg-[#0a0a0a] px-3 py-2 text-sm text-white outline-none focus:border-[#0081FB]/50 transition-colors cursor-pointer"
+            className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-[#0081FB]/50 transition-colors cursor-pointer"
           >
             <option value="version-desc">{t('qgo_sort_version_new') || 'Version (Newest)'}</option>
             <option value="version-asc">{t('qgo_sort_version_old') || 'Version (Oldest)'}</option>
@@ -903,15 +906,15 @@ export function QuestGamesOptimizer({
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Icon icon="mdi:loading" className="h-10 w-10 animate-spin text-[#0081FB]" />
-            <p className="mt-4 text-sm text-white/50">{t('qgo_loading') || 'Loading...'}</p>
+            <p className="mt-4 text-sm text-gray-500 dark:text-white/50">{t('qgo_loading') || 'Loading...'}</p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
               <Icon icon="mdi:alert-circle-outline" className="h-8 w-8 text-red-500" />
             </div>
-            <p className="mt-4 text-sm text-white/70">{t('qgo_error') || 'Failed to load QGO'}</p>
-            <p className="mt-1 text-xs text-white/40">{error}</p>
+            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">{t('qgo_error') || 'Failed to load QGO'}</p>
+            <p className="mt-1 text-xs text-gray-400 dark:text-white/40">{error}</p>
             <button
               onClick={handleRefresh}
               className="mt-4 flex items-center gap-2 rounded-lg bg-[#0081FB] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0081FB]/80"
@@ -922,10 +925,10 @@ export function QuestGamesOptimizer({
           </div>
         ) : filteredLinks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
-              <Icon icon="mdi:file-search-outline" className="h-8 w-8 text-white/30" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-white/5">
+              <Icon icon="mdi:file-search-outline" className="h-8 w-8 text-gray-300 dark:text-white/30" />
             </div>
-            <p className="mt-4 text-sm text-white/70">
+            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
               {searchQuery
                 ? t('search_no_results') || 'No results found'
                 : t('qgo_empty') || 'No QGO versions available'}
@@ -940,8 +943,16 @@ export function QuestGamesOptimizer({
               return (
                 <div
                   key={item.url || index}
-                  className="group relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-white/2 to-transparent p-4 transition-all hover:border-[#0081FB]/50 hover:shadow-lg hover:shadow-[#0081FB]/10"
+                  className={`group relative overflow-hidden rounded-xl border transition-colors p-4 ${
+                    isNewest
+                      ? 'border-[#0081FB]/30 bg-[#0081FB]/[0.04] dark:bg-[#0081FB]/[0.07]'
+                      : 'border-gray-200 dark:border-white/10 bg-white dark:bg-[#0f0f0f] hover:border-gray-300 dark:hover:border-white/20'
+                  }`}
                 >
+                  {/* Top accent strip for latest version */}
+                  {isNewest && (
+                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#0081FB] to-[#00C2FF]" />
+                  )}
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3">
@@ -951,12 +962,12 @@ export function QuestGamesOptimizer({
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold text-white truncate">
+                            <h3 className="font-semibold text-gray-900 dark:text-white truncate">
                               {item.description || 'Quest Games Optimizer'}
                             </h3>
                             {/* Latest badge */}
                             {isNewest && (
-                              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] px-2 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-[#0081FB]/30">
+                              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] px-2 py-0.5 text-[10px] font-bold text-white">
                                 {t('qgo_latest') || 'LATEST'}
                               </span>
                             )}
@@ -976,12 +987,12 @@ export function QuestGamesOptimizer({
                             )}
                           </div>
                           {version && (
-                            <div className="mt-1 flex items-center gap-3 text-xs text-white/50">
+                            <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-white/50">
                               <div className="flex items-center gap-1">
                                 <Icon icon="mdi:tag" className="h-3 w-3" />
                                 <span>v{version}</span>
                               </div>
-                              <span className="text-white/30">•</span>
+                              <span className="text-gray-400 dark:text-white/30">•</span>
                               <div className="flex items-center gap-1">
                                 <Icon icon="mdi:download" className="h-3 w-3" />
                                 <span>
@@ -1003,7 +1014,7 @@ export function QuestGamesOptimizer({
                           <button
                             onClick={() => handleDeleteFile(item)}
                             disabled={isDownloading || installing}
-                            className="flex-shrink-0 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-red-500/20 transition-all hover:shadow-xl hover:shadow-red-500/30 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            className="flex-shrink-0 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-red-500 px-4 py-2 text-sm font-medium text-white transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                           >
                             <Icon icon="mdi:file-remove" className="h-4 w-4" />
                             <span className="hidden sm:inline">
@@ -1022,9 +1033,9 @@ export function QuestGamesOptimizer({
                                   ? t('connect_device_first') || 'Connect a device first'
                                   : ''
                               }
-                              className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                              className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
                                 selectedDevice
-                                  ? 'bg-gradient-to-r from-red-600 to-red-500 shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover:scale-105 disabled:opacity-50'
+                                  ? 'bg-gradient-to-r from-red-600 to-red-500 hover:scale-105 disabled:opacity-50'
                                   : 'bg-gray-600 opacity-50'
                               }`}
                             >
@@ -1043,9 +1054,9 @@ export function QuestGamesOptimizer({
                                   ? t('connect_device_first') || 'Connect a device first'
                                   : ''
                               }
-                              className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                              className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
                                 selectedDevice
-                                  ? 'bg-gradient-to-r from-green-600 to-emerald-500 shadow-green-500/20 hover:shadow-xl hover:shadow-green-500/30 hover:scale-105 disabled:opacity-50'
+                                  ? 'bg-gradient-to-r from-green-600 to-emerald-500 hover:scale-105 disabled:opacity-50'
                                   : 'bg-gray-600 opacity-50'
                               }`}
                             >
@@ -1060,7 +1071,7 @@ export function QuestGamesOptimizer({
                           <button
                             onClick={() => handleDownload(item)}
                             disabled={isDownloading || installing}
-                            className="flex-shrink-0 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-[#0081FB]/20 transition-all hover:shadow-xl hover:shadow-[#0081FB]/30 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            className="flex-shrink-0 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                           >
                             <Icon icon="mdi:download" className="h-4 w-4" />
                             <span className="hidden sm:inline">
@@ -1078,9 +1089,9 @@ export function QuestGamesOptimizer({
                                   ? t('connect_device_first') || 'Connect a device first'
                                   : ''
                               }
-                              className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                              className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
                                 selectedDevice
-                                  ? 'bg-gradient-to-r from-red-600 to-red-500 shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover:scale-105 disabled:opacity-50'
+                                  ? 'bg-gradient-to-r from-red-600 to-red-500 hover:scale-105 disabled:opacity-50'
                                   : 'bg-gray-600 opacity-50'
                               }`}
                             >
@@ -1117,36 +1128,36 @@ export function QuestGamesOptimizer({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 50 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+              className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#111] p-6 border border-gray-200 dark:border-white/10"
             >
               <div className="flex items-start justify-between">
-                <h3 className="text-lg font-semibold text-white">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {t('qgo_downloading') || 'Downloading...'}
                 </h3>
                 <button
                   onClick={handleMinimizeDownload}
-                  className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
+                  className="rounded-lg p-1 text-gray-500 dark:text-white/50 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-colors"
                   title={t('minimize_to_background') || 'Minimize to background'}
                 >
                   <Icon icon="material-symbols:close-fullscreen-rounded" className="h-5 w-5" />
                 </button>
               </div>
 
-              <p className="mt-2 text-sm text-white/60">
+              <p className="mt-2 text-sm text-gray-600 dark:text-white/60">
                 {downloadInfo.fileName || downloadInfo.gameTitle || 'Quest Games Optimizer'}
               </p>
 
               {/* Progress Bar - Only show when downloading */}
               {downloadInfo.status === 'downloading' && downloadInfo.totalBytes > 0 ? (
                 <div className="mt-4">
-                  <div className="mb-2 flex items-center justify-between text-xs text-white/50">
+                  <div className="mb-2 flex items-center justify-between text-xs text-gray-500 dark:text-white/50">
                     <span>
                       {formatBytes(downloadInfo.downloadedBytes)} /{' '}
                       {formatBytes(downloadInfo.totalBytes)}
                     </span>
                     <span>{Math.round(downloadInfo.progress)}%</span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
                     <div
                       className="h-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
                       style={{ width: `${downloadInfo.progress}%` }}
@@ -1154,7 +1165,7 @@ export function QuestGamesOptimizer({
                   </div>
 
                   {/* Speed and ETA */}
-                  <div className="mt-2 flex items-center justify-between text-xs text-white/40">
+                  <div className="mt-2 flex items-center justify-between text-xs text-gray-400 dark:text-white/40">
                     <span className="flex items-center gap-1">
                       <Icon icon="mdi:speedometer" className="h-3 w-3" />
                       {formatSpeed(downloadInfo.speed)}
@@ -1176,7 +1187,7 @@ export function QuestGamesOptimizer({
               )}
 
               {/* Download Info */}
-              <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/70">
+              <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-white/70">
                 <Icon icon="mdi:download" className="h-5 w-5 animate-pulse text-[#0081FB]" />
                 <span>
                   {downloadInfo.status === 'preparing'
@@ -1186,7 +1197,7 @@ export function QuestGamesOptimizer({
               </div>
 
               {/* Minimize hint */}
-              <p className="mt-4 text-center text-xs text-white/40">
+              <p className="mt-4 text-center text-xs text-gray-400 dark:text-white/40">
                 {t('download_minimize_hint') ||
                   'Click the arrow to minimize and continue in background'}
               </p>
@@ -1224,21 +1235,21 @@ export function QuestGamesOptimizer({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 50 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+              className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#111] p-6 border border-gray-200 dark:border-white/10"
             >
-              <h3 className="text-lg font-semibold text-white">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {t('install_confirm_title') || 'Download & Install'}
               </h3>
-              <p className="mt-2 text-sm text-white/60">
+              <p className="mt-2 text-sm text-gray-600 dark:text-white/60">
                 {t('install_confirm_desc') ||
                   'This will download and install the APK directly to your Meta Quest device:'}
               </p>
-              <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
-                <p className="font-medium text-white">
+              <div className="mt-4 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
+                <p className="font-medium text-gray-900 dark:text-white">
                   {confirmInstall.description || 'Quest Games Optimizer'}
                 </p>
                 {extractVersion(confirmInstall.description) && (
-                  <p className="mt-1 text-xs text-white/50">
+                  <p className="mt-1 text-xs text-gray-500 dark:text-white/50">
                     {t('qgo_version') || 'Version'}: v{extractVersion(confirmInstall.description)}
                   </p>
                 )}
@@ -1250,13 +1261,13 @@ export function QuestGamesOptimizer({
               <div className="mt-6 flex justify-end gap-2">
                 <button
                   onClick={() => setConfirmInstall(null)}
-                  className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white/70 transition-all hover:bg-white/5"
+                  className="rounded-lg border border-gray-200 dark:border-white/10 px-4 py-2 text-sm font-medium text-gray-500 dark:text-white/70 transition-all hover:bg-gray-100 dark:hover:bg-white/5"
                 >
                   {t('cancel') || 'Cancel'}
                 </button>
                 <button
                   onClick={handleConfirmInstall}
-                  className="rounded-lg bg-gradient-to-r from-green-600 to-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-green-500/20 transition-all hover:shadow-xl"
+                  className="rounded-lg bg-gradient-to-r from-green-600 to-emerald-500 px-4 py-2 text-sm font-medium text-white transition-all hover:brightness-110"
                 >
                   {t('install') || 'Install'}
                 </button>
@@ -1282,9 +1293,9 @@ export function QuestGamesOptimizer({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 50 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl"
+              className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#111] p-6 border border-gray-200 dark:border-white/10"
             >
-              <h3 className="text-lg font-semibold text-white">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {installProgress.step === 'DOWNLOADING'
                   ? t('qgo_downloading') || 'Downloading...'
                   : installProgress.step === 'INSTALLING'
@@ -1294,17 +1305,17 @@ export function QuestGamesOptimizer({
                       : t('qgo_preparing') || 'Preparing...'}
               </h3>
 
-              <p className="mt-2 text-sm text-white/60">
+              <p className="mt-2 text-sm text-gray-600 dark:text-white/60">
                 {confirmInstall?.description || 'Quest Games Optimizer'}
               </p>
 
               {/* Progress */}
               <div className="mt-4">
-                <div className="mb-2 flex items-center justify-between text-xs text-white/50">
+                <div className="mb-2 flex items-center justify-between text-xs text-gray-500 dark:text-white/50">
                   <span>{installProgress.detail}</span>
                   <span>{Math.round(installProgress.percent)}%</span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
                   <div
                     className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-300"
                     style={{ width: `${installProgress.percent}%` }}
@@ -1313,7 +1324,7 @@ export function QuestGamesOptimizer({
 
                 {/* Speed and progress info for download phase */}
                 {installProgress.step === 'DOWNLOADING' && installProgress.totalBytes > 0 && (
-                  <div className="mt-2 flex items-center justify-between text-xs text-white/40">
+                  <div className="mt-2 flex items-center justify-between text-xs text-gray-400 dark:text-white/40">
                     <span className="flex items-center gap-1">
                       <Icon icon="mdi:speedometer" className="h-3 w-3" />
                       {formatSpeed(installProgress.speed)}
@@ -1327,7 +1338,7 @@ export function QuestGamesOptimizer({
               </div>
 
               {/* Status info */}
-              <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/70">
+              <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-white/70">
                 {installProgress.step === 'COMPLETED' ? (
                   <>
                     <Icon icon="mdi:check-circle" className="h-5 w-5 text-green-500" />
@@ -1343,6 +1354,62 @@ export function QuestGamesOptimizer({
                     </span>
                   </>
                 )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Delete file confirmation modal */}
+        {deleteConfirm && (
+          <motion.div
+            key="delete-confirm-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+            onClick={() => setDeleteConfirm(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-sm rounded-2xl bg-white dark:bg-[#111] p-6 border border-gray-200 dark:border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Icon */}
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10">
+                <Icon icon="mdi:delete-outline" className="h-7 w-7 text-red-500" />
+              </div>
+
+              {/* Title */}
+              <h3 className="text-center text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                {t('qgo_delete_file_title') || 'Hapus File?'}
+              </h3>
+
+              {/* Message */}
+              <p className="text-center text-sm text-gray-500 dark:text-white/50 mb-1">
+                {t('qgo_confirm_delete_file') || 'Apakah kamu yakin ingin menghapus file ini?'}
+              </p>
+              <p className="text-center text-xs font-mono text-gray-400 dark:text-white/30 mb-6 truncate px-2">
+                {deleteConfirm.fileName}
+              </p>
+
+              {/* Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 py-2.5 text-sm font-medium text-gray-700 dark:text-white/70 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                >
+                  {t('cancel') || 'Batal'}
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 py-2.5 text-sm font-semibold text-white transition-colors"
+                >
+                  {t('delete') || 'Hapus'}
+                </button>
               </div>
             </motion.div>
           </motion.div>
