@@ -42,15 +42,15 @@ export default function NetworkStatusWidget() {
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className={`fixed ${bottomPosition} right-4 z-50`}
         >
-          <div className="flex items-center gap-3 rounded-2xl border border-green-500/30 bg-[#111] px-4 py-3 shadow-2xl shadow-green-500/10">
+          <div className="flex items-center gap-3 rounded-2xl bg-white dark:bg-[#111] px-4 py-3 shadow-2xl shadow-green-500/10">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20">
               <Icon icon="mdi:wifi-check" className="h-5 w-5 text-green-500" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
                 {t('network_back_online') || 'Back Online'}
               </p>
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-gray-500 dark:text-white/50">
                 {t('network_connection_restored') || 'Connection restored'}
               </p>
             </div>
@@ -67,9 +67,9 @@ export default function NetworkStatusWidget() {
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className={`fixed ${bottomPosition} right-4 z-50`}
         >
-          <div className="min-w-[300px] max-w-[360px] overflow-hidden rounded-2xl border border-orange-500/30 bg-[#111] shadow-2xl shadow-orange-500/10">
+          <div className="min-w-[300px] max-w-[360px] overflow-hidden rounded-2xl bg-white dark:bg-[#111] shadow-2xl shadow-orange-500/10">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/5 p-3">
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 p-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/20">
                   {!isOnline ? (
@@ -81,12 +81,12 @@ export default function NetworkStatusWidget() {
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
                     {!isOnline
                       ? t('network_offline') || 'No Internet Connection'
                       : t('network_api_unreachable') || 'Server Unreachable'}
                   </p>
-                  <p className="text-xs text-white/50">
+                  <p className="text-xs text-gray-500 dark:text-white/50">
                     {!isOnline
                       ? t('network_check_connection') || 'Please check your connection'
                       : t('network_server_issue') || 'Unable to reach HyperTopia servers'}
@@ -95,7 +95,7 @@ export default function NetworkStatusWidget() {
               </div>
               <button
                 onClick={dismissOfflineNotification}
-                className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
+                className="rounded-lg p-1 text-gray-400 dark:text-white/50 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-colors"
               >
                 <Icon icon="mdi:close" className="h-4 w-4" />
               </button>
@@ -105,7 +105,7 @@ export default function NetworkStatusWidget() {
             <div className="p-3 space-y-3">
               {/* Status Info */}
               <div className="flex items-center justify-between text-xs">
-                <span className="text-white/50">{t('network_status') || 'Status'}:</span>
+                <span className="text-gray-500 dark:text-white/50">{t('network_status') || 'Status'}:</span>
                 <span
                   className={`flex items-center gap-1 ${isConnected ? 'text-green-400' : 'text-orange-400'}`}
                 >
@@ -119,20 +119,20 @@ export default function NetworkStatusWidget() {
               </div>
 
               {/* What's affected */}
-              <div className="rounded-lg bg-white/5 p-2">
-                <p className="text-xs text-white/70 mb-2">
+              <div className="rounded-lg bg-gray-50 dark:bg-white/5 p-2">
+                <p className="text-xs text-gray-600 dark:text-white/70 mb-2">
                   {t('network_affected_features') || 'Affected features:'}
                 </p>
                 <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 text-xs text-white/50">
+                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-white/50">
                     <Icon icon="mdi:gamepad-variant" className="h-3.5 w-3.5" />
                     <span>{t('network_games_list') || 'Games list loading'}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-white/50">
+                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-white/50">
                     <Icon icon="mdi:download" className="h-3.5 w-3.5" />
                     <span>{t('network_downloads') || 'Downloads'}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-white/50">
+                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-white/50">
                     <Icon icon="mdi:account" className="h-3.5 w-3.5" />
                     <span>{t('network_login') || 'Login & account access'}</span>
                   </div>

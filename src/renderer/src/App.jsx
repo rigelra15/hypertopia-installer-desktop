@@ -16,13 +16,37 @@ import LiveAssistNotification from './components/LiveAssistNotification'
 import GameDownloadWidget from './components/GameDownloadWidget'
 import GameInstallWidget from './components/GameInstallWidget'
 import NetworkStatusWidget from './components/NetworkStatusWidget'
-import LocalDownloads from './components/LocalDownloads'
 import { useAuth } from './contexts/AuthContext'
+import { useGames } from './contexts/GamesContext'
 
 function App() {
   const { t } = useLanguage()
   const { user } = useAuth()
+  const { qgoLinks, fetchGames } = useGames()
+  const [gamesCount, setGamesCount] = useState(null)
   const toast = useToast()
+
+  // Eagerly fetch games count respecting device preference so badge is visible before visiting the tab
+  useEffect(() => {
+    const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
+    const load = async () => {
+      try {
+        let devicePref = null
+        if (user?.uid) {
+          const res = await fetch(`${FIREBASE_DB_URL}/usersData/preferences/${user.uid}/device.json`)
+          const val = await res.json()
+          if (val) devicePref = val
+        }
+        const result = await fetchGames({ page: 1, limit: 1, sortBy: 'added', sortOrder: 'asc', search: '', device: devicePref || '' })
+        if (result?.pagination?.totalItems != null) {
+          setGamesCount(result.pagination.totalItems)
+        }
+      } catch {
+        // non-critical, badge just stays hidden
+      }
+    }
+    load()
+  }, [user, fetchGames])
   const {
     showWidget,
     downloadInfo,
@@ -38,6 +62,20 @@ function App() {
   const hasCheckedUpdates = useRef(false)
   const [selectedDevice, setSelectedDevice] = useState(null)
   const [activeTab, setActiveTab] = useState('tutorials') // 'obb' | 'apps' | 'games' | 'tutorials' | 'liveassist' | 'qgo'
+  const [managerSubTab, setManagerSubTab] = useState('obb') // sub-tab for DeviceManager
+
+  // Navigation handler — supports composite targets like 'manager:downloads'
+  const handleNavigateToTab = (target) => {
+    if (typeof target === 'string' && target.includes(':')) {
+      const [tab, subTab] = target.split(':')
+      setActiveTab(tab)
+      setManagerSubTab(subTab)
+    } else {
+      setActiveTab(target)
+      // Reset sub-tab when user manually clicks the top-level manager tab
+      if (target === 'manager') setManagerSubTab('obb')
+    }
+  }
   const [sidebarWidth, setSidebarWidth] = useState(400)
   const [isResizing, setIsResizing] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
@@ -47,6 +85,17 @@ function App() {
     const savedPath = localStorage.getItem('extractPath')
     return !savedPath
   })
+
+  // On mount: read extractPath from config file (file = source of truth after reinstall)
+  useEffect(() => {
+    window.api.storeRead?.('hypertopia-config.json').then((config) => {
+      if (config?.extractPath) {
+        setExtractPath(config.extractPath)
+        localStorage.setItem('extractPath', config.extractPath)
+        setShowSetupModal(false)
+      }
+    })
+  }, [])
   const [tabScrollIndex, setTabScrollIndex] = useState(0)
   // Deep link download pending info (from website)
   const [pendingDeepLinkDownload, setPendingDeepLinkDownload] = useState(null)
@@ -90,15 +139,9 @@ function App() {
   // Tab configuration
   const tabs = [
     { id: 'tutorials', icon: 'mdi:book-open-page-variant', label: t('tab_tutorials') },
-    { id: 'games', icon: 'mdi:gamepad-variant', label: t('tab_games') },
-    { id: 'qgo', icon: 'mdi:tune-variant', label: t('tab_qgo') || 'QGO' },
-    { id: 'manager', icon: 'mdi:folder-cog', label: t('tab_manager') || 'Manager' },
-    {
-      id: 'downloads',
-      icon: 'mdi:folder-download-outline',
-      label: t('tab_downloads') || 'Downloads'
-    },
-    { id: 'liveassist', icon: 'mdi:headset', label: t('tab_live_assist') || 'Live Assist' }
+    { id: 'games', icon: 'mdi:gamepad-variant', label: t('tab_games'), count: gamesCount },
+    { id: 'qgo', icon: 'mdi:tune-variant', label: t('tab_qgo') || 'QGO', count: qgoLinks.length || null },
+    { id: 'manager', icon: 'mdi:folder-cog', label: t('tab_manager') || 'Device Manager' }
   ]
 
   const visibleTabsCount = 4 // Show 4 tabs at a time
@@ -177,10 +220,10 @@ function App() {
         isOnLiveAssistTab={activeTab === 'liveassist'}
         onNavigateToLiveAssist={() => setActiveTab('liveassist')}
       />
-      <div className="flex flex-1 w-full flex-col overflow-hidden bg-[#0a0a0a] text-white selection:bg-[#0081FB]/30 md:flex-row">
+      <div className="flex flex-1 w-full flex-col overflow-hidden bg-gray-50 dark:bg-[#0a0a0a] text-gray-900 dark:text-white selection:bg-[#0081FB]/30 md:flex-row">
         {/* Sidebar */}
         <div
-          className="flex flex-none flex-col border-b border-white/10 md:h-full md:border-b-0 md:border-r relative transition-all duration-300"
+          className="flex flex-none flex-col border-b border-gray-200 dark:border-white/10 md:h-full md:border-b-0 md:border-r relative transition-all duration-300"
           style={{
             width: window.innerWidth >= 768 ? (isSidebarCollapsed ? 64 : sidebarWidth) : '100%'
           }}
@@ -191,7 +234,7 @@ function App() {
             extractPath={extractPath}
             onExtractPathChange={setExtractPath}
             onCollapsedChange={setIsSidebarCollapsed}
-            onNavigateToTab={setActiveTab}
+            onNavigateToTab={handleNavigateToTab}
           />
 
           {/* Resize Handle (Desktop Only) */}
@@ -209,7 +252,7 @@ function App() {
         {/* Content */}
         <div className="flex w-full flex-1 flex-col md:h-full min-w-0">
           {/* Tab Switcher */}
-          <div className="flex items-center border-b border-white/10 bg-[#111] p-2 gap-2">
+          <div className="flex items-center border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#111] p-2 gap-2">
             {/* Left Navigation Button - Only show if scrolling is needed */}
             {needsScrolling && (
               <button
@@ -217,8 +260,8 @@ function App() {
                 disabled={tabScrollIndex === 0}
                 className={`flex items-center justify-center rounded-lg p-2 transition-all ${
                   tabScrollIndex === 0
-                    ? 'cursor-not-allowed text-white/20 bg-transparent'
-                    : 'text-white bg-white/10 hover:bg-[#0081FB] hover:text-white shadow-lg'
+                    ? 'cursor-not-allowed text-gray-300 dark:text-white/20 bg-transparent'
+                    : 'text-gray-600 dark:text-white bg-gray-100 dark:bg-white/10 hover:bg-[#0081FB] hover:text-white shadow-lg'
                 }`}
                 title="Previous tabs"
               >
@@ -235,11 +278,20 @@ function App() {
                   className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                     activeTab === tab.id
                       ? 'bg-[#0081FB]/10 text-[#0081FB]'
-                      : 'text-white/50 hover:bg-white/5 hover:text-white/70'
+                      : 'text-gray-500 dark:text-white/50 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-700 dark:hover:text-white/70'
                   }`}
                 >
                   <Icon icon={tab.icon} className="h-4 w-4" />
                   <span className="hidden sm:inline">{tab.label}</span>
+                  {tab.count != null && tab.count > 0 && (
+                    <span className={`inline-flex items-center justify-center h-5 min-w-[1.25rem] rounded-full px-1.5 text-[10px] font-bold tabular-nums ${
+                      activeTab === tab.id
+                        ? 'bg-[#0081FB] text-white'
+                        : 'bg-gray-200 dark:bg-white/15 text-gray-600 dark:text-white/70'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -251,8 +303,8 @@ function App() {
                 disabled={tabScrollIndex >= maxScrollIndex}
                 className={`flex items-center justify-center rounded-lg p-2 transition-all ${
                   tabScrollIndex >= maxScrollIndex
-                    ? 'cursor-not-allowed text-white/20 bg-transparent'
-                    : 'text-white bg-white/10 hover:bg-[#0081FB] hover:text-white shadow-lg'
+                    ? 'cursor-not-allowed text-gray-300 dark:text-white/20 bg-transparent'
+                    : 'text-gray-600 dark:text-white bg-gray-100 dark:bg-white/10 hover:bg-[#0081FB] hover:text-white shadow-lg'
                 }`}
                 title="Next tabs"
               >
@@ -261,14 +313,15 @@ function App() {
             )}
 
             {/* User Login Menu */}
-            <UserMenu />
+            <UserMenu onLiveAssist={() => setActiveTab('liveassist')} />
           </div>
 
           {activeTab === 'manager' ? (
-            <DeviceManager selectedDevice={selectedDevice} />
+            <DeviceManager selectedDevice={selectedDevice} initialSubTab={managerSubTab} />
           ) : activeTab === 'games' ? (
             <StandaloneGames
               selectedDevice={selectedDevice}
+              onGameCountChange={setGamesCount}
               pendingDeepLinkDownload={
                 pendingDeepLinkDownload?.type === 'standalone' ? pendingDeepLinkDownload : null
               }
@@ -276,8 +329,6 @@ function App() {
             />
           ) : activeTab === 'liveassist' ? (
             <LiveAssist />
-          ) : activeTab === 'downloads' ? (
-            <LocalDownloads selectedDevice={selectedDevice} />
           ) : activeTab === 'qgo' ? (
             <QuestGamesOptimizer
               selectedDevice={selectedDevice}

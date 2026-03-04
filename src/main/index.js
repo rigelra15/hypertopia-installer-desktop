@@ -483,6 +483,37 @@ ipcMain.handle('get-extract-path', async (event) => {
   })
 })
 
+// ─── Persistent file-based store ─────────────────────────────────────────────
+// Stores JSON files in app.getPath('userData') so data survives reinstalls and
+// is human-readable (unlike localStorage which is stored in Chromium LevelDB).
+//
+// Files created:
+//   • hypertopia-config.json  — app settings (theme, language, autoUpdate, etc.)
+//   • download-history.json   — completed download/install history
+// ─────────────────────────────────────────────────────────────────────────────
+ipcMain.handle('store-read', async (_, fileName) => {
+  const { promises: fsP } = require('fs')
+  const filePath = join(app.getPath('userData'), fileName)
+  try {
+    const raw = await fsP.readFile(filePath, 'utf8')
+    return JSON.parse(raw)
+  } catch {
+    return null // file doesn't exist yet or parse error → renderer uses localStorage fallback
+  }
+})
+
+ipcMain.handle('store-write', async (_, fileName, data) => {
+  const { promises: fsP } = require('fs')
+  const filePath = join(app.getPath('userData'), fileName)
+  try {
+    await fsP.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8')
+    return { ok: true }
+  } catch (err) {
+    console.error('[store-write] Failed to write', fileName, err)
+    return { ok: false, error: err.message }
+  }
+})
+
 // IPC: Move temp folders to new extract path
 ipcMain.handle('move-extract-folder', async (event, oldPath) => {
   try {
@@ -2200,6 +2231,7 @@ ipcMain.handle('list-devices', async () => {
 
         // Only fetch details if authorized
         let battery = 'N/A'
+        let isCharging = false
         let storage = { free: '0', total: '0', percent: '0' }
 
         if (state === 'device') {
@@ -2211,9 +2243,17 @@ ipcMain.handle('list-devices', async () => {
               new Promise((res) => {
                 // Remove grep for Windows compatibility
                 exec(`${safeAdb} ${deviceFlag} shell dumpsys battery`, (err, out) => {
-                  if (err) return res('N/A')
-                  const match = out.match(/level:\s*(\d+)/)
-                  res(match ? match[1] + '%' : 'N/A')
+                  if (err) return res({ percent: 'N/A', isCharging: false })
+                  const levelMatch = out.match(/level:\s*(\d+)/)
+                  const acMatch = out.match(/AC powered:\s*(true|false)/)
+                  const usbMatch = out.match(/USB powered:\s*(true|false)/)
+                  const wirelessMatch = out.match(/Wireless powered:\s*(true|false)/)
+                  const isCharging =
+                    acMatch?.[1] === 'true' ||
+                    usbMatch?.[1] === 'true' ||
+                    wirelessMatch?.[1] === 'true'
+                  const percent = levelMatch ? levelMatch[1] + '%' : 'N/A'
+                  res({ percent, isCharging })
                 })
               }),
               new Promise((res) => {
@@ -2245,14 +2285,15 @@ ipcMain.handle('list-devices', async () => {
               })
             ])
 
-            battery = batteryResult
+            battery = batteryResult.percent
+            isCharging = batteryResult.isCharging
             storage = storageResult
           } catch (e) {
             console.warn(`Failed to get details for ${serial}`, e)
           }
         }
 
-        devices.push({ serial, state, model, battery, storage })
+        devices.push({ serial, state, model, battery, isCharging, storage })
       }
 
       resolve(devices)

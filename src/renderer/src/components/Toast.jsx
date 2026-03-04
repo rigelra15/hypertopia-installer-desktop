@@ -60,13 +60,13 @@ function ToastContainer({ toasts, onRemove }) {
   const getColors = (type) => {
     switch (type) {
       case 'success':
-        return 'border-green-700 bg-[#0d2818] text-green-400'
+        return 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-[#0d2818] text-green-600 dark:text-green-400'
       case 'error':
-        return 'border-red-700 bg-[#2d1212] text-red-400'
+        return 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-[#2d1212] text-red-600 dark:text-red-400'
       case 'warning':
-        return 'border-yellow-700 bg-[#2d2412] text-yellow-400'
+        return 'border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-[#2d2412] text-yellow-600 dark:text-yellow-400'
       default:
-        return 'border-[#0066cc] bg-[#0a1929] text-[#0081FB]'
+        return 'border-blue-300 dark:border-[#0066cc] bg-blue-50 dark:bg-[#0a1929] text-[#0081FB]'
     }
   }
 

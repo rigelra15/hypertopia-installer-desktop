@@ -124,7 +124,7 @@ export default function LiveAssistNotification({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, x: 100, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="flex items-start gap-3 rounded-xl border p-3 shadow-lg pointer-events-auto bg-[#1a3a5c] border-[#0081FB]/50"
+            className="flex items-start gap-3 rounded-xl border p-3 shadow-lg pointer-events-auto bg-blue-50 dark:bg-[#1a3a5c] border-blue-300 dark:border-[#0081FB]/50"
           >
             {/* Icon */}
             <div className="rounded-lg p-2 bg-[#0081FB]/20">
@@ -133,10 +133,12 @@ export default function LiveAssistNotification({
 
             {/* Content */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
+              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                 {t('live_assist_request') || 'Support Request'}
               </p>
-              <p className="text-xs text-white/60 truncate">{request.userName}</p>
+              <p className="text-xs text-gray-500 dark:text-white/60 truncate">
+                {request.userName}
+              </p>
             </div>
 
             {/* Actions */}
@@ -149,9 +151,9 @@ export default function LiveAssistNotification({
               </button>
               <button
                 onClick={() => handleDismiss(request.id)}
-                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
               >
-                <Icon icon="mdi:close" className="h-4 w-4 text-white/50" />
+                <Icon icon="mdi:close" className="h-4 w-4 text-gray-400 dark:text-white/50" />
               </button>
             </div>
           </motion.div>

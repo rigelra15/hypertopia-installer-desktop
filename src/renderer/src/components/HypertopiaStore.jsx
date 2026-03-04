@@ -91,16 +91,16 @@ export function HypertopiaStore({ initialUrl }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-[#111] overflow-hidden">
+    <div className="flex flex-1 flex-col bg-white dark:bg-[#111] overflow-hidden">
       {/* Browser Bar */}
-      <div className="flex items-center gap-3 border-b border-white/10 bg-[#191919] p-2">
+      <div className="flex items-center gap-3 border-b border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-[#191919] p-2">
         {/* Navigation Controls */}
         <div className="flex items-center gap-1">
           <button
             onClick={handleGoBack}
             disabled={!canGoBack}
             className={`rounded-lg p-1.5 transition-colors ${
-              canGoBack ? 'text-white hover:bg-white/10' : 'text-white/20 cursor-not-allowed'
+              canGoBack ? 'text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-white/10' : 'text-gray-300 dark:text-white/20 cursor-not-allowed'
             }`}
           >
             <Icon icon="mdi:arrow-left" className="h-5 w-5" />
@@ -109,14 +109,14 @@ export function HypertopiaStore({ initialUrl }) {
             onClick={handleGoForward}
             disabled={!canGoForward}
             className={`rounded-lg p-1.5 transition-colors ${
-              canGoForward ? 'text-white hover:bg-white/10' : 'text-white/20 cursor-not-allowed'
+              canGoForward ? 'text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-white/10' : 'text-gray-300 dark:text-white/20 cursor-not-allowed'
             }`}
           >
             <Icon icon="mdi:arrow-right" className="h-5 w-5" />
           </button>
           <button
             onClick={handleReload}
-            className="rounded-lg p-1.5 text-white hover:bg-white/10 transition-colors"
+            className="rounded-lg p-1.5 text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
           >
             <Icon
               icon={isLoading ? 'mdi:loading' : 'mdi:refresh'}
@@ -126,17 +126,17 @@ export function HypertopiaStore({ initialUrl }) {
         </div>
 
         {/* Address Bar */}
-        <div className="flex flex-1 items-center gap-2 rounded-lg bg-[#0a0a0a] border border-white/5 px-3 py-1.5 shadow-inner">
+          <div className="flex flex-1 items-center gap-2 rounded-lg bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-white/5 px-3 py-1.5 shadow-inner">
           <Icon icon="mdi:lock" className="h-3.5 w-3.5 text-[#0081FB]" />
           <input
             type="text"
             value={url}
             readOnly
-            className="flex-1 bg-transparent text-sm text-white/80 outline-none selection:bg-[#0081FB]/30"
+            className="flex-1 bg-transparent text-sm text-gray-700 dark:text-white/80 outline-none selection:bg-[#0081FB]/30"
           />
           <button
             onClick={handleCopyUrl}
-            className="text-white/30 hover:text-white transition-colors"
+            className="text-gray-300 dark:text-white/30 hover:text-gray-700 dark:hover:text-white transition-colors"
             title="Copy link"
           >
             <Icon icon="mdi:content-copy" className="h-4 w-4" />
@@ -146,7 +146,7 @@ export function HypertopiaStore({ initialUrl }) {
         {/* External Actions */}
         <button
           onClick={handleOpenExternal}
-          className="rounded-lg p-1.5 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+          className="rounded-lg p-1.5 text-gray-500 dark:text-white/70 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-colors"
           title={t('open_in_browser')}
         >
           <Icon icon="mdi:open-in-new" className="h-5 w-5" />
@@ -156,7 +156,7 @@ export function HypertopiaStore({ initialUrl }) {
       {/* Info Banner - Important Notice */}
       <div className="flex items-center gap-2 border-b border-[#0081FB]/20 bg-[#0081FB]/10 px-3 py-2">
         <Icon icon="mdi:information-outline" className="h-4 w-4 shrink-0 text-[#0081FB]" />
-        <p className="flex-1 text-[11px] text-white/80">{t('webview_info_notice')}</p>
+        <p className="flex-1 text-[11px] text-gray-700 dark:text-white/80">{t('webview_info_notice')}</p>
         <button
           onClick={handleOpenExternal}
           className="shrink-0 flex items-center gap-1 rounded-md bg-[#0081FB] px-2 py-1 text-[10px] font-medium text-white transition-colors hover:bg-[#0081FB]/80"

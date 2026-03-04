@@ -128,7 +128,12 @@ const api = {
     const subscription = (_event, data) => callback(data)
     ipcRenderer.on('deep-link-download', subscription)
     return () => ipcRenderer.removeListener('deep-link-download', subscription)
-  }
+  },
+  // ── Persistent file-based store ──
+  // Reads a JSON file from app userData directory. Returns parsed object/array, or null if not found.
+  storeRead: (fileName) => ipcRenderer.invoke('store-read', fileName),
+  // Writes data as pretty-printed JSON to app userData directory.
+  storeWrite: (fileName, data) => ipcRenderer.invoke('store-write', fileName, data)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -17,7 +17,7 @@ function timerReducer(state, action) {
   }
 }
 
-export function UserMenu() {
+export function UserMenu({ onLiveAssist }) {
   const { t } = useLanguage()
   const {
     user,
@@ -99,7 +99,7 @@ export function UserMenu() {
   if (loading) {
     return (
       <div className="flex items-center gap-2 px-3 py-2">
-        <div className="h-8 w-8 animate-pulse rounded-full bg-white/10" />
+        <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-white/10" />
       </div>
     )
   }
@@ -136,13 +136,13 @@ export function UserMenu() {
             {/* Modal */}
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div
-                className="relative w-full max-w-md bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl p-6"
+                className="relative w-full max-w-md bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl p-6"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Close Button */}
                 <button
                   onClick={handleCancelLogin}
-                  className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
+                  className="absolute top-4 right-4 text-gray-400 dark:text-white/50 hover:text-gray-900 dark:hover:text-white transition-colors"
                 >
                   <Icon icon="mdi:close" className="h-5 w-5" />
                 </button>
@@ -152,10 +152,10 @@ export function UserMenu() {
                   <div className="w-14 h-14 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center shadow-lg">
                     <Icon icon="mdi:link-variant" className="h-7 w-7 text-white" />
                   </div>
-                  <h2 className="text-xl font-bold text-white">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                     {t('login_title') || 'Login to HyperTopia'}
                   </h2>
-                  <p className="text-sm text-white/60 mt-1">
+                  <p className="text-sm text-gray-500 dark:text-white/60 mt-1">
                     {t('device_code_instruction') || 'Go to website and enter this code:'}
                   </p>
                 </div>
@@ -179,7 +179,7 @@ export function UserMenu() {
                       {deviceCode.code.split('').map((char, i) => (
                         <div
                           key={i}
-                          className="w-12 h-14 bg-gradient-to-b from-[#2a2a2a] to-[#1a1a1a] border border-white/20 rounded-xl flex items-center justify-center text-2xl font-bold text-white shadow-lg"
+                          className="w-12 h-14 bg-gradient-to-b from-gray-100 dark:from-[#2a2a2a] to-gray-50 dark:to-[#1a1a1a] border border-gray-300 dark:border-white/20 rounded-xl flex items-center justify-center text-2xl font-bold text-gray-900 dark:text-white shadow-lg"
                         >
                           {char}
                         </div>
@@ -192,7 +192,7 @@ export function UserMenu() {
                       className={`flex items-center justify-center gap-2 mx-auto mb-6 px-4 py-2 rounded-lg text-sm transition-all ${
                         copied
                           ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                          : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                          : 'bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-white/70 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/10'
                       }`}
                     >
                       <Icon icon={copied ? 'mdi:check' : 'mdi:content-copy'} className="h-4 w-4" />
@@ -203,14 +203,21 @@ export function UserMenu() {
 
                     {/* Timer */}
                     <div className="flex items-center justify-center gap-2 text-sm mb-4">
-                      <Icon icon="mdi:clock-outline" className="h-4 w-4 text-white/50" />
-                      <span className={timeLeft < 60 ? 'text-red-400' : 'text-white/50'}>
+                      <Icon
+                        icon="mdi:clock-outline"
+                        className="h-4 w-4 text-gray-400 dark:text-white/50"
+                      />
+                      <span
+                        className={
+                          timeLeft < 60 ? 'text-red-400' : 'text-gray-500 dark:text-white/50'
+                        }
+                      >
                         {t('expires_in') || 'Expires in'} {formatTime(timeLeft)}
                       </span>
                     </div>
 
                     {/* Waiting Indicator */}
-                    <div className="flex items-center justify-center gap-2 text-xs text-white/40 mb-6">
+                    <div className="flex items-center justify-center gap-2 text-xs text-gray-400 dark:text-white/40 mb-6">
                       <Icon icon="mdi:loading" className="h-4 w-4 animate-spin" />
                       <span>{t('waiting_for_link') || 'Waiting for website link...'}</span>
                     </div>
@@ -234,7 +241,7 @@ export function UserMenu() {
                 {/* Cancel Button */}
                 <button
                   onClick={handleCancelLogin}
-                  className="w-full py-3 text-sm text-white/50 hover:text-white/70 transition-colors"
+                  className="w-full py-3 text-sm text-gray-500 dark:text-white/50 hover:text-gray-700 dark:hover:text-white/70 transition-colors"
                 >
                   {t('cancel') || 'Cancel'}
                 </button>
@@ -251,13 +258,13 @@ export function UserMenu() {
     <div className="relative">
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 transition-all hover:bg-white/10"
+        className="flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-white/5 px-3 py-2 transition-all hover:bg-gray-200 dark:hover:bg-white/10"
       >
         {user.photoURL && !imageError ? (
           <img
             src={user.photoURL}
             alt={user.displayName || user.email}
-            className="h-7 w-7 rounded-full border border-white/20"
+            className="h-7 w-7 rounded-full border border-gray-200 dark:border-white/20"
             onError={() => setImageError(true)}
           />
         ) : (
@@ -266,10 +273,10 @@ export function UserMenu() {
           </div>
         )}
         <div className="hidden sm:flex flex-col items-start">
-          <span className="text-sm font-medium text-white leading-tight">
+          <span className="text-sm font-medium text-gray-900 dark:text-white leading-tight">
             {user.displayName || user.email?.split('@')[0]}
           </span>
-          <span className="text-[10px] text-white/40 flex items-center gap-1">
+          <span className="text-[10px] text-gray-400 dark:text-white/40 flex items-center gap-1">
             {eligibilityLoading ? (
               <Icon icon="mdi:loading" className="h-3 w-3 animate-spin" />
             ) : accessTypes.length > 0 ? (
@@ -277,20 +284,22 @@ export function UserMenu() {
                 {accessTypes.map((type) => (
                   <span
                     key={type}
-                    className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 uppercase"
+                    className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#0081FB]/10 text-[#0081FB] border border-[#0081FB]/20 uppercase"
                   >
                     {type}
                   </span>
                 ))}
               </span>
             ) : (
-              <span className="text-white/40">{t('no_access') || 'No Access'}</span>
+              <span className="text-gray-400 dark:text-white/40">
+                {t('no_access') || 'No Access'}
+              </span>
             )}
           </span>
         </div>
         <Icon
           icon="mdi:chevron-down"
-          className={`h-4 w-4 text-white/50 transition-transform ${showDropdown ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 text-gray-400 dark:text-white/50 transition-transform ${showDropdown ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -301,15 +310,15 @@ export function UserMenu() {
           <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
 
           {/* Menu */}
-          <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-white/10 bg-[#1a1a1a] p-2 shadow-xl">
+          <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl bg-white dark:bg-[#1a1a1a] p-2 shadow-xl">
             {/* User Info */}
-            <div className="border-b border-white/10 px-3 py-3 mb-2">
+            <div className="border-b border-gray-200 dark:border-white/10 px-3 py-3 mb-2">
               <div className="flex items-center gap-3">
                 {user.photoURL && !imageError ? (
                   <img
                     src={user.photoURL}
                     alt={user.displayName || user.email}
-                    className="h-10 w-10 rounded-full border border-white/20"
+                    className="h-10 w-10 rounded-full border border-gray-200 dark:border-white/20"
                     onError={() => setImageError(true)}
                   />
                 ) : (
@@ -319,14 +328,16 @@ export function UserMenu() {
                 )}
                 <div className="flex-1 min-w-0">
                   {user.displayName && (
-                    <p className="text-sm font-medium text-white truncate">{user.displayName}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {user.displayName}
+                    </p>
                   )}
-                  <p className="text-xs text-white/50 truncate">{user.email}</p>
+                  <p className="text-xs text-gray-500 dark:text-white/50 truncate">{user.email}</p>
                 </div>
               </div>
               <div className="mt-2 flex items-center gap-1 flex-wrap">
                 {eligibilityLoading ? (
-                  <span className="text-xs text-white/40 flex items-center gap-1">
+                  <span className="text-xs text-gray-400 dark:text-white/40 flex items-center gap-1">
                     <Icon icon="mdi:loading" className="h-3 w-3 animate-spin" />
                     {t('checking_eligibility') || 'Checking access...'}
                   </span>
@@ -335,14 +346,14 @@ export function UserMenu() {
                     {accessTypes.map((type) => (
                       <span
                         key={type}
-                        className="text-xs text-blue-300 flex items-center gap-1 bg-blue-500/20 px-2 py-1 rounded-full uppercase font-semibold"
+                        className="text-xs flex items-center gap-1 bg-[#0081FB]/10 text-[#0081FB] border border-[#0081FB]/20 px-2 py-1 rounded-full uppercase font-semibold"
                       >
                         {type}
                       </span>
                     ))}
                   </>
                 ) : (
-                  <span className="text-xs text-white/40 flex items-center gap-1 bg-white/5 px-2 py-1 rounded-full">
+                  <span className="text-xs text-gray-400 dark:text-white/40 flex items-center gap-1 bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-full">
                     {t('no_access') || 'No Download Access'}
                   </span>
                 )}
@@ -355,7 +366,7 @@ export function UserMenu() {
                 setShowDropdown(false)
                 setShowProfileModal(true)
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/5"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-white/70 transition-colors hover:bg-gray-100 dark:hover:bg-white/5"
             >
               <Icon icon="mdi:account-circle" className="h-4 w-4" />
               <span>{t('profile') || 'Profile'}</span>
@@ -365,7 +376,7 @@ export function UserMenu() {
             <button
               onClick={() => checkEligibility(user.email)}
               disabled={eligibilityLoading}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/5 disabled:opacity-50"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-white/70 transition-colors hover:bg-gray-100 dark:hover:bg-white/5 disabled:opacity-50"
             >
               <Icon
                 icon={eligibilityLoading ? 'mdi:loading' : 'mdi:refresh'}
@@ -380,16 +391,28 @@ export function UserMenu() {
                 setShowDropdown(false)
                 setShowRedeemModal(true)
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#0081FB] transition-colors hover:bg-[#0081FB]/10"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#0081FB] transition-colors hover:bg-blue-50 dark:hover:bg-[#0081FB]/10"
             >
               <Icon icon="mdi:ticket-confirmation" className="h-4 w-4" />
               <span>{t('redeem') || 'Redeem Akses'}</span>
             </button>
 
+            {/* Live Assist Button */}
+            <button
+              onClick={() => {
+                setShowDropdown(false)
+                onLiveAssist?.()
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-white/70 transition-colors hover:bg-gray-100 dark:hover:bg-white/5"
+            >
+              <Icon icon="mdi:headset" className="h-4 w-4" />
+              <span>{t('tab_live_assist') || 'Live Assist'}</span>
+            </button>
+
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
             >
               <Icon icon="mdi:logout" className="h-4 w-4" />
               <span>{t('logout_btn') || 'Sign out'}</span>

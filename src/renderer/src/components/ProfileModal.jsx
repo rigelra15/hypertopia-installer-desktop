@@ -62,14 +62,8 @@ export function ProfileModal({ isOpen, onClose, user }) {
     }
   }
 
-  const getAccessTypeColor = (type) => {
-    const colors = {
-      standalone: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-      pcvr: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-      qgo: 'bg-green-500/20 text-green-400 border-green-500/30',
-      firmware: 'bg-orange-500/20 text-orange-400 border-orange-500/30'
-    }
-    return colors[type?.toLowerCase()] || 'bg-white/10 text-white/70 border-white/20'
+  const getAccessTypeColor = () => {
+    return 'bg-[#0081FB]/10 text-[#0081FB] border-[#0081FB]/25'
   }
 
   if (!isOpen) return null
@@ -82,7 +76,7 @@ export function ProfileModal({ isOpen, onClose, user }) {
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className="relative w-full max-w-lg bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+          className="relative w-full max-w-lg bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header with gradient background */}
@@ -114,16 +108,16 @@ export function ProfileModal({ isOpen, onClose, user }) {
                 <img
                   src={user.photoURL}
                   alt={user.displayName || user.email}
-                  className="h-24 w-24 rounded-2xl border-4 border-[#1a1a1a] shadow-xl object-cover"
+                  className="h-24 w-24 rounded-2xl border-4 border-white dark:border-[#1a1a1a] shadow-xl object-cover"
                   onError={() => setImageError(true)}
                 />
               ) : (
-                <div className="h-24 w-24 rounded-2xl border-4 border-[#1a1a1a] bg-linear-to-br from-[#0081FB] to-[#00BFFF] flex items-center justify-center shadow-xl">
+                <div className="h-24 w-24 rounded-2xl border-4 border-white dark:border-[#1a1a1a] bg-linear-to-br from-[#0081FB] to-[#00BFFF] flex items-center justify-center shadow-xl">
                   <Icon icon="mdi:account" className="h-12 w-12 text-white" />
                 </div>
               )}
               {/* Online indicator */}
-              <div className="absolute -bottom-1 -right-1 h-6 w-6 bg-green-500 rounded-full border-4 border-[#1a1a1a]" />
+              <div className="absolute -bottom-1 -right-1 h-6 w-6 bg-green-500 rounded-full border-4 border-white dark:border-[#1a1a1a]" />
             </div>
           </div>
 
@@ -131,10 +125,10 @@ export function ProfileModal({ isOpen, onClose, user }) {
           <div className="px-6 pb-6 pt-4">
             {/* User Name & Email */}
             <div className="mb-6">
-              <h2 className="text-xl font-bold text-white">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                 {user?.displayName || user?.email?.split('@')[0]}
               </h2>
-              <p className="text-sm text-white/50">{user?.email}</p>
+              <p className="text-sm text-gray-500 dark:text-white/50">{user?.email}</p>
             </div>
 
             {loading ? (
@@ -149,7 +143,7 @@ export function ProfileModal({ isOpen, onClose, user }) {
                 <p className="text-sm text-red-400">{error}</p>
                 <button
                   onClick={fetchProfile}
-                  className="mt-3 text-sm text-white/50 hover:text-white transition-colors"
+                  className="mt-3 text-sm text-gray-500 dark:text-white/50 hover:text-gray-900 dark:hover:text-white transition-colors"
                 >
                   {t('retry') || 'Try again'}
                 </button>
@@ -158,7 +152,7 @@ export function ProfileModal({ isOpen, onClose, user }) {
               <div className="space-y-6">
                 {/* Access Types */}
                 <div>
-                  <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">
+                  <h3 className="text-xs font-semibold text-gray-400 dark:text-white/40 uppercase tracking-wider mb-3">
                     {t('profile_access_types') || 'Access Types'}
                   </h3>
                   <div className="flex flex-wrap gap-2">
@@ -166,13 +160,13 @@ export function ProfileModal({ isOpen, onClose, user }) {
                       accessTypes.map((type) => (
                         <span
                           key={type}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-semibold border uppercase ${getAccessTypeColor(type)}`}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-semibold border uppercase ${getAccessTypeColor()}`}
                         >
                           {type}
                         </span>
                       ))
                     ) : (
-                      <span className="text-sm text-white/40 bg-white/5 px-3 py-1.5 rounded-lg">
+                      <span className="text-sm text-gray-500 dark:text-white/40 bg-gray-100 dark:bg-white/5 px-3 py-1.5 rounded-lg">
                         {t('no_access') || 'No Access'}
                       </span>
                     )}
@@ -182,41 +176,41 @@ export function ProfileModal({ isOpen, onClose, user }) {
                 {/* Info Grid */}
                 <div className="grid grid-cols-2 gap-4">
                   {/* Registration Date */}
-                  <div className="bg-white/5 rounded-xl p-4">
+                  <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <Icon icon="mdi:calendar" className="h-4 w-4 text-white/40" />
-                      <span className="text-xs text-white/40">
+                      <Icon icon="mdi:calendar" className="h-4 w-4 text-gray-400 dark:text-white/40" />
+                      <span className="text-xs text-gray-400 dark:text-white/40">
                         {t('profile_registered') || 'Registered'}
                       </span>
                     </div>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
                       {formatDate(profile.registrationDate)}
                     </p>
                   </div>
 
                   {/* Transaction Count */}
-                  <div className="bg-white/5 rounded-xl p-4">
+                  <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <Icon icon="mdi:receipt" className="h-4 w-4 text-white/40" />
-                      <span className="text-xs text-white/40">
+                      <Icon icon="mdi:receipt" className="h-4 w-4 text-gray-400 dark:text-white/40" />
+                      <span className="text-xs text-gray-400 dark:text-white/40">
                         {t('profile_transactions') || 'Transactions'}
                       </span>
                     </div>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
                       {profile.transactionCount || 0}
                     </p>
                   </div>
 
                   {/* Order Number */}
                   {profile.orderNumber && (
-                    <div className="bg-white/5 rounded-xl p-4">
+                    <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
-                        <Icon icon="mdi:tag" className="h-4 w-4 text-white/40" />
-                        <span className="text-xs text-white/40">
+                        <Icon icon="mdi:tag" className="h-4 w-4 text-gray-400 dark:text-white/40" />
+                        <span className="text-xs text-gray-400 dark:text-white/40">
                           {t('profile_order') || 'Order #'}
                         </span>
                       </div>
-                      <p className="text-sm font-medium text-white truncate">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                         {profile.orderNumber}
                       </p>
                     </div>
@@ -224,14 +218,16 @@ export function ProfileModal({ isOpen, onClose, user }) {
 
                   {/* Source */}
                   {profile.source && (
-                    <div className="bg-white/5 rounded-xl p-4">
+                    <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
-                        <Icon icon="mdi:store" className="h-4 w-4 text-white/40" />
-                        <span className="text-xs text-white/40">
+                        <Icon icon="mdi:store" className="h-4 w-4 text-gray-400 dark:text-white/40" />
+                        <span className="text-xs text-gray-400 dark:text-white/40">
                           {t('profile_source') || 'Source'}
                         </span>
                       </div>
-                      <p className="text-sm font-medium text-white capitalize">{profile.source}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">
+                        {profile.source}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -239,14 +235,14 @@ export function ProfileModal({ isOpen, onClose, user }) {
                 {/* Recent Transactions */}
                 {profile.transactions && profile.transactions.length > 0 && (
                   <div>
-                    <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">
+                    <h3 className="text-xs font-semibold text-gray-400 dark:text-white/40 uppercase tracking-wider mb-3">
                       {t('profile_recent_transactions') || 'Recent Transactions'}
                     </h3>
                     <div className="space-y-2 max-h-40 overflow-y-auto">
                       {profile.transactions.slice(0, 5).map((tx) => (
                         <div
                           key={tx.id}
-                          className="flex items-center justify-between py-2 px-3 bg-white/5 rounded-lg"
+                          className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-white/5 rounded-lg"
                         >
                           <div className="flex items-center gap-3">
                             {/* Source Icon */}
@@ -266,14 +262,14 @@ export function ProfileModal({ isOpen, onClose, user }) {
                               </div>
                             )}
                             <div className="flex flex-col">
-                              <span className="text-sm text-white/70 truncate max-w-[130px]">
+                              <span className="text-sm text-gray-600 dark:text-white/70 truncate max-w-[130px]">
                                 {tx.product ||
                                   tx.accessType ||
                                   tx.accessTypes?.join(', ') ||
                                   'Transaction'}
                               </span>
                               {tx.orderNumber && (
-                                <span className="text-[10px] text-white/40 truncate max-w-[130px]">
+                                <span className="text-[10px] text-gray-400 dark:text-white/40 truncate max-w-[130px]">
                                   {tx.orderNumber}
                                 </span>
                               )}
@@ -299,7 +295,7 @@ export function ProfileModal({ isOpen, onClose, user }) {
                                     ? 'Menunggu'
                                     : 'Tidak diketahui'}
                             </div>
-                            <span className="text-[10px] text-white/40">
+                            <span className="text-[10px] text-gray-400 dark:text-white/40">
                               {formatDate(tx.createdAt)}
                             </span>
                           </div>
@@ -314,7 +310,7 @@ export function ProfileModal({ isOpen, onClose, user }) {
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="w-full mt-6 py-3 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-xl transition-colors text-sm font-medium"
+              className="w-full mt-6 py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white rounded-xl transition-colors text-sm font-medium"
             >
               {t('close') || 'Close'}
             </button>

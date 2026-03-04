@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useTheme } from '../contexts/ThemeContext'
 import ChangelogModal from './ChangelogModal'
 import { useToast } from '../hooks/useToast'
 import PropTypes from 'prop-types'
@@ -16,6 +17,7 @@ export function SettingsModal({
   onUpdateNow
 }) {
   const { t, language, setLanguage } = useLanguage()
+  const { theme, setTheme } = useTheme()
   const [extractPath, setExtractPath] = useState(currentPath || '')
   const [diskSpace, setDiskSpace] = useState(null)
   const [isLoadingSpace, setIsLoadingSpace] = useState(false)
@@ -26,16 +28,29 @@ export function SettingsModal({
     return localStorage.getItem('autoUpdate') !== 'false'
   })
 
-  // Sync auto-update setting with main process
+  // On mount: sync autoUpdate from config file (file = source of truth)
   useEffect(() => {
-    window.api.setAutoDownload?.(autoUpdate)
-  }, [autoUpdate])
+    window.api.storeRead?.('hypertopia-config.json').then((config) => {
+      if (config && typeof config.autoUpdate === 'boolean') {
+        setAutoUpdate(config.autoUpdate)
+        localStorage.setItem('autoUpdate', config.autoUpdate.toString())
+        window.api.setAutoDownload?.(config.autoUpdate)
+      } else {
+        // No file yet — sync current localStorage value to main process
+        window.api.setAutoDownload?.(localStorage.getItem('autoUpdate') !== 'false')
+      }
+    })
+  }, [])
 
   const handleAutoUpdateToggle = () => {
     const newValue = !autoUpdate
     setAutoUpdate(newValue)
     localStorage.setItem('autoUpdate', newValue.toString())
     window.api.setAutoDownload?.(newValue)
+    // Persist to config file
+    window.api.storeRead?.('hypertopia-config.json').then((config) => {
+      window.api.storeWrite?.('hypertopia-config.json', { ...(config || {}), autoUpdate: newValue })
+    })
   }
 
   // Load disk space immediately on component mount (not just when modal opens)
@@ -99,6 +114,10 @@ export function SettingsModal({
         // Update localStorage and state
         localStorage.setItem('extractPath', newPath)
         setExtractPath(newPath)
+        // Persist to config file
+        window.api.storeRead?.('hypertopia-config.json').then((config) => {
+          window.api.storeWrite?.('hypertopia-config.json', { ...(config || {}), extractPath: newPath })
+        })
 
         // Load new disk space
         await loadDiskSpace(newPath)
@@ -153,12 +172,12 @@ export function SettingsModal({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0a0a0a] p-6 shadow-2xl custom-scrollbar"
+            className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-[#0a0a0a] p-6 shadow-2xl custom-scrollbar"
           >
             {/* Close Button */}
             <button
               onClick={() => onClose()}
-              className="absolute right-4 top-4 rounded-lg p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+              className="absolute right-4 top-4 rounded-lg p-1 text-gray-500 dark:text-white/50 transition-colors hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
@@ -172,24 +191,28 @@ export function SettingsModal({
 
             {/* Icon */}
             <div className="mb-4 flex justify-center">
-              <div className="rounded-full bg-[#0081FB]/20 p-4">
+              <div className="rounded-full bg-blue-100 dark:bg-[#0081FB]/20 p-4">
                 <Icon icon="line-md:cog-filled" className="h-10 w-10 text-[#0081FB]" />
               </div>
             </div>
 
             {/* Title */}
-            <h2 className="mb-2 text-center text-xl font-bold text-white">{t('settings_title')}</h2>
-            <p className="mb-6 text-center text-sm text-white/60">{t('settings_desc')}</p>
+            <h2 className="mb-2 text-center text-xl font-bold text-gray-900 dark:text-white">
+              {t('settings_title')}
+            </h2>
+            <p className="mb-6 text-center text-sm text-gray-600 dark:text-white/60">
+              {t('settings_desc')}
+            </p>
 
             {/* Current Configuration */}
             <div className="mb-6 space-y-4">
               {/* Default Folder */}
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-white/50">
                   {t('settings_default_folder')}
                 </label>
-                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                  <p className="truncate text-xs text-white" title={extractPath}>
+                <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3 py-2">
+                  <p className="truncate text-xs text-gray-900 dark:text-white" title={extractPath}>
                     {extractPath || t('setup_no_folder')}
                   </p>
                 </div>
@@ -201,7 +224,7 @@ export function SettingsModal({
                       icon="mdi:folder-information"
                       className="h-4 w-4 shrink-0 text-[#0081FB]"
                     />
-                    <div className="text-[10px] text-white/60">
+                    <div className="text-[10px] text-gray-600 dark:text-white/60">
                       <span className="text-[#0081FB] font-medium">
                         {t('settings_folder_usage_label') || 'Used for:'}
                       </span>{' '}
@@ -232,7 +255,7 @@ export function SettingsModal({
                   </button>
                   <button
                     onClick={() => window.api.openDownloadsFolder?.()}
-                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium text-white transition-all hover:bg-white/10"
+                    className="rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-white transition-all hover:bg-gray-100 dark:hover:bg-white/10"
                     title={t('settings_open_downloads') || 'Open Downloads Folder'}
                   >
                     <Icon icon="mdi:folder-open-outline" className="h-4 w-4" />
@@ -240,18 +263,20 @@ export function SettingsModal({
                 </div>
 
                 {/* Info Text */}
-                <p className="mt-2 text-center text-xs text-white/40">{t('settings_info')}</p>
+                <p className="mt-2 text-center text-xs text-gray-400 dark:text-white/40">
+                  {t('settings_info')}
+                </p>
               </div>
 
               {/* Storage Info */}
               {diskSpace && !isLoadingSpace && (
                 <div>
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-white/50">
                     {t('storage_label')}
                   </label>
-                  <div className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                  <div className="space-y-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
                     {/* Storage Bar */}
-                    <div className="relative h-3 overflow-hidden rounded-full bg-white/10">
+                    <div className="relative h-3 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
                       <div
                         className="h-full transition-all relative overflow-hidden"
                         style={{
@@ -273,7 +298,7 @@ export function SettingsModal({
 
                     {/* Storage Text */}
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-white/60">
+                      <span className="text-gray-600 dark:text-white/60">
                         {diskSpace.free} {t('storage_free_of')} {diskSpace.total}
                       </span>
                       <span className={`font-bold ${getStorageTextColor(diskSpace.percent)}`}>
@@ -286,25 +311,25 @@ export function SettingsModal({
 
               {isLoadingSpace && (
                 <div className="flex items-center justify-center py-4">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 dark:border-white/30 border-t-[#0081FB] dark:border-t-white"></div>
                 </div>
               )}
 
               {/* Auto-Update Section */}
-              <div className="border-t border-white/10 pt-4">
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
+              <div className="border-t border-gray-200 dark:border-white/10 pt-4">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-white/50">
                   {t('settings_auto_update') || 'Auto-update'}
                 </label>
                 <div className="space-y-3">
                   {/* Toggle */}
-                  <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-3">
+                  <div className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
                     <div className="flex items-center gap-3">
                       <Icon icon="line-md:download-loop" className="h-5 w-5 text-[#0081FB]" />
                       <div>
-                        <p className="text-sm font-medium text-white">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
                           {t('settings_auto_update') || 'Auto-update'}
                         </p>
-                        <p className="text-xs text-white/50">
+                        <p className="text-xs text-gray-500 dark:text-white/50">
                           {t('settings_auto_update_desc') || 'Automatically download updates'}
                         </p>
                       </div>
@@ -312,7 +337,7 @@ export function SettingsModal({
                     <button
                       onClick={handleAutoUpdateToggle}
                       className={`relative h-6 w-11 rounded-full transition-colors ${
-                        autoUpdate ? 'bg-[#0081FB]' : 'bg-white/20'
+                        autoUpdate ? 'bg-[#0081FB]' : 'bg-gray-300 dark:bg-white/20'
                       }`}
                     >
                       <div
@@ -338,7 +363,7 @@ export function SettingsModal({
                           className="h-5 w-5 shrink-0 text-green-400"
                         />
                         <div className="text-left">
-                          <p className="text-sm font-medium text-white">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
                             {t('update_new_version') || 'New Version Available!'}
                           </p>
                           <p className="text-xs text-green-400">v{updateInfo.version}</p>
@@ -354,33 +379,91 @@ export function SettingsModal({
               </div>
 
               {/* Language Section */}
-              <div className="border-t border-white/10 pt-4">
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
+              <div className="border-t border-gray-200 dark:border-white/10 pt-4">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-white/50">
                   {t('settings_language') || 'Language'}
                 </label>
-                <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-3">
+                <div className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
                   <div className="flex items-center gap-3">
                     <Icon icon="mdi:translate" className="h-5 w-5 text-[#0081FB]" />
                     <div>
-                      <p className="text-sm font-medium text-white">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {t('settings_language_select') || 'Select Language'}
                       </p>
                     </div>
                   </div>
-                  <div className="relative group min-w-[120px]">
+                  <div className="relative group w-[152px]">
                     <select
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
-                      className="appearance-none bg-white/5 border border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-xs font-bold text-white/70 hover:text-white uppercase cursor-pointer outline-none focus:ring-1 focus:ring-[#0081FB]/50 transition-all w-full"
+                      className="appearance-none bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-xs font-bold text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white uppercase cursor-pointer outline-none focus:ring-1 focus:ring-[#0081FB]/50 transition-all w-full"
                     >
-                      <option value="en" className="bg-[#0a0a0a] text-white">
+                      <option
+                        value="en"
+                        className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                      >
                         English (EN)
                       </option>
-                      <option value="id" className="bg-[#0a0a0a] text-white">
+                      <option
+                        value="id"
+                        className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                      >
                         Indonesia (ID)
                       </option>
                     </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white/30 group-hover:text-white/70">
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 dark:text-white/30 group-hover:text-gray-600 dark:group-hover:text-white/70">
+                      <Icon icon="mdi:chevron-down" className="h-4 w-4" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Theme Section */}
+              <div className="border-t border-gray-200 dark:border-white/10 pt-4">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-white/50">
+                  {t('settings_theme') || 'Theme'}
+                </label>
+                <div className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
+                  <div className="flex items-center gap-3">
+                    <Icon icon="mdi:palette" className="h-5 w-5 text-[#0081FB]" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {t('settings_theme_select') || 'Select Theme'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="relative group w-[152px]">
+                    <select
+                      value={theme}
+                      onChange={(e) => setTheme(e.target.value)}
+                      className="appearance-none bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-xs font-bold text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white uppercase cursor-pointer outline-none focus:ring-1 focus:ring-[#0081FB]/50 transition-all w-full"
+                    >
+                      <option
+                        value="dark"
+                        className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                      >
+                        {t('settings_theme_dark') || 'Dark'}
+                      </option>
+                      <option
+                        value="light"
+                        className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                      >
+                        {t('settings_theme_light') || 'Light'}
+                      </option>
+                      <option
+                        value="system"
+                        className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                      >
+                        {t('settings_theme_system') || 'System'}
+                      </option>
+                      <option
+                        value="auto"
+                        className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                      >
+                        {t('settings_theme_auto') || 'Auto (Time)'}
+                      </option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 dark:text-white/30 group-hover:text-gray-600 dark:group-hover:text-white/70">
                       <Icon icon="mdi:chevron-down" className="h-4 w-4" />
                     </div>
                   </div>
@@ -388,27 +471,34 @@ export function SettingsModal({
               </div>
 
               {/* About Section */}
-              <div className="border-t border-white/10 pt-4">
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-white/50">
+              <div className="border-t border-gray-200 dark:border-white/10 pt-4">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-white/50">
                   {t('settings_about')}
                 </label>
                 <div className="space-y-2">
                   <button
                     onClick={() => setShowChangelog(true)}
-                    className="w-full flex items-center justify-between rounded-lg border border-white/10 bg-white/5 p-3 transition-all hover:bg-white/10 hover:border-[#0081FB]/50"
+                    className="w-full flex items-center justify-between rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 transition-all hover:bg-gray-100 dark:hover:bg-white/10 hover:border-[#0081FB]/50"
                   >
                     <div className="flex items-center gap-3">
                       <Icon icon="line-md:clipboard-list" className="h-5 w-5 text-[#0081FB]" />
                       <div className="text-left">
-                        <p className="text-sm font-medium text-white">{t('settings_whats_new')}</p>
-                        <p className="text-xs text-white/50">{t('settings_changelog_desc')}</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          {t('settings_whats_new')}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-white/50">
+                          {t('settings_changelog_desc')}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-white/40">
+                      <span className="text-xs font-mono text-gray-400 dark:text-white/40">
                         v{appVersion ? appVersion.version : '...'}
                       </span>
-                      <Icon icon="line-md:chevron-right" className="h-4 w-4 text-white/30" />
+                      <Icon
+                        icon="line-md:chevron-right"
+                        className="h-4 w-4 text-gray-300 dark:text-white/30"
+                      />
                     </div>
                   </button>
 

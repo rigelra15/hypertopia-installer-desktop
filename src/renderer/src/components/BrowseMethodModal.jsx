@@ -46,17 +46,17 @@ export default function BrowseMethodModal({ isOpen, onClose, onSelectArchive, on
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#111] p-5 shadow-2xl mx-4 custom-scrollbar"
+            className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-[#111] p-5 shadow-2xl mx-4 custom-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-bold text-white">
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">
                 {t('browse_method_title') || 'Select Method'}
               </h2>
               <button
                 onClick={onClose}
-                className="rounded-lg p-1.5 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
+                className="rounded-lg p-1.5 text-gray-500 dark:text-white/50 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-colors"
               >
                 <Icon icon="mdi:close" className="h-4 w-4" />
               </button>
@@ -74,7 +74,7 @@ export default function BrowseMethodModal({ isOpen, onClose, onSelectArchive, on
                   className={`relative w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left group ${
                     method.recommended
                       ? 'border-[#0081FB]/30 bg-[#0081FB]/5 hover:bg-[#0081FB]/10 hover:border-[#0081FB]/50'
-                      : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20'
+                      : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 hover:border-gray-300 dark:hover:border-white/20'
                   }`}
                 >
                   {/* Recommended Badge */}
@@ -91,14 +91,14 @@ export default function BrowseMethodModal({ isOpen, onClose, onSelectArchive, on
                     <Icon icon={method.icon} className="h-6 w-6" style={{ color: method.color }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white group-hover:text-white">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white">
                       {method.title}
                     </p>
-                    <p className="text-xs text-white/50 mt-0.5">{method.desc}</p>
+                    <p className="text-xs text-gray-500 dark:text-white/50 mt-0.5">{method.desc}</p>
                   </div>
                   <Icon
                     icon="mdi:chevron-right"
-                    className="h-5 w-5 text-white/30 group-hover:text-white/60 transition-colors shrink-0"
+                    className="h-5 w-5 text-gray-400 dark:text-white/30 group-hover:text-gray-600 dark:group-hover:text-white/60 transition-colors shrink-0"
                   />
                 </button>
               ))}

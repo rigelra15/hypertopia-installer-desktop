@@ -89,13 +89,13 @@ export default function UpdateModal({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl custom-scrollbar"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-[#111] p-6 shadow-2xl custom-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="mb-6 flex items-center gap-4">
               <div
-                className={`flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full ${isReady ? 'bg-[#0d2818] border border-green-700/50' : 'bg-[#0a1929] border border-[#0066cc]/50'}`}
+                className={`flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full ${isReady ? 'bg-green-50 dark:bg-[#0d2818] border border-green-300 dark:border-green-700/50' : 'bg-blue-50 dark:bg-[#0a1929] border border-blue-300 dark:border-[#0066cc]/50'}`}
               >
                 {isReady ? (
                   <Icon
@@ -110,22 +110,22 @@ export default function UpdateModal({
                 )}
               </div>
               <div className="flex flex-col justify-center">
-                <h2 className="text-[22px] font-bold tracking-tight text-white leading-tight mb-0.5">
+                <h2 className="text-[22px] font-bold tracking-tight text-gray-900 dark:text-white leading-tight mb-0.5">
                   {isReady
                     ? t('update_ready_title') || 'Pembaruan Siap Diinstal'
                     : t('update_new_version') || 'New Version Available!'}
                 </h2>
-                <p className="text-[13px] font-medium text-white/50">
+                <p className="text-[13px] font-medium text-gray-500 dark:text-white/50">
                   {t('update_current') || 'Saat ini'}: v{currentVersion || 'Unknown'}
                 </p>
               </div>
             </div>
 
             {/* Version info */}
-            <div className="mb-6 flex flex-col justify-between rounded-2xl bg-[#1e1e1e] p-5">
+            <div className="mb-6 flex flex-col justify-between rounded-2xl bg-gray-50 dark:bg-[#1e1e1e] p-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[13px] font-medium text-white/40">
+                  <p className="text-[13px] font-medium text-gray-500 dark:text-white/40">
                     {t('update_new_version_label') || 'Versi Baru'}
                   </p>
                   <p className="mt-1 text-2xl font-bold tracking-tight text-[#0081FB]">
@@ -134,16 +134,18 @@ export default function UpdateModal({
                 </div>
                 {fileSize && (
                   <div className="text-right">
-                    <p className="text-[13px] font-medium text-white/40">
+                    <p className="text-[13px] font-medium text-gray-500 dark:text-white/40">
                       {t('update_size') || 'Ukuran'}
                     </p>
-                    <p className="mt-1 text-lg font-bold tracking-tight text-white">{fileSize}</p>
+                    <p className="mt-1 text-lg font-bold tracking-tight text-gray-900 dark:text-white">
+                      {fileSize}
+                    </p>
                   </div>
                 )}
               </div>
 
               {/* Release date */}
-              <p className="mt-6 text-[13px] font-medium text-white/40">
+              <p className="mt-6 text-[13px] font-medium text-gray-500 dark:text-white/40">
                 {updateInfo.releaseDate
                   ? new Date(updateInfo.releaseDate).toLocaleDateString()
                   : new Date().toLocaleDateString()}
@@ -153,11 +155,11 @@ export default function UpdateModal({
             {/* Progress bar (when downloading) */}
             {isDownloading && (
               <div className="mb-6">
-                <div className="flex items-center justify-between text-xs font-medium text-white/50 mb-2">
+                <div className="flex items-center justify-between text-xs font-medium text-gray-500 dark:text-white/50 mb-2">
                   <span>{t('update_downloading') || 'Downloading...'}</span>
                   <span className="font-mono">{downloadProgress.toFixed(0)}%</span>
                 </div>
-                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden shadow-inner">
+                <div className="h-2.5 bg-gray-200 dark:bg-white/5 rounded-full overflow-hidden shadow-inner">
                   <motion.div
                     className="h-full bg-[#0081FB] rounded-full"
                     initial={{ width: 0 }}
@@ -167,7 +169,7 @@ export default function UpdateModal({
                 </div>
                 {/* Speed and ETA info */}
                 {(speedDisplay || etaDisplay) && (
-                  <div className="flex items-center justify-between text-[11px] font-medium text-white/40 mt-2">
+                  <div className="flex items-center justify-between text-[11px] font-medium text-gray-400 dark:text-white/40 mt-2">
                     <span className="flex items-center gap-1.5 font-mono">
                       <Icon icon="mdi:speedometer" className="h-3.5 w-3.5" />
                       {speedDisplay || '-'}
@@ -188,7 +190,7 @@ export default function UpdateModal({
               <button
                 onClick={onClose}
                 disabled={isDownloading && !isReady}
-                className="flex-[1] py-3.5 px-4 rounded-xl bg-transparent border border-white/10 hover:bg-white/5 hover:border-white/20 text-white/70 hover:text-white text-[15px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-[1] py-3.5 px-4 rounded-xl bg-transparent border border-gray-300 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5 hover:border-gray-400 dark:hover:border-white/20 text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-[15px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('update_later') || 'Nanti'}
               </button>

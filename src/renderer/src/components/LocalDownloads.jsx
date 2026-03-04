@@ -5,7 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { useDownload } from '../contexts/DownloadContext'
 import ConfirmationModal from './ConfirmationModal'
 
-export default function LocalDownloads({ selectedDevice }) {
+export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
   const { t } = useLanguage()
   const { showDownloadWidget } = useDownload()
 
@@ -26,6 +26,7 @@ export default function LocalDownloads({ selectedDevice }) {
       const result = await window.api.listDownloadedFiles()
       if (result.success) {
         setFiles(result.files)
+        onFileCountChange?.(result.files.length)
       } else {
         setError(result.error || 'Failed to list files')
       }
@@ -114,19 +115,19 @@ export default function LocalDownloads({ selectedDevice }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[#111]">
+    <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-[#111]">
       {/* Header */}
-      <div className="flex flex-col gap-3 border-b border-white/10 bg-[#191919] p-4">
+      <div className="flex flex-col gap-3 border-b border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-[#191919] p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0081FB] to-[#00C2FF] shadow-lg shadow-[#0081FB]/20">
               <Icon icon="mdi:folder-download" className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {t('tab_downloads') || 'Downloads'}
               </h2>
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-gray-500 dark:text-white/50">
                 {isLoading
                   ? t('standalone_games_loading') || 'Loading...'
                   : `${files.length} ${t('files_found') || 'files found'}`}
@@ -136,7 +137,7 @@ export default function LocalDownloads({ selectedDevice }) {
           <div className="flex gap-2">
             <button
               onClick={() => window.api.openDownloadsFolder()}
-              className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm text-white/70 transition-all hover:bg-white/10 hover:text-white"
+              className="flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-white/5 px-3 py-2 text-sm text-gray-500 dark:text-white/70 transition-all hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white"
               title={t('settings_open_downloads') || 'Open Downloads Folder'}
             >
               <Icon icon="mdi:folder-open-outline" className="h-4 w-4" />
@@ -145,7 +146,7 @@ export default function LocalDownloads({ selectedDevice }) {
             <button
               onClick={loadFiles}
               disabled={isLoading}
-              className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm text-white/70 transition-all hover:bg-white/10 hover:text-white disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-white/5 px-3 py-2 text-sm text-gray-500 dark:text-white/70 transition-all hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
             >
               <Icon
                 icon={isLoading ? 'mdi:loading' : 'mdi:refresh'}
@@ -162,7 +163,7 @@ export default function LocalDownloads({ selectedDevice }) {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Icon icon="mdi:loading" className="h-10 w-10 animate-spin text-[#0081FB]" />
-            <p className="mt-4 text-sm text-white/50">
+            <p className="mt-4 text-sm text-gray-500 dark:text-white/50">
               {t('standalone_games_loading') || 'Loading files...'}
             </p>
           </div>
@@ -171,17 +172,17 @@ export default function LocalDownloads({ selectedDevice }) {
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
               <Icon icon="mdi:alert-circle-outline" className="h-8 w-8 text-red-500" />
             </div>
-            <p className="mt-4 text-sm text-white/70">
+            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
               {t('standalone_games_error') || 'Error loading files'}
             </p>
-            <p className="mt-1 text-xs text-white/40">{error}</p>
+            <p className="mt-1 text-xs text-gray-400 dark:text-white/40">{error}</p>
           </div>
         ) : files.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
-              <Icon icon="mdi:folder-download-outline" className="h-8 w-8 text-white/30" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-white/5">
+              <Icon icon="mdi:folder-download-outline" className="h-8 w-8 text-gray-300 dark:text-white/30" />
             </div>
-            <p className="mt-4 text-sm text-white/70">
+            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
               {t('downloads_empty') || 'No files downloaded yet.'}
             </p>
           </div>
@@ -190,10 +191,10 @@ export default function LocalDownloads({ selectedDevice }) {
             {files.map((file, index) => (
               <div
                 key={index}
-                className="group flex flex-col rounded-xl border border-white/10 bg-[#1a1a1a] overflow-hidden transition-all hover:border-[#0081FB]/50 hover:shadow-lg hover:shadow-[#0081FB]/10"
+                className="group flex flex-col rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#1a1a1a] overflow-hidden transition-all hover:border-[#0081FB]/50 hover:shadow-lg hover:shadow-[#0081FB]/10"
               >
                 {/* Visual Header */}
-                <div className="flex items-center justify-center h-24 bg-[#0a0a0a] relative">
+                <div className="flex items-center justify-center h-24 bg-gray-100 dark:bg-[#0a0a0a] relative">
                   <Icon
                     icon={
                       file.type === 'archive'
@@ -207,25 +208,25 @@ export default function LocalDownloads({ selectedDevice }) {
                         ? 'text-yellow-500/70'
                         : file.type === 'apk'
                           ? 'text-emerald-500/70'
-                          : 'text-white/30'
+                          : 'text-gray-300 dark:text-white/30'
                     }`}
                   />
 
                   {/* Extension Badge */}
-                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-white/10 text-white/60">
+                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-200 dark:bg-white/10 text-gray-500 dark:text-white/60">
                     {file.name.split('.').pop()}
                   </div>
                 </div>
 
                 {/* Content */}
                 <div className="flex flex-col p-4 flex-1">
-                  <h3 className="text-white font-medium text-sm truncate mb-1" title={file.name}>
+                  <h3 className="text-gray-900 dark:text-white font-medium text-sm truncate mb-1" title={file.name}>
                     {file.name}
                   </h3>
 
                   <div className="flex items-center justify-between mt-auto pt-2">
-                    <span className="text-xs text-white/40 font-mono">{formatSize(file.size)}</span>
-                    <span className="text-[10px] text-white/30">
+                    <span className="text-xs text-gray-400 dark:text-white/40 font-mono">{formatSize(file.size)}</span>
+                    <span className="text-[10px] text-gray-400 dark:text-white/30">
                       {new Date(file.lastModified).toLocaleDateString()}
                     </span>
                   </div>
@@ -239,7 +240,7 @@ export default function LocalDownloads({ selectedDevice }) {
                         !selectedDevice ||
                         (file.type !== 'apk' && file.type !== 'archive')
                       }
-                      className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded border border-white/10 bg-[#0081FB]/20 text-[#0081FB] text-xs font-semibold hover:bg-[#0081FB]/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded border border-gray-200 dark:border-white/10 bg-[#0081FB]/20 text-[#0081FB] text-xs font-semibold hover:bg-[#0081FB]/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                       title={
                         !selectedDevice ? t('no_device_warning_title') || 'No Device Connected' : ''
                       }
@@ -281,5 +282,6 @@ export default function LocalDownloads({ selectedDevice }) {
 }
 
 LocalDownloads.propTypes = {
-  selectedDevice: PropTypes.string
+  selectedDevice: PropTypes.string,
+  onFileCountChange: PropTypes.func
 }

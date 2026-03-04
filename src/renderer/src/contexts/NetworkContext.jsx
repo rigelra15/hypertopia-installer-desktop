@@ -136,6 +136,7 @@ export function NetworkProvider({ children }) {
     }
 
     // Initial check
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     updateConnectionType()
     checkApiConnectivity()
 
@@ -218,6 +219,7 @@ NetworkProvider.propTypes = {
   children: PropTypes.node.isRequired
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useNetwork() {
   const context = useContext(NetworkContext)
   if (!context) {
