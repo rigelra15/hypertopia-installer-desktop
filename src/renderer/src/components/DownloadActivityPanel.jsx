@@ -386,7 +386,7 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                             <div className="flex items-center gap-2 flex-wrap">
                               {entry.version && (
                                 <span className="text-xs font-medium text-[#0081FB] bg-[#0081FB]/10 px-1.5 py-0.5 rounded">
-                                  v{entry.version}
+                                  {entry.version.startsWith('v') ? entry.version : `v${entry.version}`}
                                 </span>
                               )}
                               {entry.totalBytes > 0 && (
