@@ -10,10 +10,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: windows-latest
 
     steps:
       - name: Checkout repo
@@ -25,16 +22,7 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install Linux system deps
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-0 libnss3 libxss1 libxtst6 libx11-xcb1 libasound2t64 libfuse2 \
-            rpm libarchive-tools
-
-      - name: Clean npm cache (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Clean npm cache
         run: npm cache clean --force
         continue-on-error: true
 
@@ -54,16 +42,9 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.os }}
+          name: build-windows
           path: |
             dist/*.exe
-            dist/*.dmg
-            dist/*.zip
-            dist/*.AppImage
-            dist/*.deb
-            dist/*.rpm
-            dist/*.snap
-            dist/*.pacman
             dist/*.yml
             dist/*.blockmap
 
@@ -79,7 +60,6 @@ jobs:
       - name: Get Previous Tag
         id: previoustag
         run: |
-          # Get the tag before the current one
           CURRENT_TAG="${{ github.ref_name }}"
           PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${CURRENT_TAG}$" | head -1)
           echo "Previous tag: $PREV_TAG"
@@ -112,7 +92,6 @@ jobs:
 
           CHANGELOG=$(node scripts/generate-changelog.js "$PREV_TAG" "$CURR_TAG")
 
-          # Use GitHub's multiline output format
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT

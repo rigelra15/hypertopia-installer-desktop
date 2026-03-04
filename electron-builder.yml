@@ -13,8 +13,6 @@ asarUnpack:
   - resources/**
   - node_modules/7zip-bin/**
 extraResources:
-  # Windows uses platform-tools, macOS uses platform-tools-darwin, Linux uses platform-tools-linux
-  # unrar.exe for Windows, unrar for macOS/Linux (must be added manually)
   - from: resources/unrar.exe
     to: unrar.exe
     filter:
@@ -41,54 +39,6 @@ nsis:
   createDesktopShortcut: always
 portable:
   artifactName: ${name}-${version}-portable.${ext}
-mac:
-  entitlementsInherit: build/entitlements.mac.plist
-  category: public.app-category.utilities
-  target:
-    - target: dmg
-      arch:
-        - x64
-        - arm64
-    - target: zip
-      arch:
-        - x64
-        - arm64
-  extendInfo:
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
-  extraResources:
-    - from: resources/platform-tools-darwin
-      to: platform-tools-darwin
-      filter:
-        - '**/*'
-    - from: resources/unrar
-      to: unrar
-      filter:
-        - '**/*'
-dmg:
-  artifactName: ${name}-${version}-${arch}.${ext}
-linux:
-  target:
-    - AppImage
-    - deb
-    - rpm
-    - snap
-    - pacman
-  maintainer: HyperTopia
-  category: Utility
-  icon: build/icons
-  extraResources:
-    - from: resources/platform-tools-linux
-      to: platform-tools-linux
-      filter:
-        - '**/*'
-    - from: resources/unrar
-      to: unrar
-      filter:
-        - '**/*'
-appImage:
-  artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
   provider: github
