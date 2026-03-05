@@ -692,7 +692,7 @@ export default function GameDetailModal({
     })
 
     // Also start the install widget for background tracking
-    startInstallWidget(gameTitle, version)
+    startInstallWidget(gameTitle, version, fileName)
 
     try {
       // Update download count when install starts

@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react'
 import { useDownload } from '../contexts/DownloadContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import coverImages from '../utils/coverImages'
+import QGOLogo from '../assets/images/qgo-logo.png'
 
 const formatSize = (bytes) => {
   if (!bytes || bytes === 0) return '0 B'
@@ -78,6 +79,8 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
       markHistorySeen()
     }
   }, [isOpen, unseenCount, markHistorySeen])
+
+  const [historyTab, setHistoryTab] = useState('downloads')
 
   // Fetch cover images for all visible entries
   const [coverUrls, setCoverUrls] = useState({})
@@ -331,86 +334,139 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
 
                 {/* ── RECENT ── */}
                 <div className="px-5 pt-5 pb-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-white/30">
-                      {t('da_recent')}
-                    </p>
+                  {/* Tab switcher */}
+                  <div className="flex items-center gap-1 mb-3 bg-gray-100 dark:bg-white/5 rounded-lg p-1">
+                    <button
+                      onClick={() => setHistoryTab('downloads')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold py-1.5 rounded-md transition-colors ${
+                        historyTab === 'downloads'
+                          ? 'bg-white dark:bg-[#222] text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-400 dark:text-white/30 hover:text-gray-600 dark:hover:text-white/50'
+                      }`}
+                    >
+                      <Icon icon="mdi:file-download-outline" className="h-3.5 w-3.5" />
+                      {t('da_tab_downloads') || 'Unduhan'}
+                    </button>
+                    <button
+                      onClick={() => setHistoryTab('installs')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold py-1.5 rounded-md transition-colors ${
+                        historyTab === 'installs'
+                          ? 'bg-white dark:bg-[#222] text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-400 dark:text-white/30 hover:text-gray-600 dark:hover:text-white/50'
+                      }`}
+                    >
+                      <Icon icon="mdi:package-down" className="h-3.5 w-3.5" />
+                      {t('da_tab_installs') || 'Instalasi'}
+                    </button>
                   </div>
 
-                  {downloadHistory.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-10 text-center">
-                      <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center mb-3">
-                        <Icon icon="mdi:download-off-outline" className="h-6 w-6 text-gray-400 dark:text-white/20" />
-                      </div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-white/30">
-                        {t('da_no_recent')}
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-white/20 mt-1">
-                        {t('da_no_recent_sub')}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {downloadHistory.map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="relative rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#191919] overflow-hidden flex flex-row"
-                        >
-                          {/* Unseen dot */}
-                          {!entry.seen && (
-                            <span className="absolute top-2 left-[108px] h-2 w-2 rounded-full bg-[#0081FB] z-10" />
-                          )}
-                          {/* Cover – left, fixed width, stretches to card height */}
-                          <div className={`relative w-[120px] shrink-0 self-stretch overflow-hidden ${
-                            coverUrls[entry.gameTitle]
-                              ? 'bg-gray-100 dark:bg-[#111]'
-                              : (entry.type === 'install' ? 'bg-purple-500/10' : 'bg-[#0081FB]/10')
-                          }`}>
-                            {coverUrls[entry.gameTitle] ? (
-                              <img src={coverUrls[entry.gameTitle]} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Icon
-                                  icon={entry.type === 'install' ? 'mdi:package-down' : 'mdi:file-download-outline'}
-                                  className={`h-7 w-7 ${entry.type === 'install' ? 'text-purple-500' : 'text-[#0081FB]'}`}
-                                />
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/20 pointer-events-none" />
+                  {(() => {
+                    const filtered = downloadHistory.filter((e) =>
+                      historyTab === 'downloads' ? e.type === 'download' : e.type === 'install'
+                    )
+                    const emptyIcon = historyTab === 'downloads' ? 'mdi:download-off-outline' : 'mdi:package-variant-remove'
+                    const emptyTitle = historyTab === 'downloads' ? t('da_no_recent') : (t('da_no_installs') || 'Belum ada riwayat instalasi')
+                    const emptySub = historyTab === 'downloads' ? t('da_no_recent_sub') : (t('da_no_installs_sub') || 'Instalasi yang selesai akan muncul di sini')
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-10 text-center">
+                          <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center mb-3">
+                            <Icon icon={emptyIcon} className="h-6 w-6 text-gray-400 dark:text-white/20" />
                           </div>
-                          {/* Info – right col */}
-                          <div className="flex flex-1 flex-col justify-center gap-1 px-3 py-3 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                              {entry.gameTitle}
-                            </p>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {entry.version && (
-                                <span className="text-xs font-medium text-[#0081FB] bg-[#0081FB]/10 px-1.5 py-0.5 rounded">
-                                  {entry.version.startsWith('v') ? entry.version : `v${entry.version}`}
-                                </span>
-                              )}
-                              {entry.totalBytes > 0 && (
-                                <span className="text-xs text-gray-500 dark:text-white/40">
-                                  {formatSize(entry.totalBytes)}
-                                </span>
-                              )}
-                              <span className="text-[10px] text-gray-400 dark:text-white/25">
-                                {formatDate(entry.completedAt, t)}
-                              </span>
-                            </div>
-                            {/* Status badge */}
-                            <span className={`self-start text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              entry.type === 'install'
-                                ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
-                                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                            }`}>
-                              {entry.type === 'install' ? t('installed') : t('downloaded')}
-                            </span>
-                          </div>
+                          <p className="text-sm font-medium text-gray-500 dark:text-white/30">{emptyTitle}</p>
+                          <p className="text-xs text-gray-400 dark:text-white/20 mt-1">{emptySub}</p>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      )
+                    }
+
+                    return (
+                      <div className="flex flex-col gap-2">
+                        {filtered.map((entry) => (
+                          <div
+                            key={entry.id}
+                            className="relative rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#191919] overflow-hidden flex flex-row"
+                          >
+                            {/* Unseen dot */}
+                            {!entry.seen && (
+                              <span className="absolute top-2 left-[108px] h-2 w-2 rounded-full bg-[#0081FB] z-10" />
+                            )}
+                            {/* Cover */}
+                            {(() => {
+                              const isQgo = (entry.gameTitle || '').toLowerCase().includes('quest games optimizer')
+                              const coverSrc = isQgo ? QGOLogo : coverUrls[entry.gameTitle] || null
+                              return (
+                                <div className={`relative w-[120px] shrink-0 self-stretch overflow-hidden ${
+                                  coverSrc
+                                    ? 'bg-gray-100 dark:bg-[#111]'
+                                    : (entry.type === 'install' ? 'bg-purple-500/10' : 'bg-[#0081FB]/10')
+                                }`}>
+                                  {coverSrc ? (
+                                    <img src={coverSrc} alt="" className={`w-full h-full ${isQgo ? 'object-contain p-6' : 'object-cover'}`} />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <Icon
+                                        icon={entry.type === 'install' ? 'mdi:package-down' : 'mdi:file-download-outline'}
+                                        className={`h-7 w-7 ${entry.type === 'install' ? 'text-purple-500' : 'text-[#0081FB]'}`}
+                                      />
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/20 pointer-events-none" />
+                                </div>
+                              )
+                            })()}
+                            {/* Info */}
+                            <div className="flex flex-1 flex-col justify-center gap-1 px-3 py-3 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {entry.gameTitle || entry.fileName || '—'}
+                              </p>
+                              {/* fileName subtitle – show for installs if different from gameTitle */}
+                              {entry.type === 'install' && entry.fileName && entry.fileName !== entry.gameTitle && (
+                                <p className="text-[11px] text-gray-400 dark:text-white/30 truncate">{entry.fileName}</p>
+                              )}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {entry.version && (
+                                  <span className="text-xs font-medium text-[#0081FB] bg-[#0081FB]/10 px-1.5 py-0.5 rounded">
+                                    {entry.version.startsWith('v') ? entry.version : `v${entry.version}`}
+                                  </span>
+                                )}
+                                {entry.totalBytes > 0 && (
+                                  <span className="text-xs text-gray-500 dark:text-white/40">
+                                    {formatSize(entry.totalBytes)}
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-gray-400 dark:text-white/25">
+                                  {formatDate(entry.completedAt, t)}
+                                </span>
+                              </div>
+                              {/* Status + Category badges */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  entry.type === 'install'
+                                    ? 'bg-purple-600 text-white'
+                                    : 'bg-emerald-600 text-white'
+                                }`}>
+                                  {entry.type === 'install' ? t('installed') : t('downloaded')}
+                                </span>
+                                {(() => {
+                                  const isQgo = (entry.gameTitle || '').toLowerCase().includes('quest games optimizer')
+                                  return isQgo ? (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500 text-white">
+                                      {t('da_cat_qgo') || 'QGO'}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-600 text-white">
+                                      {t('da_cat_game') || 'Game'}
+                                    </span>
+                                  )
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
               {/* Footer – Navigate to Downloads Manager */}

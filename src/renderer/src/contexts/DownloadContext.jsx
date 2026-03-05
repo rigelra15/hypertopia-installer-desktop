@@ -70,6 +70,7 @@ export function DownloadProvider({ children }) {
   const [installComplete, setInstallComplete] = useState(false)
   const [installInfo, setInstallInfo] = useState({
     gameTitle: '',
+    fileName: null,
     version: null,
     step: '', // 'DOWNLOADING' | 'EXTRACTING' | 'INSTALLING' | 'PUSHING_OBB' | 'COMPLETED' | 'ERROR'
     percent: 0,
@@ -120,7 +121,7 @@ export function DownloadProvider({ children }) {
         setIsInstalling(false)
         setInstallComplete(true)
         setInstallInfo((prev) => {
-          addHistoryEntry({ type: 'install', gameTitle: prev.gameTitle, fileName: prev.gameTitle, totalBytes: prev.totalBytes || 0, version: prev.version || null })
+          addHistoryEntry({ type: 'install', gameTitle: prev.gameTitle, fileName: prev.fileName || prev.gameTitle, totalBytes: prev.totalBytes || 0, version: prev.version || null })
           return prev
         })
       } else if (progress.step === 'ERROR') {
@@ -240,14 +241,15 @@ export function DownloadProvider({ children }) {
   }, [])
 
   // Start install (for Download & Install feature)
-  const startInstall = useCallback((gameTitle, version = null) => {
+  const startInstall = useCallback((gameTitle, version = null, fileName = null, initialStep = 'DOWNLOADING') => {
     setIsInstalling(true)
     setInstallComplete(false)
     setShowWidget(true)
     setInstallInfo({
       gameTitle,
+      fileName,
       version,
-      step: 'DOWNLOADING',
+      step: initialStep,
       percent: 0,
       detail: '',
       downloadedBytes: 0,
@@ -263,6 +265,7 @@ export function DownloadProvider({ children }) {
     setIsInstalling(false)
     setInstallInfo({
       gameTitle: '',
+      fileName: null,
       version: null,
       step: '',
       percent: 0,
