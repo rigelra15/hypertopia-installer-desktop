@@ -3741,6 +3741,47 @@ ipcMain.handle('delete-downloaded-file', async (event, { fileName }) => {
   }
 })
 
+// IPC: Clear all files in the Downloads folder
+ipcMain.handle('clear-downloads-folder', async (event) => {
+  try {
+    const extractPath = await new Promise((resolve) => {
+      event.sender
+        .executeJavaScript('localStorage.getItem("extractPath")')
+        .then(resolve)
+        .catch(() => resolve(null))
+    })
+
+    if (!extractPath) {
+      return { success: false, error: 'No extraction folder configured' }
+    }
+
+    const downloadFolder = path.join(extractPath, 'Downloads')
+    await fs.ensureDir(downloadFolder)
+
+    const entries = await fs.readdir(downloadFolder)
+    let deletedCount = 0
+    const errors = []
+
+    for (const entry of entries) {
+      if (entry === 'temp' || entry.startsWith('.')) continue
+      const fullPath = path.join(downloadFolder, entry)
+      try {
+        await fs.remove(fullPath)
+        deletedCount++
+      } catch (err) {
+        console.warn(`Failed to delete ${entry}:`, err.message)
+        errors.push(entry)
+      }
+    }
+
+    console.log(`[Downloads] Cleared ${deletedCount} items from Downloads folder`)
+    return { success: true, deletedCount, errors }
+  } catch (error) {
+    console.error('Failed to clear downloads folder:', error)
+    return { success: false, error: error.message }
+  }
+})
+
 // IPC: Install local APK file to device
 ipcMain.handle('install-local-apk', async (event, { filePath, deviceSerial }) => {
   const fs = require('fs')
