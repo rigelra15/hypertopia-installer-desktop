@@ -456,6 +456,11 @@
   "install_btn": "Install",
   "delete_btn": "Delete",
   "downloads_empty": "No files downloaded yet.",
+  "clear_all_btn": "Clear All",
+  "clear_downloads_title": "Clear All Downloads?",
+  "clear_downloads_desc": "All files in the Downloads folder will be permanently deleted.",
+  "total_files": "Total Files",
+  "total_size": "Total Size",
 
   "download_activity": "Download Activity",
   "da_active": "Active",

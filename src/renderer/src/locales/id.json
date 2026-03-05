@@ -463,6 +463,11 @@
   "install_btn": "Instal",
   "delete_btn": "Hapus",
   "downloads_empty": "Belum ada file yang diunduh.",
+  "clear_all_btn": "Hapus Semua",
+  "clear_downloads_title": "Hapus Semua Unduhan?",
+  "clear_downloads_desc": "Semua file di folder Unduhan akan dihapus secara permanen.",
+  "total_files": "Total File",
+  "total_size": "Total Ukuran",
 
   "download_activity": "Aktivitas Unduhan",
   "da_active": "Sedang Aktif",
