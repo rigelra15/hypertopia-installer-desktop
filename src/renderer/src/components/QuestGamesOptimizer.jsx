@@ -826,7 +826,7 @@ export function QuestGamesOptimizer({
                 </h2>
                 {/* Show installed version badge */}
                 {installedQgoVersion && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-0.5 text-[10px] font-medium text-green-400">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold text-white">
                     <Icon icon="mdi:check-circle" className="h-3 w-3" />v{installedQgoVersion}{' '}
                     {t('installed') || 'Installed'}
                   </span>
@@ -973,14 +973,14 @@ export function QuestGamesOptimizer({
                             )}
                             {/* Installed badge */}
                             {isVersionInstalled(version) && (
-                              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-0.5 text-[10px] font-medium text-green-400">
+                              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold text-white">
                                 <Icon icon="mdi:check-circle" className="h-3 w-3" />
                                 {t('installed') || 'Installed'}
                               </span>
                             )}
                             {/* Downloaded badge */}
                             {!isVersionInstalled(version) && isVersionDownloaded(version) && (
-                              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-medium text-blue-400">
+                              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white">
                                 <Icon icon="mdi:check-circle" className="h-3 w-3" />
                                 {t('downloaded') || 'Downloaded'}
                               </span>
@@ -1035,7 +1035,7 @@ export function QuestGamesOptimizer({
                               }
                               className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
                                 selectedDevice
-                                  ? 'bg-gradient-to-r from-red-600 to-red-500 hover:scale-105 disabled:opacity-50'
+                                  ? 'bg-gradient-to-r from-orange-500 to-amber-400 hover:scale-105 disabled:opacity-50'
                                   : 'bg-gray-600 opacity-50'
                               }`}
                             >
@@ -1056,11 +1056,11 @@ export function QuestGamesOptimizer({
                               }
                               className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
                                 selectedDevice
-                                  ? 'bg-gradient-to-r from-green-600 to-emerald-500 hover:scale-105 disabled:opacity-50'
+                                  ? 'bg-gradient-to-r from-emerald-600 to-green-500 hover:scale-105 disabled:opacity-50'
                                   : 'bg-gray-600 opacity-50'
                               }`}
                             >
-                              <Icon icon="bi:headset-vr" className="h-4 w-4" />
+                              <Icon icon="mdi:package-down" className="h-4 w-4" />
                               <span className="hidden sm:inline">{t('install') || 'Install'}</span>
                             </button>
                           )}
@@ -1091,7 +1091,7 @@ export function QuestGamesOptimizer({
                               }
                               className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
                                 selectedDevice
-                                  ? 'bg-gradient-to-r from-red-600 to-red-500 hover:scale-105 disabled:opacity-50'
+                                  ? 'bg-gradient-to-r from-orange-500 to-amber-400 hover:scale-105 disabled:opacity-50'
                                   : 'bg-gray-600 opacity-50'
                               }`}
                             >
