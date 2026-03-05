@@ -80,7 +80,7 @@ export function DeviceManager({ selectedDevice, initialSubTab }) {
       </div>
 
       {/* Sub-tab Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {activeSubTab === 'obb' ? (
           <OBBManager selectedDevice={selectedDevice} onCountChange={setObbCount} />
         ) : activeSubTab === 'apps' ? (
