@@ -14,9 +14,11 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  if (!isOpen || !fileData) return null
+  if (!isOpen) return null
+  // For clear-all mode, fileData may be { totalFiles, totalSize } — not a game file
+  if (mode !== 'clear-all' && !fileData) return null
 
-  const { name, size, type, hasObb, obbSize } = fileData
+  const { name, size, type, hasObb, obbSize } = fileData || {}
 
   const formatSize = (bytes) => {
     if (!bytes || bytes === 0) return '0 B'
@@ -54,6 +56,73 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
             )}
 
             <div className={`p-6 overflow-y-auto custom-scrollbar ${isMobile ? 'pt-4' : ''}`}>
+
+              {/* ── Clear-All mode ── */}
+              {mode === 'clear-all' && (
+                <>
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500">
+                      <Icon icon="mdi:trash-can-outline" className="text-2xl" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-tight mb-1">
+                        {t('clear_downloads_title') || 'Clear All Downloads?'}
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        {t('clear_downloads_desc') || 'All files in the Downloads folder will be permanently deleted.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3">
+                    <Icon icon="mdi:alert" className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+                    <p className="text-xs text-red-700 dark:text-red-300">
+                      {t('delete_warning') || 'This action cannot be undone.'}
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-50 dark:bg-[#111520] rounded-xl p-4 space-y-3 mb-6 border border-gray-200 dark:border-[#2A3241]">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600 dark:text-gray-400 font-medium flex items-center gap-1.5">
+                        <Icon icon="mdi:file-multiple-outline" className="text-base" />
+                        {t('total_files') || 'Total Files'}
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-semibold">
+                        {fileData?.totalFiles ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600 dark:text-gray-400 font-medium flex items-center gap-1.5">
+                        <Icon icon="mdi:harddisk" className="text-base" />
+                        {t('total_size') || 'Total Size'}
+                      </span>
+                      <span className="text-[#0081FB] font-semibold">
+                        {formatSize(fileData?.totalSize ?? 0)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={onClose}
+                      className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-[#2A3241] hover:bg-gray-200 dark:hover:bg-[#374151] text-gray-700 dark:text-gray-300 rounded-xl font-medium transition-colors"
+                    >
+                      {t('cancel')}
+                    </button>
+                    <button
+                      onClick={onConfirm}
+                      className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
+                      {t('clear_all_btn') || 'Clear All'}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* ── Normal file modes ── */}
+              {mode !== 'clear-all' && (
+              <>
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-12 h-12 rounded-xl bg-[#0081FB]/10 flex items-center justify-center text-[#0081FB]">
                   <Icon
@@ -250,6 +319,8 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
                   </button>
                 )}
               </div>
+              </>
+              )}
             </div>
           </motion.div>
         </>
@@ -264,8 +335,9 @@ ConfirmationModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onConfirm: PropTypes.func.isRequired,
-  mode: PropTypes.oneOf(['confirm', 'view', 'delete']),
+  mode: PropTypes.oneOf(['confirm', 'view', 'delete', 'clear-all']),
   fileData: PropTypes.shape({
+    // File-mode fields
     name: PropTypes.string,
     size: PropTypes.number,
     type: PropTypes.string,
@@ -282,7 +354,10 @@ ConfirmationModal.propTypes = {
       sizeMB: PropTypes.string,
       rawGameName: PropTypes.string,
       rawReleaseName: PropTypes.string
-    })
+    }),
+    // Clear-all mode fields
+    totalFiles: PropTypes.number,
+    totalSize: PropTypes.number,
   })
 }
 

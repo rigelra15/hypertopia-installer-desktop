@@ -15,9 +15,10 @@ export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
 
   // Modal states
   const [confirmModalOpen, setConfirmModalOpen] = useState(false)
-  const [confirmModalMode, setConfirmModalMode] = useState('confirm') // 'confirm' or 'delete'
+  const [confirmModalMode, setConfirmModalMode] = useState('confirm') // 'confirm', 'delete', or 'clear-all'
   const [selectedFile, setSelectedFile] = useState(null)
   const [isProcessingFile, setIsProcessingFile] = useState(false)
+  const [isClearingAll, setIsClearingAll] = useState(false)
 
   const loadFiles = useCallback(async () => {
     setIsLoading(true)
@@ -89,11 +90,29 @@ export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
 
   const handleInstallClick = (file) => processFileAction(file, 'confirm')
 
+  const totalSize = files.reduce((sum, f) => sum + (f.size || 0), 0)
+
+  const handleClearAllClick = () => {
+    setSelectedFile({ totalFiles: files.length, totalSize })
+    setConfirmModalMode('clear-all')
+    setConfirmModalOpen(true)
+  }
+
   const handleConfirmAction = async () => {
     setConfirmModalOpen(false)
     if (!selectedFile) return
 
-    if (confirmModalMode === 'delete') {
+    if (confirmModalMode === 'clear-all') {
+      setIsClearingAll(true)
+      try {
+        await window.api.clearDownloadsFolder()
+        loadFiles()
+      } catch (err) {
+        console.error('Failed to clear downloads folder:', err)
+      } finally {
+        setIsClearingAll(false)
+      }
+    } else if (confirmModalMode === 'delete') {
       try {
         await window.api.deleteDownloadedFile(selectedFile.name)
         // Reload list
@@ -130,7 +149,7 @@ export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
               <p className="text-xs text-gray-500 dark:text-white/50">
                 {isLoading
                   ? t('standalone_games_loading') || 'Loading...'
-                  : `${files.length} ${t('files_found') || 'files found'}`}
+                  : `${files.length} ${t('files_found') || 'files found'} \u2022 ${formatSize(totalSize)}`}
               </p>
             </div>
           </div>
@@ -143,6 +162,20 @@ export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
               <Icon icon="mdi:folder-open-outline" className="h-4 w-4" />
               <span className="hidden sm:inline">{t('open_folder') || 'Open Folder'}</span>
             </button>
+            {files.length > 0 && (
+              <button
+                onClick={handleClearAllClick}
+                disabled={isLoading || isClearingAll}
+                className="flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-500 transition-all hover:bg-red-500/20 disabled:opacity-50"
+                title={t('clear_downloads_title') || 'Clear Downloads Folder'}
+              >
+                <Icon
+                  icon={isClearingAll ? 'mdi:loading' : 'mdi:trash-can-outline'}
+                  className={`h-4 w-4 ${isClearingAll ? 'animate-spin' : ''}`}
+                />
+                <span className="hidden sm:inline">{t('clear_all_btn') || 'Clear All'}</span>
+              </button>
+            )}
             <button
               onClick={loadFiles}
               disabled={isLoading}

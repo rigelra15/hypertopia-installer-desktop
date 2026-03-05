@@ -118,6 +118,8 @@ const api = {
   listDownloadedFiles: () => ipcRenderer.invoke('list-downloaded-files'),
   // Delete a downloaded file
   deleteDownloadedFile: (fileName) => ipcRenderer.invoke('delete-downloaded-file', { fileName }),
+  // Clear all files in the Downloads folder
+  clearDownloadsFolder: () => ipcRenderer.invoke('clear-downloads-folder'),
   // Install a local APK file to device
   installLocalApk: (filePath, deviceSerial) =>
     ipcRenderer.invoke('install-local-apk', { filePath, deviceSerial }),
