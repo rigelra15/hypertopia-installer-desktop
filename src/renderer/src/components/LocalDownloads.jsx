@@ -2,12 +2,10 @@ import { useState, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
-import { useDownload } from '../contexts/DownloadContext'
 import ConfirmationModal from './ConfirmationModal'
 
 export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
   const { t } = useLanguage()
-  const { showDownloadWidget } = useDownload()
 
   const [files, setFiles] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -88,8 +86,6 @@ export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
 
   const handleDeleteClick = (file) => processFileAction(file, 'delete')
 
-  const handleInstallClick = (file) => processFileAction(file, 'confirm')
-
   const totalSize = files.reduce((sum, f) => sum + (f.size || 0), 0)
 
   const handleClearAllClick = () => {
@@ -119,15 +115,6 @@ export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
         loadFiles()
       } catch (err) {
         console.error('Failed to delete file:', err)
-      }
-    } else {
-      // Install
-      if (selectedFile.type === 'archive') {
-        window.api.installGame(selectedFile.path, 'archive', selectedDevice)
-        showDownloadWidget() // Show install widget
-      } else if (selectedFile.type === 'apk') {
-        window.api.installLocalApk(selectedFile.path, selectedDevice)
-        showDownloadWidget() // Show install widget
       }
     }
     setSelectedFile(null)
@@ -265,29 +252,11 @@ export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
                   </div>
 
                   {/* Actions */}
-                  <div className="grid grid-cols-2 gap-2 mt-4">
-                    <button
-                      onClick={() => handleInstallClick(file)}
-                      disabled={
-                        isProcessingFile ||
-                        !selectedDevice ||
-                        (file.type !== 'apk' && file.type !== 'archive')
-                      }
-                      className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded border border-gray-200 dark:border-white/10 bg-[#0081FB]/20 text-[#0081FB] text-xs font-semibold hover:bg-[#0081FB]/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                      title={
-                        !selectedDevice ? t('no_device_warning_title') || 'No Device Connected' : ''
-                      }
-                    >
-                      <Icon
-                        icon={isProcessingFile ? 'mdi:loading' : 'mdi:download-network'}
-                        className={`w-3.5 h-3.5 ${isProcessingFile ? 'animate-spin' : ''}`}
-                      />
-                      {t('install_btn') || 'Install'}
-                    </button>
+                  <div className="mt-4">
                     <button
                       onClick={() => handleDeleteClick(file)}
                       disabled={isProcessingFile}
-                      className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded border border-red-500/20 bg-red-500/10 text-red-500 text-xs font-semibold hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded border border-red-500/20 bg-red-500/10 text-red-500 text-xs font-semibold hover:bg-red-500/20 transition-colors disabled:opacity-50"
                     >
                       <Icon
                         icon={isProcessingFile ? 'mdi:loading' : 'mdi:trash-can-outline'}
