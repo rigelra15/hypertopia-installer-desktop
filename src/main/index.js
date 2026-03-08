@@ -5,12 +5,8 @@ import icon from '../../resources/icon.png?asset'
 import { exec, spawn, execFile } from 'child_process'
 import { autoUpdater } from 'electron-updater'
 
-// Google API credentials - hardcoded fallback for production builds
-// These are injected at build time via define, but we provide fallbacks
-// in case the build system doesn't properly replace them
-const GOOGLE_API_KEY =
-  process.env.REACT_APP_GOOGLE_API_KEY || 'AIzaSyDzR4ZXxVlzCFvh-iMViLoPKLHP9NTv5qY'
-// removed unused GOOGLE_CLIENT_ID
+// Google API credentials - injected at build time via define in electron.vite.config.mjs
+const GOOGLE_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY || ''
 
 // Configure auto-updater
 // autoDownload is false by default - user can control via settings
