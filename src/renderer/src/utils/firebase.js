@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app'
-import { getStorage } from 'firebase/storage'
 
-// Firebase config untuk Storage (project lama - masih free, sama seperti website)
+// Firebase config (project lama) – Storage no longer used, cover images served from Cloudinary
 const firebaseStorageConfig = {
   apiKey: 'REMOVED_FIREBASE_API_KEY',
   authDomain: 'hypertopia-id-sec.firebaseapp.com',
@@ -12,5 +11,4 @@ const firebaseStorageConfig = {
   appId: '1:471391816995:web:1174a390e903778d5d5096'
 }
 
-const app = initializeApp(firebaseStorageConfig, 'hypertopia-storage')
-export const storage = getStorage(app)
+export const app = initializeApp(firebaseStorageConfig, 'hypertopia-storage')
