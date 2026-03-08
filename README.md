@@ -54,7 +54,7 @@ No complicated command-line tools, no confusing setup — just a beautiful, intu
 - **Browse OBB Files** — View OBB folders on your device
 - **Manage Storage** — See which games are using storage space
 
-### 🌐 HyperTopia Store Integration
+### 🌐 HyperTopia Integration
 
 - **Browse Games** — Access the HyperTopia game library directly
 - **One-Click Downloads** — Seamless integration with the web store
