@@ -35,6 +35,13 @@ if (dotenvResult.parsed) {
   }
 }
 
+// Fallback to process.env for keys not found in .env file (e.g. CI/GitHub Actions)
+;['REACT_APP_GOOGLE_API_KEY', 'REACT_APP_GOOGLE_CLIENT_ID'].forEach((key) => {
+  if (!env[key] && process.env[key]) {
+    env[key] = process.env[key]
+  }
+})
+
 console.log('[electron.vite.config] Loaded env keys:', Object.keys(env))
 console.log('[electron.vite.config] GOOGLE_API_KEY present:', !!env.REACT_APP_GOOGLE_API_KEY)
 
