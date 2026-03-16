@@ -34,6 +34,7 @@ const api = {
   installGame: (filePath, type, deviceSerial) =>
     ipcRenderer.invoke('install-game', { filePath, type, deviceSerial }),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  getLatestRelease: () => ipcRenderer.invoke('get-latest-release'),
   listObb: (deviceSerial) => ipcRenderer.invoke('list-obb', deviceSerial),
   listDevices: () => ipcRenderer.invoke('list-devices'),
   selectExtractFolder: () => ipcRenderer.invoke('select-extract-folder'),

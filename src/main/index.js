@@ -16,14 +16,11 @@ autoUpdater.autoInstallOnAppQuit = true
 // Disable strict semver check to allow custom suffixes like -revX.
 // By default, semver considers 1.0.216-rev1 to be OLDER than 1.0.216.
 // The user explicitly wants to ignore this and just install whatever is the newest published release on GitHub.
+autoUpdater.allowDowngrade = true
 autoUpdater.isUpdateAvailable = async function (updateInfo) {
   if (!updateInfo || !updateInfo.version) return false
+  // Simply compare version strings - if they differ, there's an update
   if (updateInfo.version === app.getVersion()) return false
-
-  if (this.isUpdateSupported && !(await Promise.resolve(this.isUpdateSupported(updateInfo)))) {
-    return false
-  }
-
   return true
 }
 
@@ -347,6 +344,30 @@ ipcMain.handle('get-app-version', async () => {
       })
     })
   })
+})
+
+// IPC: Get Latest Release from GitHub
+ipcMain.handle('get-latest-release', async () => {
+  try {
+    const { net } = require('electron')
+    const response = await net.fetch(
+      'https://api.github.com/repos/rigelra15/hypertopia-installer-desktop/releases/latest',
+      {
+        headers: { 'User-Agent': 'HyperTopia-Installer' }
+      }
+    )
+    if (!response.ok) {
+      throw new Error(`GitHub API returned ${response.status}`)
+    }
+    const data = await response.json()
+    return {
+      version: data.tag_name ? data.tag_name.replace(/^v/, '') : null,
+      url: data.html_url || null
+    }
+  } catch (err) {
+    console.error('[get-latest-release] Error:', err.message)
+    return { version: null, url: null, error: err.message }
+  }
 })
 
 // IPC: Select Extract Folder (only returns path, does NOT create folder yet)

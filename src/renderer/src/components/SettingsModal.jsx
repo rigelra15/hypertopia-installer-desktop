@@ -24,6 +24,8 @@ export function SettingsModal({
   const [isChanging, setIsChanging] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
   const toast = useToast()
+  const [latestRelease, setLatestRelease] = useState(null)
+  const [isCheckingLatest, setIsCheckingLatest] = useState(false)
   const [autoUpdate, setAutoUpdate] = useState(() => {
     return localStorage.getItem('autoUpdate') !== 'false'
   })
@@ -41,6 +43,26 @@ export function SettingsModal({
       }
     })
   }, [])
+
+  // Fetch latest release from GitHub when modal opens
+  useEffect(() => {
+    if (isOpen && !latestRelease) {
+      setIsCheckingLatest(true)
+      window.api
+        .getLatestRelease?.()
+        .then((result) => {
+          setLatestRelease(result)
+        })
+        .catch((err) => {
+          console.error('Failed to fetch latest release:', err)
+          setLatestRelease({ version: null, error: err.message })
+        })
+        .finally(() => {
+          setIsCheckingLatest(false)
+        })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
 
   const handleAutoUpdateToggle = () => {
     const newValue = !autoUpdate
@@ -116,7 +138,10 @@ export function SettingsModal({
         setExtractPath(newPath)
         // Persist to config file
         window.api.storeRead?.('hypertopia-config.json').then((config) => {
-          window.api.storeWrite?.('hypertopia-config.json', { ...(config || {}), extractPath: newPath })
+          window.api.storeWrite?.('hypertopia-config.json', {
+            ...(config || {}),
+            extractPath: newPath
+          })
         })
 
         // Load new disk space
@@ -501,6 +526,112 @@ export function SettingsModal({
                       />
                     </div>
                   </button>
+
+                  {/* Version Info Card */}
+                  <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Icon
+                          icon="mdi:cellphone-arrow-down"
+                          className="h-4 w-4 text-gray-400 dark:text-white/40"
+                        />
+                        <span className="text-xs text-gray-500 dark:text-white/50">
+                          {t('settings_installed_version') || 'Installed Version'}
+                        </span>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">
+                        v{appVersion ? appVersion.version : '...'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Icon
+                          icon="mdi:cloud-check-outline"
+                          className="h-4 w-4 text-gray-400 dark:text-white/40"
+                        />
+                        <span className="text-xs text-gray-500 dark:text-white/50">
+                          {t('settings_latest_version') || 'Latest Version'}
+                        </span>
+                      </div>
+                      {isCheckingLatest ? (
+                        <Icon icon="mdi:loading" className="h-4 w-4 animate-spin text-[#0081FB]" />
+                      ) : latestRelease?.version ? (
+                        <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">
+                          v{latestRelease.version}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400 dark:text-white/30">—</span>
+                      )}
+                    </div>
+
+                    {/* Status indicator */}
+                    {!isCheckingLatest && latestRelease?.version && appVersion?.version && (
+                      <div
+                        className={`mt-1 flex items-center gap-2 rounded-md px-2.5 py-1.5 ${
+                          latestRelease.version === appVersion.version
+                            ? 'bg-green-500/10 border border-green-500/20'
+                            : 'bg-amber-500/10 border border-amber-500/20'
+                        }`}
+                      >
+                        <Icon
+                          icon={
+                            latestRelease.version === appVersion.version
+                              ? 'mdi:check-circle'
+                              : 'mdi:alert-circle'
+                          }
+                          className={`h-4 w-4 shrink-0 ${
+                            latestRelease.version === appVersion.version
+                              ? 'text-green-500'
+                              : 'text-amber-500'
+                          }`}
+                        />
+                        <span
+                          className={`text-[11px] font-medium ${
+                            latestRelease.version === appVersion.version
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-amber-600 dark:text-amber-400'
+                          }`}
+                        >
+                          {latestRelease.version === appVersion.version
+                            ? t('settings_version_up_to_date') || 'Your app is up to date!'
+                            : t('settings_version_outdated') ||
+                              `Update available: v${latestRelease.version}`}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Manual download hint if outdated */}
+                    {!isCheckingLatest &&
+                      latestRelease?.version &&
+                      appVersion?.version &&
+                      latestRelease.version !== appVersion.version && (
+                        <div className="mt-1 rounded-md border border-[#0081FB]/20 bg-[#0081FB]/5 p-2.5">
+                          <div className="flex gap-2">
+                            <Icon
+                              icon="mdi:information-outline"
+                              className="h-4 w-4 shrink-0 text-[#0081FB] mt-0.5"
+                            />
+                            <div className="text-[11px] text-gray-600 dark:text-white/60 leading-relaxed">
+                              <p>
+                                {t('settings_manual_update_hint') ||
+                                  "If auto-update doesn't detect this version, you can download it manually:"}
+                              </p>
+                              <button
+                                onClick={() =>
+                                  window.api.openExternal?.(
+                                    'https://hypertopia.store/software-pembantu'
+                                  )
+                                }
+                                className="mt-1 inline-flex items-center gap-1 text-[#0081FB] font-medium hover:underline"
+                              >
+                                <Icon icon="mdi:open-in-new" className="h-3 w-3" />
+                                HyperTopia → Software Pembantu → HyperTopia Installer → Download
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                  </div>
 
                   <button
                     onClick={handleCheckForUpdates}
