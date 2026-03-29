@@ -10,7 +10,10 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout repo
@@ -28,8 +31,6 @@ jobs:
 
       - name: Install deps
         run: npm ci
-        env:
-          npm_config_cache: ${{ github.workspace }}/.npm
 
       - name: Build (electron-vite)
         run: npm run build
@@ -44,12 +45,24 @@ jobs:
           REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
         run: npx electron-builder --publish never
 
-      - name: Upload artifacts
+      - name: Upload artifacts (Windows)
+        if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: build-windows
           path: |
             dist/*.exe
+            dist/*.yml
+            dist/*.blockmap
+
+      - name: Upload artifacts (Mac)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-mac
+          path: |
+            dist/*.dmg
+            dist/*.zip
             dist/*.yml
             dist/*.blockmap
 

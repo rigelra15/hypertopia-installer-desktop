@@ -12,11 +12,6 @@ files:
 asarUnpack:
   - resources/**
   - node_modules/7zip-bin/**
-extraResources:
-  - from: resources/unrar.exe
-    to: unrar.exe
-    filter:
-      - '**/*'
 win:
   executableName: hypertopia-installer
   icon: build/icon.ico
@@ -24,6 +19,10 @@ win:
     - nsis
     - portable
   extraResources:
+    - from: resources/unrar.exe
+      to: unrar.exe
+      filter:
+        - '**/*'
     - from: resources/platform-tools
       to: platform-tools
       filter:
@@ -39,6 +38,21 @@ nsis:
   createDesktopShortcut: always
 portable:
   artifactName: ${name}-${version}-portable.${ext}
+mac:
+  executableName: hypertopia-installer
+  icon: resources/icon.png
+  target:
+    - dmg
+    - zip
+  extraResources:
+    - from: resources/platform-tools-darwin
+      to: platform-tools-darwin
+      filter:
+        - '**/*'
+    - from: resources/unrar-darwin
+      to: unrar-darwin
+      filter:
+        - '**/*'
 npmRebuild: false
 publish:
   provider: github

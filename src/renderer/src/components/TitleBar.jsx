@@ -36,40 +36,44 @@ export function TitleBar() {
     window.electron.ipcRenderer.send('close-window')
   }
 
+    const isMac = navigator.userAgent.includes('Mac OS X') || navigator.platform.includes('Mac')
+
   return (
-    <div className="title-bar">
+    <div className={`title-bar ${isMac ? 'is-mac' : ''}`}>
       {/* Draggable area */}
-      <div className="title-bar-drag-region">
-        <div className="title-bar-title">
+      <div className="title-bar-drag-region" style={isMac ? { paddingLeft: '80px' } : {}}>
+        <div className="title-bar-title" style={isMac ? { justifyContent: 'center', width: '100%', paddingRight: '80px' } : {}}>
           <img src={logoImage} alt="HyperTopia" className="title-bar-icon" />
           <span>HyperTopia Installer</span>
         </div>
       </div>
 
-      {/* Window controls */}
-      <div className="title-bar-controls">
-        <button
-          className="title-bar-button title-bar-button-minimize"
-          onClick={handleMinimize}
-          aria-label="Minimize"
-        >
-          <Icon icon="mdi:window-minimize" />
-        </button>
-        <button
-          className="title-bar-button title-bar-button-maximize"
-          onClick={handleMaximize}
-          aria-label={isMaximized ? 'Restore' : 'Maximize'}
-        >
-          <Icon icon={isMaximized ? 'mdi:window-restore' : 'mdi:window-maximize'} />
-        </button>
-        <button
-          className="title-bar-button title-bar-button-close"
-          onClick={handleClose}
-          aria-label="Close"
-        >
-          <Icon icon="mdi:close" />
-        </button>
-      </div>
+      {/* Window controls: Hidden entirely on Mac because we use native traffic lights */}
+      {!isMac && (
+        <div className="title-bar-controls">
+          <button
+            className="title-bar-button title-bar-button-minimize"
+            onClick={handleMinimize}
+            aria-label="Minimize"
+          >
+            <Icon icon="mdi:window-minimize" />
+          </button>
+          <button
+            className="title-bar-button title-bar-button-maximize"
+            onClick={handleMaximize}
+            aria-label={isMaximized ? 'Restore' : 'Maximize'}
+          >
+            <Icon icon={isMaximized ? 'mdi:window-restore' : 'mdi:window-maximize'} />
+          </button>
+          <button
+            className="title-bar-button title-bar-button-close"
+            onClick={handleClose}
+            aria-label="Close"
+          >
+            <Icon icon="mdi:close" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

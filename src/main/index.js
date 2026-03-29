@@ -1,9 +1,12 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { exec, spawn, execFile } from 'child_process'
 import { autoUpdater } from 'electron-updater'
+
+// Set app name for native OS integrations
+app.name = 'HyperTopia Installer'
 
 // Google API credentials - injected at build time via define in electron.vite.config.mjs
 const GOOGLE_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY || ''
@@ -241,7 +244,8 @@ function createWindow() {
     width: 900,
     height: 670,
     show: false,
-    frame: false, // Remove default title bar
+    frame: process.platform !== 'darwin', // Use frameless on Windows/Linux. On macOS, keep frame but hidden titleBar
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     autoHideMenuBar: true,
     title: 'HyperTopia Installer',
     icon: icon, // Explicitly set icon for Windows dev mode
@@ -326,7 +330,7 @@ ipcMain.handle('get-app-version', async () => {
     // 1. Get Commit Count for Version (1.0.X)
     exec('git rev-list --count HEAD', (errCount, stdoutCount) => {
       if (errCount) {
-        console.warn('Git version check failed:', errCount)
+        console.warn('Git version check failed: Not a git repository, using DEV version.')
         return resolve({ version: app.getVersion(), build: 'DEV' })
       }
 
@@ -691,6 +695,223 @@ app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.hypertopia.installer')
 
+  // Set the app icon explicitly in the macOS dock during development
+  if (process.platform === 'darwin' && is.dev) {
+    app.dock.setIcon(icon)
+  }
+
+  // Set Custom Menu Bar
+  const isMac = process.platform === 'darwin'
+  const menuTemplate = [
+    ...(isMac
+      ? [
+          {
+            label: 'HyperTopia Installer',
+            submenu: [
+              { label: 'About HyperTopia Installer', role: 'about' },
+              { type: 'separator' },
+              {
+                label: 'Check for Updates',
+                click: () => {
+                  if (app.isPackaged) autoUpdater.checkForUpdatesAndNotify()
+                  else dialog.showMessageBox({ message: 'Update check is only available in production.' })
+                }
+              },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { label: 'Hide', role: 'hide' },
+              { label: 'Hide Others', role: 'hideOthers' },
+              { label: 'Show All', role: 'unhide' },
+              { type: 'separator' },
+              { label: 'Quit', role: 'quit' }
+            ]
+          }
+        ]
+      : []),
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Open Extraction Folder',
+          accelerator: 'CmdOrCtrl+O',
+          click: async () => {
+            if (mainWindow) {
+              try {
+                const extractPath = await mainWindow.webContents.executeJavaScript('localStorage.getItem("extractPath")')
+                if (extractPath) shell.openPath(extractPath)
+                else dialog.showMessageBox({ message: 'No extraction folder set yet! Please configure it in settings.' })
+              } catch (e) { console.error(e) }
+            }
+          }
+        },
+        {
+          label: 'Change Extraction Folder',
+          click: async () => {
+            if (mainWindow) {
+              try {
+                mainWindow.focus()
+                dialog.showMessageBox({ message: 'To change extraction folder, open the Settings cog in the app and click Change Folder.' })
+              } catch (e) { console.error(e) }
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Clear Stored Downloads Cache',
+          click: async () => {
+            if (mainWindow) {
+              const res = await dialog.showMessageBox(mainWindow, {
+                type: 'warning',
+                buttons: ['Cancel', 'Clear Cache'],
+                title: 'Clear Cache',
+                message: 'This will delete all temporarily downloaded files and free up disk space. Continue?'
+              })
+              if (res.response === 1) {
+                 mainWindow.webContents.executeJavaScript('window.api && window.api.clearDownloadsFolder ? window.api.clearDownloadsFolder() : console.log("API not loaded")')
+                 dialog.showMessageBox({ message: 'Cache clearing process initiated internally. Progress might take a moment.' })
+              }
+            }
+          }
+        },
+        { type: 'separator' },
+        isMac ? { label: 'Close Window', role: 'close' } : { label: 'Quit', role: 'quit' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { label: 'Undo', role: 'undo' },
+        { label: 'Redo', role: 'redo' },
+        { type: 'separator' },
+        { label: 'Cut', role: 'cut' },
+        { label: 'Copy', role: 'copy' },
+        { label: 'Paste', role: 'paste' },
+        ...(isMac
+          ? [
+              { label: 'Paste and Match Style', role: 'pasteAndMatchStyle' },
+              { label: 'Delete', role: 'delete' },
+              { label: 'Select All', role: 'selectAll' },
+              { type: 'separator' },
+              {
+                label: 'Speech',
+                submenu: [{ label: 'Start Speaking', role: 'startSpeaking' }, { label: 'Stop Speaking', role: 'stopSpeaking' }]
+              }
+            ]
+          : [{ label: 'Delete', role: 'delete' }, { type: 'separator' }, { label: 'Select All', role: 'selectAll' }])
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { label: 'Reload Window', role: 'reload' },
+        { label: 'Force Reload', role: 'forceReload' },
+        { label: 'Developer Tools', role: 'toggleDevTools' },
+        { type: 'separator' },
+        { label: 'Reset Zoom', role: 'resetZoom' },
+        { label: 'Zoom In', role: 'zoomIn' },
+        { label: 'Zoom Out', role: 'zoomOut' },
+        { type: 'separator' },
+        { label: 'Toggle Full Screen', role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Tools',
+      submenu: [
+        {
+          label: 'Force Kill ADB Server',
+          click: async () => {
+             const { execFile } = require('child_process');
+             const path = require('path');
+             const adbPath = isMac 
+               ? path.join(__dirname, '../../resources/platform-tools-darwin/adb') 
+               : path.join(__dirname, '../../resources/platform-tools/adb.exe');
+             execFile(adbPath, ['kill-server'], (err) => {
+                if (err) dialog.showMessageBox({ message: 'Failed to kill ADB: ' + err.message })
+                else dialog.showMessageBox({ message: 'ADB Server killed successfully! It will restart when needed.' })
+             })
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Cancel Active Download',
+          click: async () => {
+            if (mainWindow) mainWindow.webContents.executeJavaScript('window.api && window.api.cancelDownload ? window.api.cancelDownload() : null')
+          }
+        },
+        {
+          label: 'Cancel Active Installation',
+          click: async () => {
+             if (mainWindow) mainWindow.webContents.executeJavaScript('window.api && window.api.cancelInstallation ? window.api.cancelInstallation() : null')
+          }
+        }
+      ]
+    },
+    {
+      label: 'Account',
+      submenu: [
+        {
+          label: 'Sign Out User',
+          click: async () => {
+            if (mainWindow) {
+              try {
+                const response = await dialog.showMessageBox(mainWindow, {
+                  type: 'question',
+                  buttons: ['Cancel', 'Sign Out'],
+                  title: 'Confirm',
+                  message: 'Are you sure you want to sign out?'
+                })
+                if (response.response === 1) {
+                  await mainWindow.webContents.executeJavaScript('localStorage.removeItem("hypertopia_user"); localStorage.removeItem("hypertopia_token"); window.location.reload();')
+                }
+              } catch (e) {
+                 console.error(e)
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { label: 'Minimize', role: 'minimize' },
+        { label: 'Zoom', role: 'zoom' },
+        ...(isMac
+          ? [{ type: 'separator' }, { label: 'Bring All to Front', role: 'front' }, { type: 'separator' }, { role: 'window' }]
+          : [{ label: 'Close', role: 'close' }])
+      ]
+    },
+    {
+      role: 'help',
+      label: 'Help',
+      submenu: [
+        {
+          label: 'HyperTopia Website',
+          click: async () => {
+            await shell.openExternal('https://hypertopia.store')
+          }
+        },
+        {
+          label: 'Software Helper',
+          click: async () => {
+            await shell.openExternal('https://hypertopia.store/vr-games/software-helper')
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Check for Updates',
+          click: () => {
+             if (app.isPackaged) autoUpdater.checkForUpdatesAndNotify()
+             else dialog.showMessageBox({ message: 'Update check is only available in production.' })
+          }
+        }
+      ]
+    }
+  ]
+  const menu = Menu.buildFromTemplate(menuTemplate)
+  Menu.setApplicationMenu(menu)
+
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
@@ -979,7 +1200,9 @@ function getUnrarPath() {
   const platform = process.platform // 'win32', 'darwin', 'linux'
 
   // Determine binary name based on platform
-  const unrarBinary = platform === 'win32' ? 'unrar.exe' : 'unrar'
+  let unrarBinary = 'unrar'
+  if (platform === 'win32') unrarBinary = 'unrar.exe'
+  else if (platform === 'darwin') unrarBinary = 'unrar-darwin'
 
   if (isDev) {
     return path.join(__dirname, `../../resources/${unrarBinary}`)
@@ -3878,13 +4101,9 @@ app.on('before-quit', async (event) => {
   app.exit(0)
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+// Quit when all windows are closed, forcing the app to completely exit on all platforms.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  app.quit()
 })
 
 // In this file you can include the rest of your app's specific main process
