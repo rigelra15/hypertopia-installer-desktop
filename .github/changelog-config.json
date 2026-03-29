@@ -1,0 +1,69 @@
+{
+  "categories": [
+    {
+      "title": "## ✨ New Features",
+      "labels": ["feat", "feature"]
+    },
+    {
+      "title": "## 🐛 Bug Fixes",
+      "labels": ["fix", "bug"]
+    },
+    {
+      "title": "## 🚀 Improvements",
+      "labels": ["perf", "refactor", "style"]
+    },
+    {
+      "title": "## 📦 Maintenance",
+      "labels": ["chore", "build", "ci"]
+    },
+    {
+      "title": "## 📝 Documentation",
+      "labels": ["docs"]
+    },
+    {
+      "title": "## 🧪 Tests",
+      "labels": ["test"]
+    }
+  ],
+  "ignore_labels": ["ignore"],
+  "sort": "date",
+  "template": "${{CHANGELOG}}",
+  "pr_template": "- ${{TITLE}}",
+  "commit_template": "- ${{TITLE}}",
+  "empty_template": "No notable changes in this release.",
+  "label_extractor": [
+    {
+      "pattern": "^feat",
+      "target": "feat",
+      "on_property": "title"
+    },
+    {
+      "pattern": "^fix",
+      "target": "fix",
+      "on_property": "title"
+    },
+    {
+      "pattern": "^perf|^refactor|^style",
+      "target": "perf",
+      "on_property": "title"
+    },
+    {
+      "pattern": "^chore|^build|^ci",
+      "target": "chore",
+      "on_property": "title"
+    },
+    {
+      "pattern": "^docs",
+      "target": "docs",
+      "on_property": "title"
+    },
+    {
+      "pattern": "^test",
+      "target": "test",
+      "on_property": "title"
+    }
+  ],
+  "max_tags_to_fetch": 200,
+  "max_pull_requests": 200,
+  "max_back_track_time_days": 365
+}
