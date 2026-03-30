@@ -39,7 +39,7 @@ nsis:
 portable:
   artifactName: ${name}-${version}-portable.${ext}
 mac:
-  executableName: hypertopia-installer
+  artifactName: "HyperTopia Installer-${version}-mac.${ext}"
   icon: resources/icon.png
   target:
     - dmg
@@ -53,6 +53,19 @@ mac:
       to: unrar-darwin
       filter:
         - '**/*'
+dmg:
+  title: "HyperTopia Installer"
+  iconSize: 128
+  window:
+    width: 640
+    height: 400
+  contents:
+    - x: 170
+      y: 200
+    - x: 470
+      y: 200
+      type: link
+      path: /Applications
 npmRebuild: false
 publish:
   provider: github
