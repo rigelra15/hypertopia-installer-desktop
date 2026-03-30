@@ -432,8 +432,16 @@ ipcMain.handle('get-disk-space', async (event, folderPath) => {
       const drive = folderPath.charAt(0)
       command = `powershell -Command "Get-PSDrive -Name ${drive} | Select-Object @{Name='Size';Expression={$_.Used + $_.Free}}, @{Name='Free';Expression={$_.Free}} | ConvertTo-Json"`
     } else if (process.platform === 'darwin' || process.platform === 'linux') {
-      // macOS & Linux: Use df
-      command = `df -k "${folderPath}"`
+      // macOS & Linux: Use df (needs an existing path)
+      let checkPath = folderPath
+      try {
+        while (!fs.existsSync(checkPath) && checkPath !== path.parse(checkPath).root) {
+          checkPath = path.dirname(checkPath)
+        }
+      } catch (e) {
+        // Ignore errors and fallback to folderPath
+      }
+      command = `df -k "${checkPath}"`
     }
 
     exec(command, { maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {

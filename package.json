@@ -1,11 +1,11 @@
 {
   "name": "hypertopia-installer",
   "productName": "HyperTopia Installer",
-  "version": "1.0.254",
+  "version": "1.0.255-fix",
   "description": "HyperTopia Installer - Advanced VR Sideloading Tool",
   "main": "./out/main/index.js",
   "author": "HyperTopia",
-  "homepage": "https://hypertopia.store",
+  "homepage": "https://hypertopia.web.id",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
