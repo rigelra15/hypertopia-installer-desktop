@@ -26,7 +26,7 @@ export const tutorials = [
           {
             textKey: 'tutorial_install_game_step2',
             link: {
-              url: 'https://hypertopia.store/vr-games/list-games/standalone',
+              url: 'https://hypertopia.web.id/vr-games/list-games/standalone',
               labelKey: 'tutorial_link_download_game',
               external: true
             }
@@ -93,7 +93,7 @@ export const tutorials = [
             textKey: 'tutorial_connect_device_step1_note',
             image: devModeNotReadyImg,
             link: {
-              url: 'https://hypertopia.store/vr-games/tutorials#developer-mode',
+              url: 'https://hypertopia.web.id/vr-games/tutorials#developer-mode',
               labelKey: 'tutorial_link_dev_mode'
             }
           }

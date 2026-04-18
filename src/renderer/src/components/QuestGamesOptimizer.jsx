@@ -9,7 +9,7 @@ import { useToast } from '../hooks/useToast'
 import PropTypes from 'prop-types'
 import QGOLogo from '../assets/images/qgo-logo.png'
 
-const API_BASE_URL = 'https://api.hypertopia.store'
+const API_BASE_URL = 'https://api.hypertopia.web.id'
 
 export function QuestGamesOptimizer({
   selectedDevice,
@@ -906,14 +906,18 @@ export function QuestGamesOptimizer({
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Icon icon="mdi:loading" className="h-10 w-10 animate-spin text-[#0081FB]" />
-            <p className="mt-4 text-sm text-gray-500 dark:text-white/50">{t('qgo_loading') || 'Loading...'}</p>
+            <p className="mt-4 text-sm text-gray-500 dark:text-white/50">
+              {t('qgo_loading') || 'Loading...'}
+            </p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
               <Icon icon="mdi:alert-circle-outline" className="h-8 w-8 text-red-500" />
             </div>
-            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">{t('qgo_error') || 'Failed to load QGO'}</p>
+            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
+              {t('qgo_error') || 'Failed to load QGO'}
+            </p>
             <p className="mt-1 text-xs text-gray-400 dark:text-white/40">{error}</p>
             <button
               onClick={handleRefresh}
@@ -926,7 +930,10 @@ export function QuestGamesOptimizer({
         ) : filteredLinks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-white/5">
-              <Icon icon="mdi:file-search-outline" className="h-8 w-8 text-gray-300 dark:text-white/30" />
+              <Icon
+                icon="mdi:file-search-outline"
+                className="h-8 w-8 text-gray-300 dark:text-white/30"
+              />
             </div>
             <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
               {searchQuery

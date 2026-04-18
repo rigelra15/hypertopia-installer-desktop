@@ -619,7 +619,7 @@ export function SettingsModal({
                               <button
                                 onClick={() =>
                                   window.api.openExternal?.(
-                                    'https://hypertopia.store/software-pembantu'
+                                    'https://hypertopia.web.id/software-pembantu'
                                   )
                                 }
                                 className="mt-1 inline-flex items-center gap-1 text-[#0081FB] font-medium hover:underline"

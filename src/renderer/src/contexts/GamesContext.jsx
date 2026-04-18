@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 
-const API_BASE_URL = 'https://api.hypertopia.store'
+const API_BASE_URL = 'https://api.hypertopia.web.id'
 
 // Cache TTL - 5 minutes (matches server-side cache)
 const CACHE_TTL_MS = 5 * 60 * 1000

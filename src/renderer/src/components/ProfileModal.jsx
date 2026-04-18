@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.hypertopia.store'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.hypertopia.web.id'
 
 export function ProfileModal({ isOpen, onClose, user }) {
   const { t } = useLanguage()
@@ -178,7 +178,10 @@ export function ProfileModal({ isOpen, onClose, user }) {
                   {/* Registration Date */}
                   <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <Icon icon="mdi:calendar" className="h-4 w-4 text-gray-400 dark:text-white/40" />
+                      <Icon
+                        icon="mdi:calendar"
+                        className="h-4 w-4 text-gray-400 dark:text-white/40"
+                      />
                       <span className="text-xs text-gray-400 dark:text-white/40">
                         {t('profile_registered') || 'Registered'}
                       </span>
@@ -191,7 +194,10 @@ export function ProfileModal({ isOpen, onClose, user }) {
                   {/* Transaction Count */}
                   <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <Icon icon="mdi:receipt" className="h-4 w-4 text-gray-400 dark:text-white/40" />
+                      <Icon
+                        icon="mdi:receipt"
+                        className="h-4 w-4 text-gray-400 dark:text-white/40"
+                      />
                       <span className="text-xs text-gray-400 dark:text-white/40">
                         {t('profile_transactions') || 'Transactions'}
                       </span>
@@ -220,7 +226,10 @@ export function ProfileModal({ isOpen, onClose, user }) {
                   {profile.source && (
                     <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
-                        <Icon icon="mdi:store" className="h-4 w-4 text-gray-400 dark:text-white/40" />
+                        <Icon
+                          icon="mdi:store"
+                          className="h-4 w-4 text-gray-400 dark:text-white/40"
+                        />
                         <span className="text-xs text-gray-400 dark:text-white/40">
                           {t('profile_source') || 'Source'}
                         </span>

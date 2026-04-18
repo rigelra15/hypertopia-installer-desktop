@@ -164,13 +164,13 @@ export function UserMenu({ onLiveAssist }) {
                   <>
                     {/* Website Link */}
                     <a
-                      href="https://hypertopia.store/link-device"
+                      href="https://hypertopia.web.id/link-device"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block text-center mb-4"
                     >
                       <span className="text-sm text-blue-400 hover:text-blue-300 underline">
-                        hypertopia.store/link-device
+                        hypertopia.web.id/link-device
                       </span>
                     </a>
 

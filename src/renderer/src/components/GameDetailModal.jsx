@@ -12,7 +12,7 @@ import coverImages from '../utils/coverImages'
 const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
 
 // HyperTopia API URL
-const API_BASE_URL = 'https://api.hypertopia.store'
+const API_BASE_URL = 'https://api.hypertopia.web.id'
 
 // Helper function to compare versions (from highest to lowest)
 const compareVersions = (versionA, versionB) => {
@@ -759,8 +759,13 @@ export default function GameDetailModal({
                 {/* Placeholder */}
                 {!loadingImage && !coverUrl && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 dark:bg-[#1a1a1a]">
-                    <Icon icon="mdi:image-off" className="w-16 h-16 text-gray-300 dark:text-white/20" />
-                    <span className="text-gray-400 dark:text-white/30 text-sm mt-2">No Cover Image</span>
+                    <Icon
+                      icon="mdi:image-off"
+                      className="w-16 h-16 text-gray-300 dark:text-white/20"
+                    />
+                    <span className="text-gray-400 dark:text-white/30 text-sm mt-2">
+                      No Cover Image
+                    </span>
                   </div>
                 )}
 

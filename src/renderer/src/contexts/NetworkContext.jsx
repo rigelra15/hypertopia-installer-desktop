@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 const NetworkContext = createContext(null)
 
 // API endpoint to check connectivity
-const CONNECTIVITY_CHECK_URL = 'https://api.hypertopia.store/api/v1/health'
+const CONNECTIVITY_CHECK_URL = 'https://api.hypertopia.web.id/api/v1/health'
 const PING_INTERVAL = 10000 // Ping every 10 seconds for latency display (like mobile games)
 const RETRY_INTERVAL = 5000 // Retry every 5 seconds when offline
 
@@ -29,7 +29,7 @@ export function NetworkProvider({ children }) {
     const endpoints = [
       CONNECTIVITY_CHECK_URL,
       // Fallback endpoint if health check doesn't exist yet
-      'https://api.hypertopia.store/api/v1/standalone-games-light?limit=1'
+      'https://api.hypertopia.web.id/api/v1/standalone-games-light?limit=1'
     ]
 
     for (const url of endpoints) {

@@ -7,7 +7,7 @@ export function HypertopiaStore({ initialUrl }) {
   const { t } = useLanguage()
   const webviewRef = useRef(null)
   // Use initialUrl if provided, otherwise default to homepage
-  const [url, setUrl] = useState(initialUrl || 'https://hypertopia.store')
+  const [url, setUrl] = useState(initialUrl || 'https://hypertopia.web.id')
   const [canGoBack, setCanGoBack] = useState(false)
   const [canGoForward, setCanGoForward] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -100,7 +100,9 @@ export function HypertopiaStore({ initialUrl }) {
             onClick={handleGoBack}
             disabled={!canGoBack}
             className={`rounded-lg p-1.5 transition-colors ${
-              canGoBack ? 'text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-white/10' : 'text-gray-300 dark:text-white/20 cursor-not-allowed'
+              canGoBack
+                ? 'text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-white/10'
+                : 'text-gray-300 dark:text-white/20 cursor-not-allowed'
             }`}
           >
             <Icon icon="mdi:arrow-left" className="h-5 w-5" />
@@ -109,7 +111,9 @@ export function HypertopiaStore({ initialUrl }) {
             onClick={handleGoForward}
             disabled={!canGoForward}
             className={`rounded-lg p-1.5 transition-colors ${
-              canGoForward ? 'text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-white/10' : 'text-gray-300 dark:text-white/20 cursor-not-allowed'
+              canGoForward
+                ? 'text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-white/10'
+                : 'text-gray-300 dark:text-white/20 cursor-not-allowed'
             }`}
           >
             <Icon icon="mdi:arrow-right" className="h-5 w-5" />
@@ -126,7 +130,7 @@ export function HypertopiaStore({ initialUrl }) {
         </div>
 
         {/* Address Bar */}
-          <div className="flex flex-1 items-center gap-2 rounded-lg bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-white/5 px-3 py-1.5 shadow-inner">
+        <div className="flex flex-1 items-center gap-2 rounded-lg bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-white/5 px-3 py-1.5 shadow-inner">
           <Icon icon="mdi:lock" className="h-3.5 w-3.5 text-[#0081FB]" />
           <input
             type="text"
@@ -156,7 +160,9 @@ export function HypertopiaStore({ initialUrl }) {
       {/* Info Banner - Important Notice */}
       <div className="flex items-center gap-2 border-b border-[#0081FB]/20 bg-[#0081FB]/10 px-3 py-2">
         <Icon icon="mdi:information-outline" className="h-4 w-4 shrink-0 text-[#0081FB]" />
-        <p className="flex-1 text-[11px] text-gray-700 dark:text-white/80">{t('webview_info_notice')}</p>
+        <p className="flex-1 text-[11px] text-gray-700 dark:text-white/80">
+          {t('webview_info_notice')}
+        </p>
         <button
           onClick={handleOpenExternal}
           className="shrink-0 flex items-center gap-1 rounded-md bg-[#0081FB] px-2 py-1 text-[10px] font-medium text-white transition-colors hover:bg-[#0081FB]/80"
@@ -171,7 +177,7 @@ export function HypertopiaStore({ initialUrl }) {
         {/* eslint-disable react/no-unknown-property */}
         <webview
           ref={webviewRef}
-          src={initialUrl || 'https://hypertopia.store'}
+          src={initialUrl || 'https://hypertopia.web.id'}
           className="h-full w-full bg-white"
           partition="persist:hypertopia"
           allowpopups="true"

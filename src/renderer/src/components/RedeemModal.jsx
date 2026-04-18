@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.hypertopia.store'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.hypertopia.web.id'
 
 export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
   const { t } = useLanguage()

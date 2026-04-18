@@ -722,7 +722,10 @@ app.whenReady().then(() => {
                 label: 'Check for Updates',
                 click: () => {
                   if (app.isPackaged) autoUpdater.checkForUpdatesAndNotify()
-                  else dialog.showMessageBox({ message: 'Update check is only available in production.' })
+                  else
+                    dialog.showMessageBox({
+                      message: 'Update check is only available in production.'
+                    })
                 }
               },
               { type: 'separator' },
@@ -746,10 +749,17 @@ app.whenReady().then(() => {
           click: async () => {
             if (mainWindow) {
               try {
-                const extractPath = await mainWindow.webContents.executeJavaScript('localStorage.getItem("extractPath")')
+                const extractPath = await mainWindow.webContents.executeJavaScript(
+                  'localStorage.getItem("extractPath")'
+                )
                 if (extractPath) shell.openPath(extractPath)
-                else dialog.showMessageBox({ message: 'No extraction folder set yet! Please configure it in settings.' })
-              } catch (e) { console.error(e) }
+                else
+                  dialog.showMessageBox({
+                    message: 'No extraction folder set yet! Please configure it in settings.'
+                  })
+              } catch (e) {
+                console.error(e)
+              }
             }
           }
         },
@@ -759,8 +769,13 @@ app.whenReady().then(() => {
             if (mainWindow) {
               try {
                 mainWindow.focus()
-                dialog.showMessageBox({ message: 'To change extraction folder, open the Settings cog in the app and click Change Folder.' })
-              } catch (e) { console.error(e) }
+                dialog.showMessageBox({
+                  message:
+                    'To change extraction folder, open the Settings cog in the app and click Change Folder.'
+                })
+              } catch (e) {
+                console.error(e)
+              }
             }
           }
         },
@@ -773,11 +788,17 @@ app.whenReady().then(() => {
                 type: 'warning',
                 buttons: ['Cancel', 'Clear Cache'],
                 title: 'Clear Cache',
-                message: 'This will delete all temporarily downloaded files and free up disk space. Continue?'
+                message:
+                  'This will delete all temporarily downloaded files and free up disk space. Continue?'
               })
               if (res.response === 1) {
-                 mainWindow.webContents.executeJavaScript('window.api && window.api.clearDownloadsFolder ? window.api.clearDownloadsFolder() : console.log("API not loaded")')
-                 dialog.showMessageBox({ message: 'Cache clearing process initiated internally. Progress might take a moment.' })
+                mainWindow.webContents.executeJavaScript(
+                  'window.api && window.api.clearDownloadsFolder ? window.api.clearDownloadsFolder() : console.log("API not loaded")'
+                )
+                dialog.showMessageBox({
+                  message:
+                    'Cache clearing process initiated internally. Progress might take a moment.'
+                })
               }
             }
           }
@@ -803,10 +824,17 @@ app.whenReady().then(() => {
               { type: 'separator' },
               {
                 label: 'Speech',
-                submenu: [{ label: 'Start Speaking', role: 'startSpeaking' }, { label: 'Stop Speaking', role: 'stopSpeaking' }]
+                submenu: [
+                  { label: 'Start Speaking', role: 'startSpeaking' },
+                  { label: 'Stop Speaking', role: 'stopSpeaking' }
+                ]
               }
             ]
-          : [{ label: 'Delete', role: 'delete' }, { type: 'separator' }, { label: 'Select All', role: 'selectAll' }])
+          : [
+              { label: 'Delete', role: 'delete' },
+              { type: 'separator' },
+              { label: 'Select All', role: 'selectAll' }
+            ])
       ]
     },
     {
@@ -829,28 +857,37 @@ app.whenReady().then(() => {
         {
           label: 'Force Kill ADB Server',
           click: async () => {
-             const { execFile } = require('child_process');
-             const path = require('path');
-             const adbPath = isMac 
-               ? path.join(__dirname, '../../resources/platform-tools-darwin/adb') 
-               : path.join(__dirname, '../../resources/platform-tools/adb.exe');
-             execFile(adbPath, ['kill-server'], (err) => {
-                if (err) dialog.showMessageBox({ message: 'Failed to kill ADB: ' + err.message })
-                else dialog.showMessageBox({ message: 'ADB Server killed successfully! It will restart when needed.' })
-             })
+            const { execFile } = require('child_process')
+            const path = require('path')
+            const adbPath = isMac
+              ? path.join(__dirname, '../../resources/platform-tools-darwin/adb')
+              : path.join(__dirname, '../../resources/platform-tools/adb.exe')
+            execFile(adbPath, ['kill-server'], (err) => {
+              if (err) dialog.showMessageBox({ message: 'Failed to kill ADB: ' + err.message })
+              else
+                dialog.showMessageBox({
+                  message: 'ADB Server killed successfully! It will restart when needed.'
+                })
+            })
           }
         },
         { type: 'separator' },
         {
           label: 'Cancel Active Download',
           click: async () => {
-            if (mainWindow) mainWindow.webContents.executeJavaScript('window.api && window.api.cancelDownload ? window.api.cancelDownload() : null')
+            if (mainWindow)
+              mainWindow.webContents.executeJavaScript(
+                'window.api && window.api.cancelDownload ? window.api.cancelDownload() : null'
+              )
           }
         },
         {
           label: 'Cancel Active Installation',
           click: async () => {
-             if (mainWindow) mainWindow.webContents.executeJavaScript('window.api && window.api.cancelInstallation ? window.api.cancelInstallation() : null')
+            if (mainWindow)
+              mainWindow.webContents.executeJavaScript(
+                'window.api && window.api.cancelInstallation ? window.api.cancelInstallation() : null'
+              )
           }
         }
       ]
@@ -870,10 +907,12 @@ app.whenReady().then(() => {
                   message: 'Are you sure you want to sign out?'
                 })
                 if (response.response === 1) {
-                  await mainWindow.webContents.executeJavaScript('localStorage.removeItem("hypertopia_user"); localStorage.removeItem("hypertopia_token"); window.location.reload();')
+                  await mainWindow.webContents.executeJavaScript(
+                    'localStorage.removeItem("hypertopia_user"); localStorage.removeItem("hypertopia_token"); window.location.reload();'
+                  )
                 }
               } catch (e) {
-                 console.error(e)
+                console.error(e)
               }
             }
           }
@@ -886,7 +925,12 @@ app.whenReady().then(() => {
         { label: 'Minimize', role: 'minimize' },
         { label: 'Zoom', role: 'zoom' },
         ...(isMac
-          ? [{ type: 'separator' }, { label: 'Bring All to Front', role: 'front' }, { type: 'separator' }, { role: 'window' }]
+          ? [
+              { type: 'separator' },
+              { label: 'Bring All to Front', role: 'front' },
+              { type: 'separator' },
+              { role: 'window' }
+            ]
           : [{ label: 'Close', role: 'close' }])
       ]
     },
@@ -897,21 +941,21 @@ app.whenReady().then(() => {
         {
           label: 'HyperTopia Website',
           click: async () => {
-            await shell.openExternal('https://hypertopia.store')
+            await shell.openExternal('https://hypertopia.web.id')
           }
         },
         {
           label: 'Software Helper',
           click: async () => {
-            await shell.openExternal('https://hypertopia.store/vr-games/software-helper')
+            await shell.openExternal('https://hypertopia.web.id/vr-games/software-helper')
           }
         },
         { type: 'separator' },
         {
           label: 'Check for Updates',
           click: () => {
-             if (app.isPackaged) autoUpdater.checkForUpdatesAndNotify()
-             else dialog.showMessageBox({ message: 'Update check is only available in production.' })
+            if (app.isPackaged) autoUpdater.checkForUpdatesAndNotify()
+            else dialog.showMessageBox({ message: 'Update check is only available in production.' })
           }
         }
       ]
@@ -1027,7 +1071,7 @@ app.whenReady().then(() => {
       pendingAuthResolve = resolve
 
       // Open HyperTopia website auth page in default browser
-      const authUrl = 'https://hypertopia.store/auth-installer'
+      const authUrl = 'https://hypertopia.web.id/auth-installer'
       shell.openExternal(authUrl)
 
       // Set timeout for auth (2 minutes)
@@ -2803,8 +2847,8 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
 
         // Create custom HTTP agent and options with referer header
         const customHeaders = {
-          Referer: 'https://hypertopia.store/',
-          Origin: 'https://hypertopia.store',
+          Referer: 'https://hypertopia.web.id/',
+          Origin: 'https://hypertopia.web.id',
           'Accept-Encoding': 'identity'
         }
 
@@ -3159,8 +3203,8 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
         const options = {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            Referer: 'https://hypertopia.store/',
-            Origin: 'https://hypertopia.store'
+            Referer: 'https://hypertopia.web.id/',
+            Origin: 'https://hypertopia.web.id'
           }
         }
 
@@ -3248,8 +3292,8 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
         }
 
         const customHeaders = {
-          Referer: 'https://hypertopia.store/',
-          Origin: 'https://hypertopia.store',
+          Referer: 'https://hypertopia.web.id/',
+          Origin: 'https://hypertopia.web.id',
           'Accept-Encoding': 'identity'
         }
 
@@ -3694,8 +3738,8 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
         const options = {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            Referer: 'https://hypertopia.store/',
-            Origin: 'https://hypertopia.store'
+            Referer: 'https://hypertopia.web.id/',
+            Origin: 'https://hypertopia.web.id'
           }
         }
 
@@ -3777,8 +3821,8 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
 
         // Custom headers required for API key restrictions
         const customHeaders = {
-          Referer: 'https://hypertopia.store/',
-          Origin: 'https://hypertopia.store',
+          Referer: 'https://hypertopia.web.id/',
+          Origin: 'https://hypertopia.web.id',
           'Accept-Encoding': 'identity'
         }
 
