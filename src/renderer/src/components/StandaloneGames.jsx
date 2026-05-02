@@ -262,7 +262,9 @@ export function StandaloneGames({
               <Icon icon="mdi:gamepad-variant" className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('standalone_games_title')}</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {t('standalone_games_title')}
+              </h2>
               <p className="text-xs text-gray-500 dark:text-white/50">
                 {isLoading
                   ? t('standalone_games_loading')
@@ -401,14 +403,18 @@ export function StandaloneGames({
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Icon icon="mdi:loading" className="h-10 w-10 animate-spin text-[#0081FB]" />
-            <p className="mt-4 text-sm text-gray-500 dark:text-white/50">{t('standalone_games_loading')}</p>
+            <p className="mt-4 text-sm text-gray-500 dark:text-white/50">
+              {t('standalone_games_loading')}
+            </p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
               <Icon icon="mdi:alert-circle-outline" className="h-8 w-8 text-red-500" />
             </div>
-            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">{t('standalone_games_error')}</p>
+            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
+              {t('standalone_games_error')}
+            </p>
             <p className="mt-1 text-xs text-gray-400 dark:text-white/40">{error}</p>
             <button
               onClick={handleRefresh}
@@ -421,7 +427,10 @@ export function StandaloneGames({
         ) : games.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-white/5">
-              <Icon icon="mdi:gamepad-variant-outline" className="h-8 w-8 text-gray-300 dark:text-white/30" />
+              <Icon
+                icon="mdi:gamepad-variant-outline"
+                className="h-8 w-8 text-gray-300 dark:text-white/30"
+              />
             </div>
             <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
               {searchQuery ? t('search_no_results') : t('standalone_games_empty')}
@@ -430,10 +439,13 @@ export function StandaloneGames({
         ) : (
           <>
             {/* Games Grid / List */}
-            <div className={viewMode === 'grid'
-              ? 'grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
-              : 'flex flex-col gap-2'
-            }>
+            <div
+              className={
+                viewMode === 'grid'
+                  ? 'grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                  : 'flex flex-col gap-2'
+              }
+            >
               {games.map((game) => (
                 <GameCard
                   key={game.id}
@@ -473,7 +485,10 @@ export function StandaloneGames({
                   {/* Page Numbers */}
                   {getPageNumbers().map((page, index) =>
                     page === '...' ? (
-                      <span key={`ellipsis-${index}`} className="px-2 text-gray-400 dark:text-white/30">
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="px-2 text-gray-400 dark:text-white/30"
+                      >
                         ...
                       </span>
                     ) : (
@@ -574,6 +589,109 @@ const PLACEHOLDER_GRADIENTS = [
   ['#4e342e', '#6d4c41'],
   ['#212121', '#455a64']
 ]
+function StatusBadge({ game, t }) {
+  const [now] = useState(() => Date.now())
+  const gameStatus = game?.gameStatus || ''
+  const timeAdded = game?.timeAdded || game?.createdAt || game?.updatedAt
+  const isRecent = timeAdded && now - new Date(timeAdded).getTime() <= 7 * 24 * 60 * 60 * 1000
+
+  if (gameStatus === 'new' && isRecent)
+    return (
+      <span className="px-2 py-0.5 text-[10px] font-bold text-white bg-blue-600 rounded-md shadow-sm flex items-center gap-1 w-fit">
+        <Icon icon="streamline-flex:new-badge-highlight-solid" className="w-3 h-3" />
+        {t('badge_new') || 'NEW'}
+      </span>
+    )
+  if (gameStatus === 'update' && isRecent)
+    return (
+      <span className="px-2 py-0.5 text-[10px] font-bold text-white bg-yellow-500 rounded-md shadow-sm flex items-center gap-1 w-fit">
+        <Icon icon="mdi:update" className="w-3 h-3" />
+        {t('badge_update') || 'UPDATE'}
+      </span>
+    )
+  if (gameStatus === 'coming_soon')
+    return (
+      <span className="px-2 py-0.5 text-[10px] font-bold text-white bg-purple-600 rounded-md shadow-sm flex items-center gap-1 w-fit">
+        <Icon icon="mdi:clock-outline" className="w-3 h-3" />
+        {t('badge_coming_soon') || 'SOON'}
+      </span>
+    )
+  return null
+}
+
+StatusBadge.propTypes = {
+  game: PropTypes.object,
+  t: PropTypes.func.isRequired
+}
+
+function V76Badge({ hasV76, tooltipDir = 'right', t }) {
+  if (!hasV76) return null
+  return (
+    <div className="relative group/v76 shrink-0">
+      <span className="px-2 py-0.5 text-[10px] font-bold text-white bg-red-500 rounded-md shadow-sm flex items-center gap-1 cursor-help">
+        <Icon icon="mdi:alert-circle" className="w-3 h-3" />
+        v76+
+      </span>
+      <div
+        className={`absolute ${tooltipDir === 'left' ? 'left-0' : 'right-0'} top-full mt-1.5 w-48 px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/15 rounded-lg shadow-xl opacity-0 invisible group-hover/v76:opacity-100 group-hover/v76:visible transition-all duration-200 pointer-events-none z-30`}
+      >
+        <p className="text-[10px] text-gray-800 dark:text-white/90 font-semibold mb-0.5">
+          {t('v76_tooltip_title') || 'Firmware v76+ Required'}
+        </p>
+        <p className="text-[10px] text-gray-500 dark:text-white/50 leading-relaxed">
+          {t('v76_tooltip_desc') ||
+            'Game ini membutuhkan Quest firmware versi 76 ke atas untuk bisa dimainkan.'}
+        </p>
+        <div
+          className={`absolute -top-1 ${tooltipDir === 'left' ? 'left-3' : 'right-3'} w-2 h-2 bg-white dark:bg-[#1a1a1a] border-l border-t border-gray-200 dark:border-white/15 rotate-45`}
+        />
+      </div>
+    </div>
+  )
+}
+
+V76Badge.propTypes = {
+  hasV76: PropTypes.bool,
+  tooltipDir: PropTypes.string,
+  t: PropTypes.func.isRequired
+}
+
+function DeviceBadges({ compact = false, supportedEntries, selectedKey, t }) {
+  if (supportedEntries.length === 0)
+    return (
+      <span
+        className={`${compact ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-1'} rounded bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/40 font-medium`}
+      >
+        {t('not_supported') || 'Unknown'}
+      </span>
+    )
+  return supportedEntries.map(([quest]) => {
+    const questInfo = getQuestInfo(quest)
+    const isSelected = quest === selectedKey
+    return (
+      <span
+        key={quest}
+        className={`${compact ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-1'} rounded font-semibold flex items-center gap-1 border ${
+          isSelected
+            ? 'bg-blue-500 text-white border-blue-500'
+            : 'bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-white/60 border-gray-200 dark:border-white/10'
+        }`}
+        title={questInfo.fullName}
+      >
+        <Icon icon="tabler:device-vision-pro" className="w-3 h-3" />
+        {questInfo.label}
+      </span>
+    )
+  })
+}
+
+DeviceBadges.propTypes = {
+  compact: PropTypes.bool,
+  supportedEntries: PropTypes.array.isRequired,
+  selectedKey: PropTypes.string,
+  t: PropTypes.func.isRequired
+}
+
 function getPlaceholderStyle(title) {
   let hash = 0
   for (let i = 0; i < title.length; i++) {
@@ -590,13 +708,30 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
   const [loadingImage, setLoadingImage] = useState(true)
 
   const gameTitle = game.gameTitle || game.name || game.id?.replace(/!/g, '') || 'Unknown Game'
-  const gameStatus = game.gameStatus || ''
   const downloadCount = game.downloadCount || 0
   const isSupportedV76 = game.isSupportedV76 || false
+  const versions = Array.isArray(game.versions) ? game.versions.filter((v) => v !== null) : []
+  const gameVersion = game.version || game.gameVersion || ''
 
   const isActiveDownload =
     downloadInfo?.gameTitle === gameTitle &&
     (downloadInfo?.status === 'downloading' || downloadInfo?.status === 'preparing')
+
+  // Get supported Quest models
+  const supportedEntries = Object.entries(game).filter(
+    ([k, v]) => k.startsWith('supportMetaQuest') && v
+  )
+
+  // Map selectedDevice to supportMetaQuest key
+  const deviceToKeyMap = {
+    quest1: 'supportMetaQuest1',
+    quest2: 'supportMetaQuest2',
+    quest3: 'supportMetaQuest3',
+    quest3s: 'supportMetaQuest3S',
+    questPro: 'supportMetaQuestPro'
+  }
+  const selectedKey = selectedDevice ? deviceToKeyMap[selectedDevice] : null
+  const hasV76 = isSupportedV76 || versions.some((v) => v?.isSupportedV76)
 
   // Fetch cover image from Firebase Storage only
   useEffect(() => {
@@ -618,10 +753,6 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
       mounted = false
     }
   }, [gameTitle])
-
-  // Get versions info - with null safety
-  const versions = Array.isArray(game.versions) ? game.versions.filter((v) => v !== null) : []
-  const gameVersion = game.version || game.gameVersion || ''
 
   // Get version display text - sorted from highest to lowest
   const getVersionDisplay = () => {
@@ -654,104 +785,6 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
     return downloadCount || 0
   }
 
-  // Get supported Quest models
-  const getSupportedDevices = () => {
-    return Object.entries(game).filter(([k, v]) => k.startsWith('supportMetaQuest') && v)
-  }
-
-  // Map selectedDevice to supportMetaQuest key
-  const deviceToKeyMap = {
-    quest1: 'supportMetaQuest1',
-    quest2: 'supportMetaQuest2',
-    quest3: 'supportMetaQuest3',
-    quest3s: 'supportMetaQuest3S',
-    questPro: 'supportMetaQuestPro'
-  }
-  const selectedKey = selectedDevice ? deviceToKeyMap[selectedDevice] : null
-
-  // ── STATUS BADGE (shared) ─────────────────────────────────────────────────
-  const StatusBadge = () => {
-    if (gameStatus === 'new')
-      return (
-        <span className="px-2 py-0.5 text-[10px] font-bold text-white bg-blue-600 rounded-md shadow-sm flex items-center gap-1 w-fit">
-          <Icon icon="streamline-flex:new-badge-highlight-solid" className="w-3 h-3" />
-          {t('badge_new') || 'NEW'}
-        </span>
-      )
-    if (gameStatus === 'update')
-      return (
-        <span className="px-2 py-0.5 text-[10px] font-bold text-white bg-yellow-500 rounded-md shadow-sm flex items-center gap-1 w-fit">
-          <Icon icon="mdi:update" className="w-3 h-3" />
-          {t('badge_update') || 'UPDATE'}
-        </span>
-      )
-    if (gameStatus === 'coming_soon')
-      return (
-        <span className="px-2 py-0.5 text-[10px] font-bold text-white bg-purple-600 rounded-md shadow-sm flex items-center gap-1 w-fit">
-          <Icon icon="mdi:clock-outline" className="w-3 h-3" />
-          {t('badge_coming_soon') || 'SOON'}
-        </span>
-      )
-    return null
-  }
-
-  // ── V76+ BADGE (shared) ───────────────────────────────────────────────────
-  const hasV76 = isSupportedV76 || versions.some((v) => v?.isSupportedV76)
-  const V76Badge = ({ tooltipDir = 'right' }) =>
-    hasV76 ? (
-      <div className="relative group/v76 shrink-0">
-        <span className="px-2 py-0.5 text-[10px] font-bold text-white bg-red-500 rounded-md shadow-sm flex items-center gap-1 cursor-help">
-          <Icon icon="mdi:alert-circle" className="w-3 h-3" />
-          v76+
-        </span>
-        <div
-          className={`absolute ${tooltipDir === 'left' ? 'left-0' : 'right-0'} top-full mt-1.5 w-48 px-3 py-2 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/15 rounded-lg shadow-xl opacity-0 invisible group-hover/v76:opacity-100 group-hover/v76:visible transition-all duration-200 pointer-events-none z-30`}
-        >
-          <p className="text-[10px] text-gray-800 dark:text-white/90 font-semibold mb-0.5">
-            {t('v76_tooltip_title') || 'Firmware v76+ Required'}
-          </p>
-          <p className="text-[10px] text-gray-500 dark:text-white/50 leading-relaxed">
-            {t('v76_tooltip_desc') ||
-              'Game ini membutuhkan Quest firmware versi 76 ke atas untuk bisa dimainkan.'}
-          </p>
-          <div
-            className={`absolute -top-1 ${tooltipDir === 'left' ? 'left-3' : 'right-3'} w-2 h-2 bg-white dark:bg-[#1a1a1a] border-l border-t border-gray-200 dark:border-white/15 rotate-45`}
-          />
-        </div>
-      </div>
-    ) : null
-
-  // ── DEVICE BADGES (shared) ────────────────────────────────────────────────
-  const DeviceBadges = ({ compact = false }) => {
-    const supportedEntries = getSupportedDevices()
-    if (supportedEntries.length === 0)
-      return (
-        <span
-          className={`${compact ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-1'} rounded bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/40 font-medium`}
-        >
-          {t('not_supported') || 'Unknown'}
-        </span>
-      )
-    return supportedEntries.map(([quest]) => {
-      const questInfo = getQuestInfo(quest)
-      const isSelected = quest === selectedKey
-      return (
-        <span
-          key={quest}
-          className={`${compact ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-1'} rounded font-semibold flex items-center gap-1 border ${
-            isSelected
-              ? 'bg-blue-500 text-white border-blue-500'
-              : 'bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-white/60 border-gray-200 dark:border-white/10'
-          }`}
-          title={questInfo.fullName}
-        >
-          <Icon icon="tabler:device-vision-pro" className="w-3 h-3" />
-          {questInfo.label}
-        </span>
-      )
-    })
-  }
-
   // ────────────────────────────────────────────────────────────────────────────
   // LIST MODE
   // ────────────────────────────────────────────────────────────────────────────
@@ -777,7 +810,10 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
               <span className="absolute text-[90px] font-black text-white/6 select-none leading-none">
                 {gameTitle.charAt(0).toUpperCase()}
               </span>
-              <Icon icon="tabler:device-vision-pro" className="w-8 h-8 text-white/50 relative z-10" />
+              <Icon
+                icon="tabler:device-vision-pro"
+                className="w-8 h-8 text-white/50 relative z-10"
+              />
             </div>
           )}
           {coverUrl && (
@@ -817,14 +853,19 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
               {gameTitle}
             </h3>
             <div className="flex items-center gap-1 shrink-0">
-              <StatusBadge />
-              <V76Badge tooltipDir="left" />
+              <StatusBadge game={game} t={t} />
+              <V76Badge hasV76={hasV76} tooltipDir="left" t={t} />
             </div>
           </div>
 
           {/* Row 2: device badges */}
           <div className="flex flex-wrap gap-1">
-            <DeviceBadges compact />
+            <DeviceBadges
+              compact
+              supportedEntries={supportedEntries}
+              selectedKey={selectedKey}
+              t={t}
+            />
           </div>
 
           {/* Row 3: version + downloads */}
@@ -924,12 +965,12 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
 
         {/* Top Left: Status Badges */}
         <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
-          <StatusBadge />
+          <StatusBadge game={game} t={t} />
         </div>
 
         {/* Top Right: v76+ Badge */}
         <div className="absolute top-3 right-3 z-20">
-          <V76Badge tooltipDir="right" />
+          <V76Badge hasV76={hasV76} tooltipDir="right" t={t} />
         </div>
 
         {/* Bottom Content: Title */}
@@ -947,7 +988,7 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
       <div className="flex flex-col p-3 gap-2 bg-gray-50 dark:bg-[#151515] grow justify-between">
         {/* Device Support Badges */}
         <div className="flex flex-wrap gap-1.5">
-          <DeviceBadges />
+          <DeviceBadges supportedEntries={supportedEntries} selectedKey={selectedKey} t={t} />
         </div>
 
         {/* Download Count & Version */}

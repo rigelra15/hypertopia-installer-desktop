@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import PropTypes from 'prop-types'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
 import { useDownload } from '../contexts/DownloadContext'
@@ -89,18 +90,35 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
     const titles = new Set()
     if (isDownloading && downloadInfo.gameTitle) titles.add(downloadInfo.gameTitle)
     if (isInstalling && installInfo.gameTitle) titles.add(installInfo.gameTitle)
-    downloadQueue.forEach((q) => { if (q.gameTitle) titles.add(q.gameTitle) })
-    downloadHistory.forEach((e) => { if (e.gameTitle) titles.add(e.gameTitle) })
+    downloadQueue.forEach((q) => {
+      if (q.gameTitle) titles.add(q.gameTitle)
+    })
+    downloadHistory.forEach((e) => {
+      if (e.gameTitle) titles.add(e.gameTitle)
+    })
     for (const title of titles) {
       // skip if already cached
       if (coverUrls[title]) continue
-      coverImages.getCoverUrl(title).then((url) => {
-        if (!mounted || !url) return
-        setCoverUrls((prev) => ({ ...prev, [title]: url }))
-      }).catch(() => {})
+      coverImages
+        .getCoverUrl(title)
+        .then((url) => {
+          if (!mounted || !url) return
+          setCoverUrls((prev) => ({ ...prev, [title]: url }))
+        })
+        .catch(() => {})
     }
-    return () => { mounted = false }
-  }, [downloadHistory, downloadQueue, isDownloading, isInstalling, downloadInfo.gameTitle, installInfo.gameTitle])
+    return () => {
+      mounted = false
+    }
+  }, [
+    downloadHistory,
+    downloadQueue,
+    isDownloading,
+    isInstalling,
+    downloadInfo.gameTitle,
+    installInfo.gameTitle,
+    coverUrls
+  ])
 
   const hasActive = isDownloading || isInstalling
   const activeProgress = isInstalling ? (installInfo.percent ?? 0) : (downloadInfo.progress ?? 0)
@@ -140,12 +158,14 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
             className="fixed inset-0 z-[61] flex items-center justify-center px-4 py-6 pointer-events-none"
           >
             <div className="relative w-full max-w-md pointer-events-auto flex flex-col rounded-2xl bg-white dark:bg-[#0a0a0a] shadow-2xl max-h-[80vh]">
-
               {/* Header */}
               <div className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-5 py-4 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-[#0081FB]/10 flex items-center justify-center">
-                    <Icon icon="mdi:download-circle-outline" className="h-[18px] w-[18px] text-[#0081FB]" />
+                    <Icon
+                      icon="mdi:download-circle-outline"
+                      className="h-[18px] w-[18px] text-[#0081FB]"
+                    />
                   </div>
                   <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                     {t('download_activity')}
@@ -161,7 +181,6 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
 
               {/* Body */}
               <div className="flex-1 overflow-y-auto custom-scrollbar">
-
                 {/* ── ACTIVE ── */}
                 {hasActive && (
                   <div className="px-5 pt-5">
@@ -170,14 +189,22 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                     </p>
                     <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#191919] overflow-hidden flex flex-row">
                       {/* Cover – left, fixed width, stretches to card height */}
-                      <div className={`relative w-[120px] shrink-0 self-stretch overflow-hidden ${
-                        coverUrls[isInstalling ? installInfo.gameTitle : downloadInfo.gameTitle]
-                          ? 'bg-gray-100 dark:bg-[#111]'
-                          : 'bg-[#0081FB]/10'
-                      }`}>
-                        {coverUrls[isInstalling ? installInfo.gameTitle : downloadInfo.gameTitle] ? (
+                      <div
+                        className={`relative w-[120px] shrink-0 self-stretch overflow-hidden ${
+                          coverUrls[isInstalling ? installInfo.gameTitle : downloadInfo.gameTitle]
+                            ? 'bg-gray-100 dark:bg-[#111]'
+                            : 'bg-[#0081FB]/10'
+                        }`}
+                      >
+                        {coverUrls[
+                          isInstalling ? installInfo.gameTitle : downloadInfo.gameTitle
+                        ] ? (
                           <img
-                            src={coverUrls[isInstalling ? installInfo.gameTitle : downloadInfo.gameTitle]}
+                            src={
+                              coverUrls[
+                                isInstalling ? installInfo.gameTitle : downloadInfo.gameTitle
+                              ]
+                            }
                             alt=""
                             className="w-full h-full object-cover"
                           />
@@ -186,7 +213,7 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                             <Icon
                               icon={
                                 isInstalling
-                                  ? (INSTALL_STEP_ICONS[installInfo.step] || 'mdi:loading')
+                                  ? INSTALL_STEP_ICONS[installInfo.step] || 'mdi:loading'
                                   : 'line-md:downloading-loop'
                               }
                               className="h-8 w-8 text-[#0081FB] animate-pulse"
@@ -244,10 +271,18 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                               {formatSpeed(downloadInfo.speed)}
                             </span>
                             <span>{activeProgress.toFixed(0)}%</span>
-                            {calcEta(downloadInfo.speed, downloadInfo.totalBytes, downloadInfo.downloadedBytes) && (
+                            {calcEta(
+                              downloadInfo.speed,
+                              downloadInfo.totalBytes,
+                              downloadInfo.downloadedBytes
+                            ) && (
                               <span className="flex items-center gap-1">
                                 <Icon icon="mdi:clock-outline" className="h-3 w-3" />
-                                {calcEta(downloadInfo.speed, downloadInfo.totalBytes, downloadInfo.downloadedBytes)}
+                                {calcEta(
+                                  downloadInfo.speed,
+                                  downloadInfo.totalBytes,
+                                  downloadInfo.downloadedBytes
+                                )}
                               </span>
                             )}
                           </div>
@@ -278,15 +313,24 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                           {/* Queue number badge + cover */}
                           <div className="relative w-[90px] shrink-0 self-stretch overflow-hidden bg-gray-100 dark:bg-[#0a0a0a]">
                             {coverUrls[item.gameTitle] ? (
-                              <img src={coverUrls[item.gameTitle]} alt="" className="w-full h-full object-cover opacity-80" />
+                              <img
+                                src={coverUrls[item.gameTitle]}
+                                alt=""
+                                className="w-full h-full object-cover opacity-80"
+                              />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
-                                <Icon icon="mdi:clock-outline" className="h-6 w-6 text-gray-300 dark:text-white/20" />
+                                <Icon
+                                  icon="mdi:clock-outline"
+                                  className="h-6 w-6 text-gray-300 dark:text-white/20"
+                                />
                               </div>
                             )}
                             {/* position number */}
                             <div className="absolute top-1.5 left-1.5 h-5 w-5 rounded-full bg-black/60 flex items-center justify-center">
-                              <span className="text-[10px] font-bold text-white leading-none">{idx + 1}</span>
+                              <span className="text-[10px] font-bold text-white leading-none">
+                                {idx + 1}
+                              </span>
                             </div>
                           </div>
 
@@ -297,7 +341,9 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                                 {item.gameTitle}
                               </p>
                               {item.version && (
-                                <span className="text-[10px] font-medium text-[#0081FB]">v{item.version}</span>
+                                <span className="text-[10px] font-medium text-[#0081FB]">
+                                  v{item.version}
+                                </span>
                               )}
                             </div>
 
@@ -364,18 +410,34 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                     const filtered = downloadHistory.filter((e) =>
                       historyTab === 'downloads' ? e.type === 'download' : e.type === 'install'
                     )
-                    const emptyIcon = historyTab === 'downloads' ? 'mdi:download-off-outline' : 'mdi:package-variant-remove'
-                    const emptyTitle = historyTab === 'downloads' ? t('da_no_recent') : (t('da_no_installs') || 'Belum ada riwayat instalasi')
-                    const emptySub = historyTab === 'downloads' ? t('da_no_recent_sub') : (t('da_no_installs_sub') || 'Instalasi yang selesai akan muncul di sini')
+                    const emptyIcon =
+                      historyTab === 'downloads'
+                        ? 'mdi:download-off-outline'
+                        : 'mdi:package-variant-remove'
+                    const emptyTitle =
+                      historyTab === 'downloads'
+                        ? t('da_no_recent')
+                        : t('da_no_installs') || 'Belum ada riwayat instalasi'
+                    const emptySub =
+                      historyTab === 'downloads'
+                        ? t('da_no_recent_sub')
+                        : t('da_no_installs_sub') || 'Instalasi yang selesai akan muncul di sini'
 
                     if (filtered.length === 0) {
                       return (
                         <div className="flex flex-col items-center justify-center py-10 text-center">
                           <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center mb-3">
-                            <Icon icon={emptyIcon} className="h-6 w-6 text-gray-400 dark:text-white/20" />
+                            <Icon
+                              icon={emptyIcon}
+                              className="h-6 w-6 text-gray-400 dark:text-white/20"
+                            />
                           </div>
-                          <p className="text-sm font-medium text-gray-500 dark:text-white/30">{emptyTitle}</p>
-                          <p className="text-xs text-gray-400 dark:text-white/20 mt-1">{emptySub}</p>
+                          <p className="text-sm font-medium text-gray-500 dark:text-white/30">
+                            {emptyTitle}
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-white/20 mt-1">
+                            {emptySub}
+                          </p>
                         </div>
                       )
                     }
@@ -393,20 +455,34 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                             )}
                             {/* Cover */}
                             {(() => {
-                              const isQgo = (entry.gameTitle || '').toLowerCase().includes('quest games optimizer')
+                              const isQgo = (entry.gameTitle || '')
+                                .toLowerCase()
+                                .includes('quest games optimizer')
                               const coverSrc = isQgo ? QGOLogo : coverUrls[entry.gameTitle] || null
                               return (
-                                <div className={`relative w-[120px] shrink-0 self-stretch overflow-hidden ${
-                                  coverSrc
-                                    ? 'bg-gray-100 dark:bg-[#111]'
-                                    : (entry.type === 'install' ? 'bg-purple-500/10' : 'bg-[#0081FB]/10')
-                                }`}>
+                                <div
+                                  className={`relative w-[120px] shrink-0 self-stretch overflow-hidden ${
+                                    coverSrc
+                                      ? 'bg-gray-100 dark:bg-[#111]'
+                                      : entry.type === 'install'
+                                        ? 'bg-purple-500/10'
+                                        : 'bg-[#0081FB]/10'
+                                  }`}
+                                >
                                   {coverSrc ? (
-                                    <img src={coverSrc} alt="" className={`w-full h-full ${isQgo ? 'object-contain p-6' : 'object-cover'}`} />
+                                    <img
+                                      src={coverSrc}
+                                      alt=""
+                                      className={`w-full h-full ${isQgo ? 'object-contain p-6' : 'object-cover'}`}
+                                    />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
                                       <Icon
-                                        icon={entry.type === 'install' ? 'mdi:package-down' : 'mdi:file-download-outline'}
+                                        icon={
+                                          entry.type === 'install'
+                                            ? 'mdi:package-down'
+                                            : 'mdi:file-download-outline'
+                                        }
                                         className={`h-7 w-7 ${entry.type === 'install' ? 'text-purple-500' : 'text-[#0081FB]'}`}
                                       />
                                     </div>
@@ -421,13 +497,19 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                                 {entry.gameTitle || entry.fileName || '—'}
                               </p>
                               {/* fileName subtitle – show for installs if different from gameTitle */}
-                              {entry.type === 'install' && entry.fileName && entry.fileName !== entry.gameTitle && (
-                                <p className="text-[11px] text-gray-400 dark:text-white/30 truncate">{entry.fileName}</p>
-                              )}
+                              {entry.type === 'install' &&
+                                entry.fileName &&
+                                entry.fileName !== entry.gameTitle && (
+                                  <p className="text-[11px] text-gray-400 dark:text-white/30 truncate">
+                                    {entry.fileName}
+                                  </p>
+                                )}
                               <div className="flex items-center gap-2 flex-wrap">
                                 {entry.version && (
                                   <span className="text-xs font-medium text-[#0081FB] bg-[#0081FB]/10 px-1.5 py-0.5 rounded">
-                                    {entry.version.startsWith('v') ? entry.version : `v${entry.version}`}
+                                    {entry.version.startsWith('v')
+                                      ? entry.version
+                                      : `v${entry.version}`}
                                   </span>
                                 )}
                                 {entry.totalBytes > 0 && (
@@ -441,15 +523,19 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                               </div>
                               {/* Status + Category badges */}
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                  entry.type === 'install'
-                                    ? 'bg-purple-600 text-white'
-                                    : 'bg-emerald-600 text-white'
-                                }`}>
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                    entry.type === 'install'
+                                      ? 'bg-purple-600 text-white'
+                                      : 'bg-emerald-600 text-white'
+                                  }`}
+                                >
                                   {entry.type === 'install' ? t('installed') : t('downloaded')}
                                 </span>
                                 {(() => {
-                                  const isQgo = (entry.gameTitle || '').toLowerCase().includes('quest games optimizer')
+                                  const isQgo = (entry.gameTitle || '')
+                                    .toLowerCase()
+                                    .includes('quest games optimizer')
                                   return isQgo ? (
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500 text-white">
                                       {t('da_cat_qgo') || 'QGO'}
@@ -472,7 +558,10 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
               {/* Footer – Navigate to Downloads Manager */}
               <div className="shrink-0 border-t border-gray-200 dark:border-white/10 px-5 py-3">
                 <button
-                  onClick={() => { onNavigateToManager?.(); onClose() }}
+                  onClick={() => {
+                    onNavigateToManager?.()
+                    onClose()
+                  }}
                   className="flex items-center gap-2 text-sm font-medium text-[#0081FB] hover:text-[#0070e0] transition-colors"
                 >
                   <Icon icon="mdi:folder-download-outline" className="h-4 w-4" />
@@ -485,4 +574,10 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
       )}
     </AnimatePresence>
   )
+}
+
+DownloadActivityModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onNavigateToManager: PropTypes.func
 }

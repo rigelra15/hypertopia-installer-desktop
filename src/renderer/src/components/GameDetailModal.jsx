@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useDownload } from '../contexts/DownloadContext'
 import { useToast } from '../hooks/useToast'
 import coverImages from '../utils/coverImages'
+import { Tooltip } from './Tooltip'
 
 // Firebase Database URL (same as website for game data)
 const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
@@ -97,6 +98,14 @@ export default function GameDetailModal({
   const [downloadedFiles, setDownloadedFiles] = useState({}) // Track which files are already downloaded
   const [confirmDelete, setConfirmDelete] = useState(null) // For delete confirmation modal
 
+  // YouTube video state
+  const iframeRef = useRef(null)
+  const glowRef = useRef(null)
+  const [videoReady, setVideoReady] = useState(false)
+  const [isMuted, setIsMuted] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(true)
+  const [volume, setVolume] = useState(50)
+
   // Download and install state
   const [isInstalling, setIsInstalling] = useState(false)
   const [installProgress, setInstallProgress] = useState({
@@ -158,6 +167,32 @@ export default function GameDetailModal({
       mounted = false
     }
   }, [isOpen, game, gameTitle])
+
+  // YouTube video autoplay with 2-second delay
+  useEffect(() => {
+    if (!isOpen || !game?.videoIdYouTube) {
+      setVideoReady(false)
+      setIsMuted(false)
+      setIsPlaying(true)
+      return
+    }
+    const timer = setTimeout(() => {
+      setVideoReady(true)
+      postYTCommand('playVideo')
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [isOpen, game?.videoIdYouTube])
+
+  // YouTube iframe command helper
+  const postYTCommand = (command, args = []) => {
+    const message = JSON.stringify({ event: 'command', func: command, args })
+    if (iframeRef.current) {
+      iframeRef.current.contentWindow.postMessage(message, '*')
+    }
+    if (glowRef.current) {
+      glowRef.current.contentWindow.postMessage(message, '*')
+    }
+  }
 
   // Reset state when game changes
   useEffect(() => {
@@ -745,109 +780,292 @@ export default function GameDetailModal({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-2xl bg-white dark:bg-[#111] rounded-2xl shadow-2xl"
+              className="relative w-full max-w-2xl bg-white dark:bg-[#111] rounded-2xl shadow-2xl overflow-visible"
             >
-              {/* Header / Image Area */}
-              <div className="relative h-56 md:h-72 w-full overflow-hidden rounded-t-2xl">
-                {/* Loading spinner */}
-                {loadingImage && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-[#0a0a0a]">
-                    <div className="w-10 h-10 border-3 border-gray-200 dark:border-white/10 border-t-[#0081FB] rounded-full animate-spin" />
-                  </div>
-                )}
+              {/* Header / Image Area with Ambient Glow */}
+              <div className="px-4 pt-4 pb-2 shrink-0" style={{ overflow: 'visible' }}>
+                <div className="relative" style={{ overflow: 'visible' }}>
+                  {/* Ambient bloom - dynamic video or blurred image behind cover/video */}
+                  {game?.videoIdYouTube ? (
+                    <div
+                      className="absolute pointer-events-none select-none overflow-hidden"
+                      style={{
+                        top: '-10%',
+                        left: '-10%',
+                        right: '-10%',
+                        bottom: '-10%',
+                        width: '120%',
+                        height: '120%',
+                        filter: 'blur(40px) brightness(0.8)',
+                        opacity: 0.8,
+                        zIndex: 0
+                      }}
+                    >
+                      <iframe
+                        ref={glowRef}
+                        src={`https://www.youtube.com/embed/${game.videoIdYouTube}?autoplay=0&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${game.videoIdYouTube}&playsinline=1&enablejsapi=1`}
+                        className="w-full h-full scale-110"
+                        style={{ pointerEvents: 'none' }}
+                      />
+                    </div>
+                  ) : (
+                    (game?.videoIdYouTube || coverUrl) && (
+                      <motion.img
+                        src={
+                          game?.videoIdYouTube
+                            ? `https://img.youtube.com/vi/${game.videoIdYouTube}/maxresdefault.jpg`
+                            : coverUrl
+                        }
+                        onError={(e) => {
+                          if (game?.videoIdYouTube && e.target.src.includes('maxresdefault')) {
+                            e.target.src = `https://img.youtube.com/vi/${game.videoIdYouTube}/hqdefault.jpg`
+                          } else if (coverUrl) {
+                            e.target.src = coverUrl
+                          }
+                        }}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute rounded-2xl object-cover pointer-events-none select-none"
+                        animate={{
+                          scale: [1, 1.07, 1.03, 1.08, 1],
+                          x: [0, 10, -8, 6, 0],
+                          y: [0, -8, 6, -5, 0],
+                          opacity: [0.72, 0.88, 0.68, 0.85, 0.72]
+                        }}
+                        transition={{
+                          duration: 9,
+                          ease: 'easeInOut',
+                          repeat: Infinity,
+                          repeatType: 'loop'
+                        }}
+                        style={{
+                          top: '-8px',
+                          left: '0px',
+                          right: '0px',
+                          bottom: '-8px',
+                          width: 'calc(100% + 32px)',
+                          height: 'calc(100% + 20px)',
+                          filter: 'blur(24px) brightness(0.7)',
+                          zIndex: 0
+                        }}
+                      />
+                    )
+                  )}
 
-                {/* Placeholder */}
-                {!loadingImage && !coverUrl && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 dark:bg-[#1a1a1a]">
-                    <Icon
-                      icon="mdi:image-off"
-                      className="w-16 h-16 text-gray-300 dark:text-white/20"
-                    />
-                    <span className="text-gray-400 dark:text-white/30 text-sm mt-2">
-                      No Cover Image
-                    </span>
-                  </div>
-                )}
+                  <div
+                    className="relative aspect-video w-full rounded-2xl overflow-hidden"
+                    style={{ zIndex: 1 }}
+                  >
+                    {game?.videoIdYouTube ? (
+                      <>
+                        {/* YouTube iframe */}
+                        <iframe
+                          ref={iframeRef}
+                          key={game.videoIdYouTube}
+                          src={`https://www.youtube.com/embed/${game.videoIdYouTube}?autoplay=0&mute=0&controls=0&modestbranding=1&rel=0&loop=1&playlist=${game.videoIdYouTube}&playsinline=1&enablejsapi=1`}
+                          title={gameTitle}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          className="w-full h-full border-0"
+                        />
+                        {/* Poster overlay covers iframe for first 2 seconds */}
+                        {!videoReady && (
+                          <div className="absolute inset-0">
+                            {coverUrl ? (
+                              <img
+                                src={coverUrl}
+                                alt={gameTitle}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gray-900 dark:bg-[#0a0a0a] flex items-center justify-center">
+                                <div className="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    ) : coverUrl ? (
+                      <img src={coverUrl} alt={gameTitle} className="w-full h-full object-cover" />
+                    ) : loadingImage ? (
+                      <div className="w-full h-full bg-gray-100 dark:bg-[#0a0a0a] flex items-center justify-center">
+                        <div className="w-10 h-10 border-3 border-gray-200 dark:border-white/10 border-t-[#0081FB] rounded-full animate-spin" />
+                      </div>
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 dark:bg-[#1a1a1a] flex flex-col items-center justify-center">
+                        <Icon
+                          icon="mdi:image-off"
+                          className="w-16 h-16 text-gray-300 dark:text-white/20"
+                        />
+                        <span className="text-gray-400 dark:text-white/30 text-sm mt-2">
+                          No Cover Image
+                        </span>
+                      </div>
+                    )}
 
-                {/* Cover image */}
-                {coverUrl && (
-                  <img src={coverUrl} alt={gameTitle} className="w-full h-full object-cover" />
-                )}
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/40 to-transparent" />
+                    {/* Close button */}
+                    <button
+                      onClick={onClose}
+                      className="absolute top-3 right-3 p-2 bg-black/40 hover:bg-black/60 text-white rounded-full transition-colors z-10"
+                    >
+                      <Icon icon="mdi:close" className="w-5 h-5" />
+                    </button>
 
-                {/* Close button */}
-                <button
-                  onClick={onClose}
-                  className="absolute top-4 right-4 p-2 bg-black/40 hover:bg-black/60 text-white rounded-full transition-colors z-10"
-                >
-                  <Icon icon="mdi:close" className="w-5 h-5" />
-                </button>
-
-                {/* Title & badges */}
-                <div className="absolute bottom-0 left-0 w-full p-6">
-                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-3 drop-shadow-lg">
-                    {gameTitle}
-                  </h2>
-                  <div className="flex flex-wrap gap-2 items-center">
-                    {/* Device badges with user preference highlight */}
-                    {(() => {
-                      // Map selectedDevice to supportMetaQuest key
-                      const deviceToKeyMap = {
-                        quest1: 'supportMetaQuest1',
-                        quest2: 'supportMetaQuest2',
-                        quest3: 'supportMetaQuest3',
-                        quest3s: 'supportMetaQuest3S',
-                        questPro: 'supportMetaQuestPro'
-                      }
-                      const selectedKey = selectedDevice ? deviceToKeyMap[selectedDevice] : null
-
-                      return getSupportedDevices().map(([quest]) => {
-                        const questInfo = getQuestInfo(quest)
-                        const isSelected = quest === selectedKey
-                        return (
-                          <span
-                            key={quest}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${
-                              isSelected
-                                ? 'bg-blue-500 text-white border-blue-500'
-                                : 'bg-white/20 text-white border-white/10'
-                            }`}
-                            title={questInfo.fullName}
-                          >
-                            {questInfo.fullName}
-                          </span>
-                        )
-                      })
-                    })()}
-
-                    {/* v76 badge */}
+                    {/* v76+ Badge - top left of cover */}
                     {currentVersion.isSupportedV76 && (
-                      <span className="px-2.5 py-1 bg-red-500 text-white text-xs font-bold rounded-lg shadow-sm">
-                        v76+
-                      </span>
+                      <div className="absolute top-3 left-3 group z-10">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-500 text-white text-sm font-bold rounded-lg shadow-md cursor-help">
+                          <Icon icon="mdi:alert-circle" className="w-3.5 h-3.5" />
+                          <span>v76+</span>
+                        </div>
+                        {/* Tooltip */}
+                        <div className="absolute top-full left-0 mt-2 w-56 px-3 py-2.5 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-30">
+                          <p className="text-xs text-gray-800 dark:text-white font-semibold mb-1">
+                            {t('v76_tooltip_title') || 'Requires Firmware v76+'}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-white/50 leading-relaxed">
+                            {t('v76_tooltip_desc') ||
+                              'This game requires Quest firmware version 76 or higher to play.'}
+                          </p>
+                          <div className="absolute bottom-full left-3 w-2 h-2 bg-white dark:bg-[#1a1a1a] border-t border-l border-gray-200 dark:border-white/10 rotate-45 translate-y-1" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Video controls - bottom right */}
+                    {game?.videoIdYouTube && videoReady && (
+                      <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2">
+                        <Tooltip content={t('video_restart')} side="left">
+                          <button
+                            onClick={() => {
+                              postYTCommand('seekTo', [0, true])
+                              postYTCommand('playVideo')
+                              setIsPlaying(true)
+                            }}
+                            className="w-9 h-9 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white transition-all duration-200"
+                          >
+                            <Icon icon="mdi:restart" className="w-4 h-4" />
+                          </button>
+                        </Tooltip>
+
+                        <Tooltip
+                          content={isPlaying ? t('video_pause') : t('video_play')}
+                          side="left"
+                        >
+                          <button
+                            onClick={() => {
+                              postYTCommand(isPlaying ? 'pauseVideo' : 'playVideo')
+                              setIsPlaying((p) => !p)
+                            }}
+                            className="w-9 h-9 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white transition-all duration-200"
+                          >
+                            <Icon icon={isPlaying ? 'mdi:pause' : 'mdi:play'} className="w-4 h-4" />
+                          </button>
+                        </Tooltip>
+
+                        <div className="flex items-center group/volume h-9">
+                          <div
+                            className={`flex items-center transition-all duration-500 rounded-full ${
+                              !isMuted
+                                ? 'hover:bg-black/60 hover:backdrop-blur-md hover:pr-3 hover:gap-2'
+                                : ''
+                            }`}
+                          >
+                            <Tooltip
+                              content={isMuted ? t('video_unmute') : t('video_mute')}
+                              side="left"
+                            >
+                              <button
+                                onClick={() => {
+                                  postYTCommand(isMuted ? 'unMute' : 'mute')
+                                  if (isMuted) postYTCommand('setVolume', [volume])
+                                  setIsMuted((p) => !p)
+                                }}
+                                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 outline-none focus:outline-none ${
+                                  isMuted
+                                    ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg'
+                                    : 'bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white group-hover/volume:bg-transparent group-hover/volume:backdrop-blur-none'
+                                }`}
+                              >
+                                <Icon
+                                  icon={isMuted ? 'mdi:volume-off' : 'mdi:volume-high'}
+                                  className="w-5 h-5"
+                                />
+                              </button>
+                            </Tooltip>
+
+                            {!isMuted && (
+                              <div className="flex items-center gap-2 max-w-0 opacity-0 group-hover/volume:max-w-[200px] group-hover/volume:opacity-100 transition-all duration-500 overflow-hidden">
+                                <div className="relative flex items-center">
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={volume}
+                                    onChange={(e) => {
+                                      const val = parseInt(e.target.value)
+                                      setVolume(val)
+                                      postYTCommand('setVolume', [val])
+                                    }}
+                                    className="w-20 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white hover:bg-white/40 transition-colors outline-none focus:outline-none"
+                                    style={{
+                                      background: `linear-gradient(to right, white ${volume}%, rgba(255, 255, 255, 0.3) ${volume}%)`
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-[10px] font-bold text-white min-w-[24px] tabular-nums">
+                                  {volume}%
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
 
+              {/* Title & Badges */}
+              <div className="px-6 pt-4 pb-0 shrink-0">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  {gameTitle}
+                </h2>
+                {/* Device Support Badges */}
+                <div className="flex gap-2 items-center flex-wrap pb-1">
+                  {(() => {
+                    const deviceToKeyMap = {
+                      quest1: 'supportMetaQuest1',
+                      quest2: 'supportMetaQuest2',
+                      quest3: 'supportMetaQuest3',
+                      quest3s: 'supportMetaQuest3S',
+                      questPro: 'supportMetaQuestPro'
+                    }
+                    const selectedKey = selectedDevice ? deviceToKeyMap[selectedDevice] : null
+                    return getSupportedDevices().map(([quest]) => {
+                      const questInfo = getQuestInfo(quest)
+                      const isSelected = quest === selectedKey
+                      return (
+                        <div
+                          key={quest}
+                          className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold border ${
+                            isSelected
+                              ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30'
+                              : 'bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-white/60 border-gray-200 dark:border-white/10'
+                          }`}
+                        >
+                          {questInfo.fullName}
+                        </div>
+                      )
+                    })
+                  })()}
+                </div>
+              </div>
+
               {/* Content Body */}
               <div className="p-6">
-                {/* Stats row */}
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="flex items-center gap-2 text-gray-700 dark:text-white/70 bg-gray-100 dark:bg-white/5 px-3 py-2 rounded-lg text-sm font-medium">
-                    <Icon icon="mdi:download" className="w-4 h-4" />
-                    {formatDownloadCount(getTotalDownloadCount())}
-                  </div>
-                  {versions.length > 1 && (
-                    <div className="flex items-center gap-2 text-gray-700 dark:text-white/70 bg-gray-100 dark:bg-white/5 px-3 py-2 rounded-lg text-sm font-medium">
-                      <Icon icon="mdi:layers-outline" className="w-4 h-4 text-[#0081FB]" />
-                      {versions.length} {t('versions') || 'versions'}
-                    </div>
-                  )}
-                </div>
-
                 {/* Main actions area */}
                 {user && isEligible ? (
                   <div className="space-y-4">

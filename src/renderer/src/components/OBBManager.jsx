@@ -30,7 +30,7 @@ export function OBBManager({ selectedDevice, onCountChange }) {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedDevice, t])
+  }, [selectedDevice, t, onCountChange])
 
   useEffect(() => {
     fetchOBB()
@@ -82,7 +82,9 @@ export function OBBManager({ selectedDevice, onCountChange }) {
         {/* Info Banner */}
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-[#0081FB]/20 bg-[#0081FB]/5 px-3 py-2">
           <Icon icon="mdi:information-outline" className="h-4 w-4 shrink-0 text-[#0081FB] mt-0.5" />
-          <p className="text-[11px] text-gray-600 dark:text-white/70 leading-relaxed">{t('obb_info_desc')}</p>
+          <p className="text-[11px] text-gray-600 dark:text-white/70 leading-relaxed">
+            {t('obb_info_desc')}
+          </p>
         </div>
 
         {/* Search Box */}
@@ -116,25 +118,34 @@ export function OBBManager({ selectedDevice, onCountChange }) {
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-white/5">
               <Icon icon="bi:headset-vr" className="h-8 w-8 text-gray-300 dark:text-white/30" />
             </div>
-            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">{t('obb_no_device_msg')}</p>
+            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
+              {t('obb_no_device_msg')}
+            </p>
           </div>
         ) : isLoading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Icon icon="mdi:loading" className="h-10 w-10 animate-spin text-[#0081FB]" />
-            <p className="mt-4 animate-pulse text-sm text-gray-500 dark:text-white/50">{t('obb_scanning')}</p>
+            <p className="mt-4 animate-pulse text-sm text-gray-500 dark:text-white/50">
+              {t('obb_scanning')}
+            </p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
               <Icon icon="mdi:alert-circle-outline" className="h-8 w-8 text-red-500" />
             </div>
-            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">{t('standalone_games_error') || 'Error'}</p>
+            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
+              {t('standalone_games_error') || 'Error'}
+            </p>
             <p className="mt-1 text-xs text-gray-400 dark:text-white/40">{error}</p>
           </div>
         ) : folders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-white/5">
-              <Icon icon="mdi:folder-off-outline" className="h-8 w-8 text-gray-300 dark:text-white/30" />
+              <Icon
+                icon="mdi:folder-off-outline"
+                className="h-8 w-8 text-gray-300 dark:text-white/30"
+              />
             </div>
             <p className="mt-4 text-sm text-gray-600 dark:text-white/70">{t('obb_empty')}</p>
           </div>
@@ -143,7 +154,9 @@ export function OBBManager({ selectedDevice, onCountChange }) {
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-white/5">
               <Icon icon="mdi:folder-search" className="h-8 w-8 text-gray-300 dark:text-white/30" />
             </div>
-            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">{t('search_no_results') || 'Tidak ada hasil ditemukan'}</p>
+            <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
+              {t('search_no_results') || 'Tidak ada hasil ditemukan'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -164,7 +177,9 @@ export function OBBManager({ selectedDevice, onCountChange }) {
                   >
                     {folder}
                   </h3>
-                  <p className="mt-0.5 text-[10px] text-gray-400 dark:text-white/40">{t('obb_folder_label')}</p>
+                  <p className="mt-0.5 text-[10px] text-gray-400 dark:text-white/40">
+                    {t('obb_folder_label')}
+                  </p>
                 </div>
               </div>
             ))}

@@ -11,6 +11,9 @@ import QGOLogo from '../assets/images/qgo-logo.png'
 
 const API_BASE_URL = 'https://api.hypertopia.web.id'
 
+// QGO package name pattern
+const QGO_PACKAGE_PATTERNS = ['com.anagan.qgo', 'questgamesoptimizer', 'qgo']
+
 export function QuestGamesOptimizer({
   selectedDevice,
   pendingDeepLinkDownload,
@@ -76,7 +79,6 @@ export function QuestGamesOptimizer({
   })
 
   // QGO package name pattern
-  const QGO_PACKAGE_PATTERNS = ['com.anagan.qgo', 'questgamesoptimizer', 'qgo']
 
   // Extract version from description string (e.g., "Quest Games Optimizer v13.0.4" -> "13.0.4")
   const extractVersion = (description) => {
@@ -384,7 +386,7 @@ export function QuestGamesOptimizer({
         }
       }
     }
-  }, [pendingDeepLinkDownload, qgoLinks, maxVersion, onDeepLinkProcessed])
+  }, [pendingDeepLinkDownload, qgoLinks, maxVersion, onDeepLinkProcessed, handleDownload])
 
   // Update QGO download count via API
   const updateQgoDownloadCount = async (version) => {
@@ -440,45 +442,50 @@ export function QuestGamesOptimizer({
     }
   }
 
-  const handleDownload = async (item) => {
-    if (!item?.url) return
+  const handleDownload = useCallback(
+    async (item) => {
+      if (!item?.url) return
 
-    const version = extractVersion(item.description)
-    const fileName = version ? `QuestGamesOptimizer_v${version}.apk` : 'QuestGamesOptimizer.apk'
-    const gameTitle = item.description || 'Quest Games Optimizer'
+      const version = extractVersion(item.description)
+      const fileName = version ? `QuestGamesOptimizer_v${version}.apk` : 'QuestGamesOptimizer.apk'
+      const gameTitle = item.description || 'Quest Games Optimizer'
 
-    setShowDownloadModal(true)
+      setShowDownloadModal(true)
 
-    const result = await startDownload(item.url, fileName, gameTitle, version)
+      const result = await startDownload(item.url, fileName, gameTitle, version)
 
-    if (result.queued) {
-      setShowDownloadModal(false)
-      toast.success(`${gameTitle} ${t('queued_for_download') || 'ditambahkan ke antrian unduhan'}`)
-      return
-    }
-
-    if (result.success) {
-      setShowDownloadModal(false)
-      // Update downloaded files state
-      setDownloadedFiles((prev) => ({
-        ...prev,
-        [version || 'unknown']: { exists: true, path: result.filePath }
-      }))
-      // Update download count to Firebase
-      await updateQgoDownloadCount(version)
-      // Update file size to database (only if not already set)
-      if (downloadInfo.totalBytes > 0) {
-        await updateQgoFileSize(version, downloadInfo.totalBytes)
+      if (result.queued) {
+        setShowDownloadModal(false)
+        toast.success(
+          `${gameTitle} ${t('queued_for_download') || 'ditambahkan ke antrian unduhan'}`
+        )
+        return
       }
-      // Refresh download stats to show updated count
-      await handleRefresh()
-    } else if (result.canceled) {
-      setShowDownloadModal(false)
-    } else if (result.error) {
-      setShowDownloadModal(false)
-      toast.error(`${t('qgo_download_failed') || 'Download failed:'} ${result.error}`)
-    }
-  }
+
+      if (result.success) {
+        setShowDownloadModal(false)
+        // Update downloaded files state
+        setDownloadedFiles((prev) => ({
+          ...prev,
+          [version || 'unknown']: { exists: true, path: result.filePath }
+        }))
+        // Update download count to Firebase
+        await updateQgoDownloadCount(version)
+        // Update file size to database (only if not already set)
+        if (downloadInfo.totalBytes > 0) {
+          await updateQgoFileSize(version, downloadInfo.totalBytes)
+        }
+        // Refresh download stats to show updated count
+        await handleRefresh()
+      } else if (result.canceled) {
+        setShowDownloadModal(false)
+      } else if (result.error) {
+        setShowDownloadModal(false)
+        toast.error(`${t('qgo_download_failed') || 'Download failed:'} ${result.error}`)
+      }
+    },
+    [t, startDownload, downloadInfo.totalBytes, handleRefresh, toast]
+  )
 
   // Handle delete downloaded file — opens custom confirm modal
   const handleDeleteFile = (item) => {

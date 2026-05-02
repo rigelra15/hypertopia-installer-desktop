@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import ConfirmationModal from './ConfirmationModal'
 
-export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
+export default function LocalDownloads({ onFileCountChange }) {
   const { t } = useLanguage()
 
   const [files, setFiles] = useState([])
@@ -35,7 +35,7 @@ export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [onFileCountChange])
 
   useEffect(() => {
     loadFiles()
@@ -200,7 +200,10 @@ export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
         ) : files.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-white/5">
-              <Icon icon="mdi:folder-download-outline" className="h-8 w-8 text-gray-300 dark:text-white/30" />
+              <Icon
+                icon="mdi:folder-download-outline"
+                className="h-8 w-8 text-gray-300 dark:text-white/30"
+              />
             </div>
             <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
               {t('downloads_empty') || 'No files downloaded yet.'}
@@ -240,12 +243,17 @@ export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
 
                 {/* Content */}
                 <div className="flex flex-col p-4 flex-1">
-                  <h3 className="text-gray-900 dark:text-white font-medium text-sm truncate mb-1" title={file.name}>
+                  <h3
+                    className="text-gray-900 dark:text-white font-medium text-sm truncate mb-1"
+                    title={file.name}
+                  >
                     {file.name}
                   </h3>
 
                   <div className="flex items-center justify-between mt-auto pt-2">
-                    <span className="text-xs text-gray-400 dark:text-white/40 font-mono">{formatSize(file.size)}</span>
+                    <span className="text-xs text-gray-400 dark:text-white/40 font-mono">
+                      {formatSize(file.size)}
+                    </span>
                     <span className="text-[10px] text-gray-400 dark:text-white/30">
                       {new Date(file.lastModified).toLocaleDateString()}
                     </span>
@@ -284,6 +292,5 @@ export default function LocalDownloads({ selectedDevice, onFileCountChange }) {
 }
 
 LocalDownloads.propTypes = {
-  selectedDevice: PropTypes.string,
   onFileCountChange: PropTypes.func
 }
