@@ -39,11 +39,17 @@ nsis:
 portable:
   artifactName: ${name}-${version}-portable.${ext}
 mac:
-  artifactName: "HyperTopia Installer-${version}-mac.${ext}"
+  artifactName: "HyperTopia Installer-${version}-mac-${arch}.${ext}"
   icon: resources/icon.png
   target:
-    - dmg
-    - zip
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
   extraResources:
     - from: resources/platform-tools-darwin
       to: platform-tools-darwin
