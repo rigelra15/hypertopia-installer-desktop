@@ -9,10 +9,7 @@ import PropTypes from 'prop-types'
  */
 export default function UpdateModal({
   isOpen,
-  onClose,
   updateInfo,
-  currentVersion,
-  onDownload,
   isDownloading,
   downloadProgress,
   downloadSpeed,
@@ -81,8 +78,7 @@ export default function UpdateModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
-          onClick={onClose}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm"
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -115,8 +111,10 @@ export default function UpdateModal({
                     ? t('update_ready_title') || 'Pembaruan Siap Diinstal'
                     : t('update_new_version') || 'New Version Available!'}
                 </h2>
-                <p className="text-[13px] font-medium text-gray-500 dark:text-white/50">
-                  {t('update_current') || 'Saat ini'}: v{currentVersion || 'Unknown'}
+                <p className="text-[13px] font-medium text-[#0081FB] dark:text-[#0081FB] animate-pulse">
+                  {isReady
+                    ? t('update_restarting') || 'Aplikasi akan segera dimulai ulang...'
+                    : t('update_mandatory') || 'Pembaruan Wajib: Harap tunggu hingga selesai.'}
                 </p>
               </div>
             </div>
@@ -187,45 +185,25 @@ export default function UpdateModal({
 
             {/* Buttons */}
             <div className="flex gap-4">
-              <button
-                onClick={onClose}
-                disabled={isDownloading && !isReady}
-                className="flex-[1] py-3.5 px-4 rounded-xl bg-transparent border border-gray-300 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5 hover:border-gray-400 dark:hover:border-white/20 text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-[15px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {t('update_later') || 'Nanti'}
-              </button>
-
               {isReady ? (
                 <button
                   onClick={onInstall}
-                  className="flex-[1.5] py-3.5 px-4 rounded-xl bg-[#00d050] hover:bg-[#00e058] hover:scale-[1.02] active:scale-[0.98] text-white text-[15px] font-semibold transition-all flex items-center justify-center gap-2.5 shadow-[0_0_20px_rgba(0,208,80,0.2)]"
+                  className="flex-1 py-4 px-4 rounded-xl bg-[#00d050] hover:bg-[#00e058] text-white text-[16px] font-bold transition-all flex items-center justify-center gap-2.5 shadow-[0_0_20px_rgba(0,208,80,0.3)]"
                 >
-                  <Icon icon="mdi:reload" className="text-lg shrink-0" />
-                  <span className="max-w-[100px] leading-[1.15] text-center whitespace-normal">
-                    {t('update_restart_now') || 'Mulai Ulang Aplikasi'}
+                  <Icon icon="line-md:loading-loop" className="text-xl shrink-0" />
+                  <span className="leading-tight text-center">
+                    {t('update_ready_restart') || 'Memulai Ulang Otomatis...'}
                   </span>
                 </button>
               ) : (
                 <button
-                  onClick={onDownload}
-                  disabled={isDownloading}
-                  className="flex-[1.5] py-3.5 px-4 rounded-xl bg-[#0081FB] hover:bg-[#1a90ff] hover:scale-[1.02] active:scale-[0.98] text-white text-[15px] font-semibold transition-all flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(0,129,251,0.2)]"
+                  disabled={true}
+                  className="flex-1 py-4 px-4 rounded-xl bg-[#0081FB] text-white text-[16px] font-bold transition-all flex items-center justify-center gap-2.5 opacity-80 shadow-[0_0_20px_rgba(0,129,251,0.2)]"
                 >
-                  {isDownloading ? (
-                    <>
-                      <Icon icon="line-md:loading-loop" className="text-lg shrink-0" />
-                      <span className="max-w-[100px] leading-[1.15] text-center whitespace-normal">
-                        Mengunduh {downloadProgress.toFixed(0)}%
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Icon icon="line-md:download-loop" className="text-lg shrink-0" />
-                      <span className="max-w-[100px] leading-[1.15] text-center whitespace-normal">
-                        {t('update_download_now') || 'Unduh Sekarang'}
-                      </span>
-                    </>
-                  )}
+                  <Icon icon="line-md:loading-loop" className="text-xl shrink-0" />
+                  <span className="leading-tight text-center">
+                    {t('update_downloading_mandatory') || `Mengunduh v${updateInfo.version}...`}
+                  </span>
                 </button>
               )}
             </div>
@@ -238,10 +216,7 @@ export default function UpdateModal({
 
 UpdateModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
   updateInfo: PropTypes.object,
-  currentVersion: PropTypes.string,
-  onDownload: PropTypes.func.isRequired,
   isDownloading: PropTypes.bool,
   downloadProgress: PropTypes.number,
   downloadSpeed: PropTypes.number,

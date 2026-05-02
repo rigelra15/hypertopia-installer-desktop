@@ -51,7 +51,9 @@ let changelog = []
 let buildDate = new Date().toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
 try {
   commitCount = execSync('git rev-list --count HEAD', { stdio: 'pipe' }).toString().trim()
-  const logOutput = execSync('git log --pretty=format:"%h|%s|%cd" --date=format:"%Y-%m-%d" -n 20', { stdio: 'pipe' })
+  const logOutput = execSync('git log --pretty=format:"%h|%s|%cd" --date=format:"%Y-%m-%d" -n 20', {
+    stdio: 'pipe'
+  })
     .toString()
     .trim()
   changelog = logOutput.split('\n').map((line) => {

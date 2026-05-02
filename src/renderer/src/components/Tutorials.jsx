@@ -238,7 +238,8 @@ export function Tutorials({ onNavigate }) {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              <span className="text-[#0081FB]">HyperTopia</span> {t('tutorials_title') || 'Tutorials'}
+              <span className="text-[#0081FB]">HyperTopia</span>{' '}
+              {t('tutorials_title') || 'Tutorials'}
             </h2>
             <p className="text-xs text-gray-500 dark:text-white/50">
               {t('tutorials_subtitle') || 'Guides and help for using the installer'}

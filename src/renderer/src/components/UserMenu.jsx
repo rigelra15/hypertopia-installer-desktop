@@ -2,6 +2,7 @@ import { useState, useEffect, useReducer } from 'react'
 import { Icon } from '@iconify/react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import PropTypes from 'prop-types'
 import ProfileModal from './ProfileModal'
 import RedeemModal from './RedeemModal'
 
@@ -437,6 +438,10 @@ export function UserMenu({ onLiveAssist }) {
       />
     </div>
   )
+}
+
+UserMenu.propTypes = {
+  onLiveAssist: PropTypes.func
 }
 
 export default UserMenu

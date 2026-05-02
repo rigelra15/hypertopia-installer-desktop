@@ -28,7 +28,12 @@ export function DownloadProvider({ children }) {
 
   // Download history — persisted to localStorage + download-history.json file
   const [downloadHistory, setDownloadHistory] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('download-history') || '[]') } catch { return [] }
+    try {
+      return JSON.parse(localStorage.getItem('download-history') || '[]')
+    } catch (e) {
+      console.debug('[DownloadContext] LocalStorage read failed:', e)
+      return []
+    }
   })
 
   // On mount: read from file (file = source of truth, migrates/overrides localStorage)
@@ -36,15 +41,26 @@ export function DownloadProvider({ children }) {
     window.api.storeRead?.('download-history.json').then((data) => {
       if (Array.isArray(data) && data.length > 0) {
         setDownloadHistory(data)
-        try { localStorage.setItem('download-history', JSON.stringify(data)) } catch {}
+        try {
+          localStorage.setItem('download-history', JSON.stringify(data))
+        } catch (e) {
+          console.debug('[DownloadContext] LocalStorage write failed:', e)
+        }
       }
     })
   }, [])
 
   const addHistoryEntry = useCallback((entry) => {
     setDownloadHistory((prev) => {
-      const next = [{ id: Date.now(), seen: false, completedAt: new Date().toISOString(), ...entry }, ...prev].slice(0, 50)
-      try { localStorage.setItem('download-history', JSON.stringify(next)) } catch {}
+      const next = [
+        { id: Date.now(), seen: false, completedAt: new Date().toISOString(), ...entry },
+        ...prev
+      ].slice(0, 50)
+      try {
+        localStorage.setItem('download-history', JSON.stringify(next))
+      } catch (e) {
+        console.debug('[DownloadContext] LocalStorage write failed:', e)
+      }
       window.api.storeWrite?.('download-history.json', next)
       return next
     })
@@ -53,7 +69,11 @@ export function DownloadProvider({ children }) {
   const markHistorySeen = useCallback(() => {
     setDownloadHistory((prev) => {
       const next = prev.map((e) => ({ ...e, seen: true }))
-      try { localStorage.setItem('download-history', JSON.stringify(next)) } catch {}
+      try {
+        localStorage.setItem('download-history', JSON.stringify(next))
+      } catch (e) {
+        console.debug('[DownloadContext] LocalStorage write failed:', e)
+      }
       window.api.storeWrite?.('download-history.json', next)
       return next
     })
@@ -61,7 +81,11 @@ export function DownloadProvider({ children }) {
 
   const clearHistory = useCallback(() => {
     setDownloadHistory([])
-    try { localStorage.removeItem('download-history') } catch {}
+    try {
+      localStorage.removeItem('download-history')
+    } catch (e) {
+      console.debug('[DownloadContext] LocalStorage remove failed:', e)
+    }
     window.api.storeWrite?.('download-history.json', [])
   }, [])
 
@@ -121,7 +145,13 @@ export function DownloadProvider({ children }) {
         setIsInstalling(false)
         setInstallComplete(true)
         setInstallInfo((prev) => {
-          addHistoryEntry({ type: 'install', gameTitle: prev.gameTitle, fileName: prev.fileName || prev.gameTitle, totalBytes: prev.totalBytes || 0, version: prev.version || null })
+          addHistoryEntry({
+            type: 'install',
+            gameTitle: prev.gameTitle,
+            fileName: prev.fileName || prev.gameTitle,
+            totalBytes: prev.totalBytes || 0,
+            version: prev.version || null
+          })
           return prev
         })
       } else if (progress.step === 'ERROR') {
@@ -130,67 +160,90 @@ export function DownloadProvider({ children }) {
       }
     })
 
-    return () => { unsubscribe?.() }
-  }, [addHistoryEntry])
-  // Internal: actually runs one download, then processes the next item in queue
-  const executeDownload = useCallback(async (url, fileName, gameTitle, version) => {
-    setIsDownloading(true)
-    setDownloadComplete(false)
-    setShowWidget(true)
-    setDownloadInfo({
-      fileName,
-      gameTitle,
-      version: version || null,
-      progress: 0,
-      downloadedBytes: 0,
-      totalBytes: 0,
-      speed: 0,
-      status: 'preparing'
-    })
-
-    const _reset = () => setDownloadInfo({ fileName: '', gameTitle: '', version: null, progress: 0, downloadedBytes: 0, totalBytes: 0, speed: 0, status: 'idle' })
-
-    const _processNext = () => {
-      if (downloadQueueRef.current.length === 0) return
-      const [next, ...rest] = downloadQueueRef.current
-      syncQueue(rest)
-      setTimeout(() => executeDownload(next.url, next.fileName, next.gameTitle, next.version), 150)
+    return () => {
+      unsubscribe?.()
     }
+  }, [addHistoryEntry])
 
-    try {
-      const result = await window.api.downloadFile(url, fileName)
-      if (result.success) {
-        setIsDownloading(false)
-        setDownloadComplete(true)
-        setDownloadInfo((prev) => ({ ...prev, progress: 100, status: 'idle' }))
-        addHistoryEntry({ type: 'download', gameTitle, fileName, totalBytes: result.totalBytes || 0, version: version || null })
-        _processNext()
-        return { success: true, filePath: result.filePath }
-      } else if (result.canceled) {
-        setIsDownloading(false)
-        setDownloadComplete(false)
-        setShowWidget(downloadQueueRef.current.length > 0)
-        _reset()
-        _processNext()
-        return { success: false, canceled: true }
-      } else {
-        setIsDownloading(false)
-        setDownloadComplete(false)
-        setShowWidget(downloadQueueRef.current.length > 0)
-        _reset()
-        _processNext()
-        return { success: false, error: result.error || 'Unknown error' }
-      }
-    } catch (error) {
-      console.error('[Download] Error:', error)
-      setIsDownloading(false)
+  // Internal: actually runs one download
+  const executeDownload = useCallback(
+    async (url, fileName, gameTitle, version) => {
+      setIsDownloading(true)
       setDownloadComplete(false)
-      setShowWidget(downloadQueueRef.current.length > 0)
-      _reset()
-      _processNext()
-      return { success: false, error: error.message }
+      setShowWidget(true)
+      setDownloadInfo({
+        fileName,
+        gameTitle,
+        version: version || null,
+        progress: 0,
+        downloadedBytes: 0,
+        totalBytes: 0,
+        speed: 0,
+        status: 'preparing'
+      })
+
+      const _reset = () =>
+        setDownloadInfo({
+          fileName: '',
+          gameTitle: '',
+          version: null,
+          progress: 0,
+          downloadedBytes: 0,
+          totalBytes: 0,
+          speed: 0,
+          status: 'idle'
+        })
+
+      try {
+        const result = await window.api.downloadFile(url, fileName)
+        if (result.success) {
+          setIsDownloading(false)
+          setDownloadComplete(true)
+          setDownloadInfo((prev) => ({ ...prev, progress: 100, status: 'idle' }))
+          addHistoryEntry({
+            type: 'download',
+            gameTitle,
+            fileName,
+            totalBytes: result.totalBytes || 0,
+            version: version || null
+          })
+          return { success: true, filePath: result.filePath }
+        } else if (result.canceled) {
+          setIsDownloading(false)
+          setDownloadComplete(false)
+          setShowWidget(downloadQueueRef.current.length > 0)
+          _reset()
+          return { success: false, canceled: true }
+        } else {
+          setIsDownloading(false)
+          setDownloadComplete(false)
+          setShowWidget(downloadQueueRef.current.length > 0)
+          _reset()
+          return { success: false, error: result.error || 'Unknown error' }
+        }
+      } catch (error) {
+        console.error('[Download] Error:', error)
+        setIsDownloading(false)
+        setDownloadComplete(false)
+        setShowWidget(downloadQueueRef.current.length > 0)
+        _reset()
+        return { success: false, error: error.message }
+      }
+    },
+    [addHistoryEntry]
+  )
+
+  // Auto-process queue
+  useEffect(() => {
+    if (!isDownloading && !isInstalling && downloadQueue.length > 0) {
+      const next = downloadQueue[0]
+      // Small delay to ensure state updates propagate
+      setTimeout(() => {
+        syncQueue(downloadQueue.slice(1))
+        executeDownload(next.url, next.fileName, next.gameTitle, next.version)
+      }, 150)
     }
-  }, [addHistoryEntry])
+  }, [isDownloading, isInstalling, downloadQueue, executeDownload])
 
   const startDownload = useCallback(
     async (url, fileName, gameTitle, version = null) => {
@@ -199,7 +252,9 @@ export function DownloadProvider({ children }) {
         const item = { id: Date.now() + Math.random(), url, fileName, gameTitle, version }
         syncQueue([...downloadQueueRef.current, item])
         setShowWidget(true)
-        console.log(`[Download] Queued: ${gameTitle} (queue size: ${downloadQueueRef.current.length})`)
+        console.log(
+          `[Download] Queued: ${gameTitle} (queue size: ${downloadQueueRef.current.length})`
+        )
         return { success: false, queued: true }
       }
       return executeDownload(url, fileName, gameTitle, version)
@@ -241,22 +296,25 @@ export function DownloadProvider({ children }) {
   }, [])
 
   // Start install (for Download & Install feature)
-  const startInstall = useCallback((gameTitle, version = null, fileName = null, initialStep = 'DOWNLOADING') => {
-    setIsInstalling(true)
-    setInstallComplete(false)
-    setShowWidget(true)
-    setInstallInfo({
-      gameTitle,
-      fileName,
-      version,
-      step: initialStep,
-      percent: 0,
-      detail: '',
-      downloadedBytes: 0,
-      totalBytes: 0,
-      speed: 0
-    })
-  }, [])
+  const startInstall = useCallback(
+    (gameTitle, version = null, fileName = null, initialStep = 'DOWNLOADING') => {
+      setIsInstalling(true)
+      setInstallComplete(false)
+      setShowWidget(true)
+      setInstallInfo({
+        gameTitle,
+        fileName,
+        version,
+        step: initialStep,
+        percent: 0,
+        detail: '',
+        downloadedBytes: 0,
+        totalBytes: 0,
+        speed: 0
+      })
+    },
+    []
+  )
 
   // Close install widget
   const closeInstallWidget = useCallback(() => {
@@ -286,7 +344,16 @@ export function DownloadProvider({ children }) {
       // Reset state — executeDownload's catch/cancel branch will call _processNext
       setIsDownloading(false)
       setDownloadComplete(false)
-      setDownloadInfo({ fileName: '', gameTitle: '', version: null, progress: 0, downloadedBytes: 0, totalBytes: 0, speed: 0, status: 'idle' })
+      setDownloadInfo({
+        fileName: '',
+        gameTitle: '',
+        version: null,
+        progress: 0,
+        downloadedBytes: 0,
+        totalBytes: 0,
+        speed: 0,
+        status: 'idle'
+      })
       if (downloadQueueRef.current.length === 0) setShowWidget(false)
       console.log('[DownloadContext] Download cancelled successfully')
       return { success: true }

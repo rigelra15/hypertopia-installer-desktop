@@ -26,22 +26,10 @@ export function SettingsModal({
   const toast = useToast()
   const [latestRelease, setLatestRelease] = useState(null)
   const [isCheckingLatest, setIsCheckingLatest] = useState(false)
-  const [autoUpdate, setAutoUpdate] = useState(() => {
-    return localStorage.getItem('autoUpdate') !== 'false'
-  })
 
-  // On mount: sync autoUpdate from config file (file = source of truth)
+  // On mount: ensure auto-download is enabled in main process
   useEffect(() => {
-    window.api.storeRead?.('hypertopia-config.json').then((config) => {
-      if (config && typeof config.autoUpdate === 'boolean') {
-        setAutoUpdate(config.autoUpdate)
-        localStorage.setItem('autoUpdate', config.autoUpdate.toString())
-        window.api.setAutoDownload?.(config.autoUpdate)
-      } else {
-        // No file yet — sync current localStorage value to main process
-        window.api.setAutoDownload?.(localStorage.getItem('autoUpdate') !== 'false')
-      }
-    })
+    window.api.setAutoDownload?.(true)
   }, [])
 
   // Fetch latest release from GitHub when modal opens
@@ -63,17 +51,6 @@ export function SettingsModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
-
-  const handleAutoUpdateToggle = () => {
-    const newValue = !autoUpdate
-    setAutoUpdate(newValue)
-    localStorage.setItem('autoUpdate', newValue.toString())
-    window.api.setAutoDownload?.(newValue)
-    // Persist to config file
-    window.api.storeRead?.('hypertopia-config.json').then((config) => {
-      window.api.storeWrite?.('hypertopia-config.json', { ...(config || {}), autoUpdate: newValue })
-    })
-  }
 
   // Load disk space immediately on component mount (not just when modal opens)
   useEffect(() => {
@@ -346,33 +323,6 @@ export function SettingsModal({
                   {t('settings_auto_update') || 'Auto-update'}
                 </label>
                 <div className="space-y-3">
-                  {/* Toggle */}
-                  <div className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
-                    <div className="flex items-center gap-3">
-                      <Icon icon="line-md:download-loop" className="h-5 w-5 text-[#0081FB]" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {t('settings_auto_update') || 'Auto-update'}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-white/50">
-                          {t('settings_auto_update_desc') || 'Automatically download updates'}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleAutoUpdateToggle}
-                      className={`relative h-6 w-11 rounded-full transition-colors ${
-                        autoUpdate ? 'bg-[#0081FB]' : 'bg-gray-300 dark:bg-white/20'
-                      }`}
-                    >
-                      <div
-                        className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${
-                          autoUpdate ? 'left-6' : 'left-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
                   {/* Update Now button (when update available) */}
                   {updateAvailable && updateInfo && (
                     <button
@@ -382,19 +332,19 @@ export function SettingsModal({
                       }}
                       className="w-full flex items-center justify-between rounded-lg border border-green-500/30 bg-green-500/10 p-3 transition-all hover:bg-green-500/20"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
                         <Icon
                           icon="line-md:arrow-up-circle"
                           className="h-5 w-5 shrink-0 text-green-400"
                         />
-                        <div className="text-left">
+                        <div className="min-w-0 text-left">
                           <p className="text-sm font-medium text-gray-900 dark:text-white">
                             {t('update_new_version') || 'New Version Available!'}
                           </p>
                           <p className="text-xs text-green-400">v{updateInfo.version}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-green-400 text-sm font-medium">
+                      <div className="flex shrink-0 items-center gap-2 text-green-400 text-sm font-medium">
                         {t('update_now') || 'Update Now'}
                         <Icon icon="line-md:chevron-right" className="h-4 w-4 shrink-0" />
                       </div>
@@ -500,14 +450,17 @@ export function SettingsModal({
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-white/50">
                   {t('settings_about')}
                 </label>
-                <div className="space-y-2">
+                <div className="space-y-2 text-left">
                   <button
                     onClick={() => setShowChangelog(true)}
                     className="w-full flex items-center justify-between rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 transition-all hover:bg-gray-100 dark:hover:bg-white/10 hover:border-[#0081FB]/50"
                   >
-                    <div className="flex items-center gap-3">
-                      <Icon icon="line-md:clipboard-list" className="h-5 w-5 text-[#0081FB]" />
-                      <div className="text-left">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Icon
+                        icon="line-md:clipboard-list"
+                        className="h-5 w-5 shrink-0 text-[#0081FB]"
+                      />
+                      <div className="min-w-0 text-left">
                         <p className="text-sm font-medium text-gray-900 dark:text-white">
                           {t('settings_whats_new')}
                         </p>
@@ -516,7 +469,7 @@ export function SettingsModal({
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-2">
                       <span className="text-xs font-mono text-gray-400 dark:text-white/40">
                         v{appVersion ? appVersion.version : '...'}
                       </span>
@@ -528,35 +481,35 @@ export function SettingsModal({
                   </button>
 
                   {/* Version Info Card */}
-                  <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 space-y-2">
+                  <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 space-y-2 text-left">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
                         <Icon
                           icon="mdi:cellphone-arrow-down"
-                          className="h-4 w-4 text-gray-400 dark:text-white/40"
+                          className="h-4 w-4 shrink-0 text-gray-400 dark:text-white/40"
                         />
-                        <span className="text-xs text-gray-500 dark:text-white/50">
+                        <span className="text-xs text-gray-500 dark:text-white/50 truncate">
                           {t('settings_installed_version') || 'Installed Version'}
                         </span>
                       </div>
-                      <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">
+                      <span className="text-xs font-mono font-bold text-gray-900 dark:text-white shrink-0">
                         v{appVersion ? appVersion.version : '...'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
                         <Icon
                           icon="mdi:cloud-check-outline"
-                          className="h-4 w-4 text-gray-400 dark:text-white/40"
+                          className="h-4 w-4 shrink-0 text-gray-400 dark:text-white/40"
                         />
-                        <span className="text-xs text-gray-500 dark:text-white/50">
+                        <span className="text-xs text-gray-500 dark:text-white/50 truncate">
                           {t('settings_latest_version') || 'Latest Version'}
                         </span>
                       </div>
                       {isCheckingLatest ? (
                         <Icon icon="mdi:loading" className="h-4 w-4 animate-spin text-[#0081FB]" />
                       ) : latestRelease?.version ? (
-                        <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">
+                        <span className="text-xs font-mono font-bold text-gray-900 dark:text-white shrink-0">
                           v{latestRelease.version}
                         </span>
                       ) : (
@@ -611,7 +564,7 @@ export function SettingsModal({
                               icon="mdi:information-outline"
                               className="h-4 w-4 shrink-0 text-[#0081FB] mt-0.5"
                             />
-                            <div className="text-[11px] text-gray-600 dark:text-white/60 leading-relaxed">
+                            <div className="min-w-0 text-[11px] text-gray-600 dark:text-white/60 leading-relaxed text-left">
                               <p>
                                 {t('settings_manual_update_hint') ||
                                   "If auto-update doesn't detect this version, you can download it manually:"}
@@ -622,7 +575,7 @@ export function SettingsModal({
                                     'https://hypertopia.web.id/software-pembantu'
                                   )
                                 }
-                                className="mt-1 inline-flex items-center gap-1 text-[#0081FB] font-medium hover:underline"
+                                className="mt-1 inline-flex items-center gap-1 text-[#0081FB] font-medium hover:underline text-left"
                               >
                                 <Icon icon="mdi:open-in-new" className="h-3 w-3" />
                                 HyperTopia → Software Pembantu → HyperTopia Installer → Download

@@ -28,16 +28,26 @@ function App() {
 
   // Eagerly fetch games count respecting device preference so badge is visible before visiting the tab
   useEffect(() => {
-    const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
+    const FIREBASE_DB_URL =
+      'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
     const load = async () => {
       try {
         let devicePref = null
         if (user?.uid) {
-          const res = await fetch(`${FIREBASE_DB_URL}/usersData/preferences/${user.uid}/device.json`)
+          const res = await fetch(
+            `${FIREBASE_DB_URL}/usersData/preferences/${user.uid}/device.json`
+          )
           const val = await res.json()
           if (val) devicePref = val
         }
-        const result = await fetchGames({ page: 1, limit: 1, sortBy: 'added', sortOrder: 'asc', search: '', device: devicePref || '' })
+        const result = await fetchGames({
+          page: 1,
+          limit: 1,
+          sortBy: 'added',
+          sortOrder: 'asc',
+          search: '',
+          device: devicePref || ''
+        })
         if (result?.pagination?.totalItems != null) {
           setGamesCount(result.pagination.totalItems)
         }
@@ -140,7 +150,12 @@ function App() {
   const tabs = [
     { id: 'tutorials', icon: 'mdi:book-open-page-variant', label: t('tab_tutorials') },
     { id: 'games', icon: 'mdi:gamepad-variant', label: t('tab_games'), count: gamesCount },
-    { id: 'qgo', icon: 'mdi:tune-variant', label: t('tab_qgo') || 'QGO', count: qgoLinks.length || null },
+    {
+      id: 'qgo',
+      icon: 'mdi:tune-variant',
+      label: t('tab_qgo') || 'QGO',
+      count: qgoLinks.length || null
+    },
     { id: 'manager', icon: 'mdi:folder-cog', label: t('tab_manager') || 'Device Manager' }
   ]
 
@@ -284,11 +299,13 @@ function App() {
                   <Icon icon={tab.icon} className="h-4 w-4" />
                   <span className="hidden sm:inline">{tab.label}</span>
                   {tab.count != null && tab.count > 0 && (
-                    <span className={`inline-flex items-center justify-center h-5 min-w-[1.25rem] rounded-full px-1.5 text-[10px] font-bold tabular-nums ${
-                      activeTab === tab.id
-                        ? 'bg-[#0081FB] text-white'
-                        : 'bg-gray-200 dark:bg-white/15 text-gray-600 dark:text-white/70'
-                    }`}>
+                    <span
+                      className={`inline-flex items-center justify-center h-5 min-w-[1.25rem] rounded-full px-1.5 text-[10px] font-bold tabular-nums ${
+                        activeTab === tab.id
+                          ? 'bg-[#0081FB] text-white'
+                          : 'bg-gray-200 dark:bg-white/15 text-gray-600 dark:text-white/70'
+                      }`}
+                    >
                       {tab.count}
                     </span>
                   )}

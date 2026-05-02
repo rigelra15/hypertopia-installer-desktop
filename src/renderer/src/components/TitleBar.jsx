@@ -36,13 +36,16 @@ export function TitleBar() {
     window.electron.ipcRenderer.send('close-window')
   }
 
-    const isMac = navigator.userAgent.includes('Mac OS X') || navigator.platform.includes('Mac')
+  const isMac = navigator.userAgent.includes('Mac OS X') || navigator.platform.includes('Mac')
 
   return (
     <div className={`title-bar ${isMac ? 'is-mac' : ''}`}>
       {/* Draggable area */}
       <div className="title-bar-drag-region" style={isMac ? { paddingLeft: '80px' } : {}}>
-        <div className="title-bar-title" style={isMac ? { justifyContent: 'center', width: '100%', paddingRight: '80px' } : {}}>
+        <div
+          className="title-bar-title"
+          style={isMac ? { justifyContent: 'center', width: '100%', paddingRight: '80px' } : {}}
+        >
           <img src={logoImage} alt="HyperTopia" className="title-bar-icon" />
           <span>HyperTopia Installer</span>
         </div>

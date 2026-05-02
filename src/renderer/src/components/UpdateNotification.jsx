@@ -22,9 +22,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
   const [showWidget, setShowWidget] = useState(false) // NEW: floating widget visibility
   const [dismissed, setDismissed] = useState(false)
   const [currentVersion, setCurrentVersion] = useState('')
-  const [autoUpdate] = useState(() => {
-    return localStorage.getItem('autoUpdate') !== 'false'
-  })
+  const autoUpdate = true // Forced to true
 
   // Fetch current app version on mount
   useEffect(() => {
@@ -47,14 +45,10 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
       setDismissed(false)
       onUpdateAvailable?.(true, info)
 
-      // If auto-update is ON, start download immediately and show widget
-      if (autoUpdate) {
-        window.api.downloadUpdate()
-        setShowWidget(true)
-      } else {
-        // Show modal to ask user
-        setShowModal(true)
-      }
+      // Mandatory update: Show modal and start download immediately
+      setShowModal(true)
+      window.api.downloadUpdate()
+      setShowWidget(true)
     })
 
     const unsubProgress = window.api.onUpdateDownloadProgress((progress) => {
@@ -100,8 +94,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
   }
 
   const handleLater = () => {
-    setShowModal(false)
-    // Keep the badge visible
+    // No longer allowed to dismiss
   }
 
   // Don't show inline notification if dismissed or idle

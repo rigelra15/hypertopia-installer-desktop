@@ -104,7 +104,8 @@ if (isManualVersion) {
 } else {
   // Normal mode: bump patch version based on commit count, strip any suffix
   const releaseType = hasFeatures ? 'release' : hasFixes ? 'fix-only' : 'release'
-  const suffix = releaseType === 'fix-only' ? '-fix' : ''
+  // Do not append a "-fix" suffix automatically. Keep semantic version numeric-only.
+  const suffix = ''
   const cleanVersion = currentVersion.replace(/-.*$/, '')
   const [major, minor] = cleanVersion.split('.')
   newVersion = `${major}.${minor}.${commitCount}${suffix}`

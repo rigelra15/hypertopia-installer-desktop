@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -14,9 +14,13 @@ export function DeviceManager({ selectedDevice, initialSubTab }) {
   const { t } = useLanguage()
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || 'obb') // 'obb' | 'apps' | 'downloads'
 
+  const lastInitialSubTab = useRef(initialSubTab)
   // Sync when parent requests a specific sub-tab (e.g. navigation from Download Activity modal)
   useEffect(() => {
-    if (initialSubTab) setActiveSubTab(initialSubTab)
+    if (initialSubTab && initialSubTab !== lastInitialSubTab.current) {
+      setTimeout(() => setActiveSubTab(initialSubTab), 0)
+      lastInitialSubTab.current = initialSubTab
+    }
   }, [initialSubTab])
   const [downloadCount, setDownloadCount] = useState(null)
   const [obbCount, setObbCount] = useState(null)
@@ -24,30 +28,56 @@ export function DeviceManager({ selectedDevice, initialSubTab }) {
 
   // Eagerly fetch download count so badge shows before visiting the tab
   useEffect(() => {
-    window.api.listDownloadedFiles().then((result) => {
-      if (result.success) setDownloadCount(result.files.length)
-    }).catch(() => {})
+    window.api
+      .listDownloadedFiles()
+      .then((result) => {
+        if (result.success) setDownloadCount(result.files.length)
+      })
+      .catch(() => {})
   }, [])
 
   // Eagerly fetch OBB + Apps counts when device changes
   useEffect(() => {
     if (!selectedDevice) {
-      setObbCount(null)
-      setAppsCount(null)
+      setTimeout(() => {
+        setObbCount(null)
+        setAppsCount(null)
+      }, 0)
       return
     }
-    window.api.listObb(selectedDevice).then((result) => {
-      setObbCount(Array.isArray(result) ? result.length : null)
-    }).catch(() => {})
-    window.api.listApps(selectedDevice).then((result) => {
-      setAppsCount(Array.isArray(result) ? result.length : null)
-    }).catch(() => {})
+    window.api
+      .listObb(selectedDevice)
+      .then((result) => {
+        setObbCount(Array.isArray(result) ? result.length : null)
+      })
+      .catch(() => {})
+    window.api
+      .listApps(selectedDevice)
+      .then((result) => {
+        setAppsCount(Array.isArray(result) ? result.length : null)
+      })
+      .catch(() => {})
   }, [selectedDevice])
 
   const subTabs = [
-    { id: 'obb', icon: 'line-md:folder-filled', label: t('tab_obb') || 'OBB Manager', count: obbCount },
-    { id: 'apps', icon: 'mdi:application', label: t('tab_apps') || 'Apps Manager', count: appsCount },
-    { id: 'downloads', icon: 'mdi:folder-download-outline', label: t('tab_downloads') || 'Manajer Unduhan', count: downloadCount }
+    {
+      id: 'obb',
+      icon: 'line-md:folder-filled',
+      label: t('tab_obb') || 'OBB Manager',
+      count: obbCount
+    },
+    {
+      id: 'apps',
+      icon: 'mdi:application',
+      label: t('tab_apps') || 'Apps Manager',
+      count: appsCount
+    },
+    {
+      id: 'downloads',
+      icon: 'mdi:folder-download-outline',
+      label: t('tab_downloads') || 'Manajer Unduhan',
+      count: downloadCount
+    }
   ]
 
   return (
@@ -67,11 +97,13 @@ export function DeviceManager({ selectedDevice, initialSubTab }) {
             <Icon icon={tab.icon} className="h-4 w-4" />
             <span>{tab.label}</span>
             {tab.count != null && tab.count > 0 && (
-              <span className={`inline-flex items-center justify-center h-5 min-w-[1.25rem] rounded-full px-1.5 text-[10px] font-bold tabular-nums ${
-                activeSubTab === tab.id
-                  ? 'bg-[#0081FB] text-white'
-                  : 'bg-gray-200 dark:bg-white/15 text-gray-600 dark:text-white/70'
-              }`}>
+              <span
+                className={`inline-flex items-center justify-center h-5 min-w-[1.25rem] rounded-full px-1.5 text-[10px] font-bold tabular-nums ${
+                  activeSubTab === tab.id
+                    ? 'bg-[#0081FB] text-white'
+                    : 'bg-gray-200 dark:bg-white/15 text-gray-600 dark:text-white/70'
+                }`}
+              >
                 {tab.count}
               </span>
             )}
@@ -94,7 +126,8 @@ export function DeviceManager({ selectedDevice, initialSubTab }) {
 }
 
 DeviceManager.propTypes = {
-  selectedDevice: PropTypes.string
+  selectedDevice: PropTypes.string,
+  initialSubTab: PropTypes.string
 }
 
 export default DeviceManager

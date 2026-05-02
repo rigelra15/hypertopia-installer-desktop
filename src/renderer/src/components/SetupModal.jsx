@@ -12,7 +12,7 @@ export function SetupModal({ isOpen, onComplete }) {
   const [isSelecting, setIsSelecting] = useState(false)
   const [diskSpace, setDiskSpace] = useState(null)
   const [isLoadingSpace, setIsLoadingSpace] = useState(false)
-  const [autoUpdate, setAutoUpdate] = useState(true) // Default to true for new users
+  const autoUpdate = true // Forced to true, no longer configurable
 
   const handleSelectFolder = async () => {
     setIsSelecting(true)
@@ -74,7 +74,11 @@ export function SetupModal({ isOpen, onComplete }) {
       window.api.setAutoDownload?.(autoUpdate)
       // Also persist to config file (survives reinstalls)
       window.api.storeRead?.('hypertopia-config.json').then((existing) => {
-        window.api.storeWrite?.('hypertopia-config.json', { ...(existing || {}), extractPath, autoUpdate })
+        window.api.storeWrite?.('hypertopia-config.json', {
+          ...(existing || {}),
+          extractPath,
+          autoUpdate
+        })
       })
       onComplete(extractPath)
     }
@@ -278,50 +282,6 @@ export function SetupModal({ isOpen, onComplete }) {
                     {label}
                   </button>
                 ))}
-              </div>
-            </div>
-
-            {/* Auto-Update Preference */}
-            <div className="mb-6">
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-white/50">
-                {t('settings_auto_update') || 'Auto-update'}
-              </label>
-              <div className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
-                <div className="flex items-center gap-3">
-                  <svg
-                    className="h-5 w-5 text-[#0081FB]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                    />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {t('settings_auto_update') || 'Auto-update'}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-white/50">
-                      {t('settings_auto_update_desc') || 'Automatically download updates'}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setAutoUpdate(!autoUpdate)}
-                  className={`relative h-6 w-11 rounded-full transition-colors ${
-                    autoUpdate ? 'bg-[#0081FB]' : 'bg-gray-300 dark:bg-white/20'
-                  }`}
-                >
-                  <div
-                    className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${
-                      autoUpdate ? 'left-6' : 'left-1'
-                    }`}
-                  />
-                </button>
               </div>
             </div>
 

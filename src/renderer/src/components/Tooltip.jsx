@@ -15,26 +15,26 @@ export function Tooltip({ children, content, side = 'right', className = '' }) {
 
   // Panel + arrow positioning per side
   const panelPos = {
-    right:  'left-full top-1/2 -translate-y-1/2 ml-2.5',
-    left:   'right-full top-1/2 -translate-y-1/2 mr-2.5',
-    top:    'bottom-full left-1/2 -translate-x-1/2 mb-2.5',
-    bottom: 'top-full left-1/2 -translate-x-1/2 mt-2.5',
+    right: 'left-full top-1/2 -translate-y-1/2 ml-2.5',
+    left: 'right-full top-1/2 -translate-y-1/2 mr-2.5',
+    top: 'bottom-full left-1/2 -translate-x-1/2 mb-2.5',
+    bottom: 'top-full left-1/2 -translate-x-1/2 mt-2.5'
   }
 
   // Arrow: small rotated square revealing two borders
   const arrowPos = {
-    right:  'left-[-5px] top-1/2 -translate-y-1/2 border-l border-b',
-    left:   'right-[-5px] top-1/2 -translate-y-1/2 border-r border-t',
-    top:    'top-full left-1/2 -translate-x-1/2 -mt-[5px] border-b border-r',
-    bottom: 'bottom-full left-1/2 -translate-x-1/2 mb-[-5px] border-t border-l',
+    right: 'left-[-5px] top-1/2 -translate-y-1/2 border-l border-b',
+    left: 'right-[-5px] top-1/2 -translate-y-1/2 border-r border-t',
+    top: 'top-full left-1/2 -translate-x-1/2 -mt-[5px] border-b border-r',
+    bottom: 'bottom-full left-1/2 -translate-x-1/2 mb-[-5px] border-t border-l'
   }
 
   // Slide-in direction for animation
   const slideIn = {
-    right:  'translate-x-1 group-hover:translate-x-0',
-    left:   '-translate-x-1 group-hover:translate-x-0',
-    top:    'translate-y-1 group-hover:translate-y-0',
-    bottom: '-translate-y-1 group-hover:translate-y-0',
+    right: 'translate-x-1 group-hover:translate-x-0',
+    left: '-translate-x-1 group-hover:translate-x-0',
+    top: 'translate-y-1 group-hover:translate-y-0',
+    bottom: '-translate-y-1 group-hover:translate-y-0'
   }
 
   return (
@@ -74,5 +74,5 @@ Tooltip.propTypes = {
   children: PropTypes.node.isRequired,
   content: PropTypes.node,
   side: PropTypes.oneOf(['top', 'right', 'bottom', 'left']),
-  className: PropTypes.string,
+  className: PropTypes.string
 }

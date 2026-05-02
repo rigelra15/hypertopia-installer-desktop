@@ -168,7 +168,9 @@ export default function GameInstallWidget({
             <div className="flex items-center gap-3">
               <div className={`shrink-0 rounded-full p-2 ${getStepBgColor()}`}>{getStepIcon()}</div>
               <div className="text-left min-w-0 flex-1">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{getStepLabel()}</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                  {getStepLabel()}
+                </p>
                 <p className="text-xs text-gray-500 dark:text-white/50 truncate">
                   {isComplete
                     ? gameTitle

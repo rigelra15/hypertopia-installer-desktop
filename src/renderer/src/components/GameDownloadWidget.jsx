@@ -156,7 +156,9 @@ export default function GameDownloadWidget({
                 </div>
 
                 <div className="mt-1 flex items-center gap-2 pr-8">
-                  <p className="text-sm text-gray-500 dark:text-white/60 truncate flex-1">{fileName || gameTitle}</p>
+                  <p className="text-sm text-gray-500 dark:text-white/60 truncate flex-1">
+                    {fileName || gameTitle}
+                  </p>
                   {fileName && !isComplete && (
                     <span
                       className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
@@ -351,7 +353,10 @@ export default function GameDownloadWidget({
                     )}
                     {/* Arrow to expand */}
                     {!isComplete && (
-                      <button className="p-1 text-gray-400 dark:text-white/50" title={t('expand') || 'Expand'}>
+                      <button
+                        className="p-1 text-gray-400 dark:text-white/50"
+                        title={t('expand') || 'Expand'}
+                      >
                         <Icon icon="mdi:chevron-up" className="h-5 w-5" />
                       </button>
                     )}

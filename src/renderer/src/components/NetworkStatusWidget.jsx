@@ -105,7 +105,9 @@ export default function NetworkStatusWidget() {
             <div className="p-3 space-y-3">
               {/* Status Info */}
               <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500 dark:text-white/50">{t('network_status') || 'Status'}:</span>
+                <span className="text-gray-500 dark:text-white/50">
+                  {t('network_status') || 'Status'}:
+                </span>
                 <span
                   className={`flex items-center gap-1 ${isConnected ? 'text-green-400' : 'text-orange-400'}`}
                 >

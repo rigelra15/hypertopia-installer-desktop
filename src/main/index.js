@@ -12,8 +12,8 @@ app.name = 'HyperTopia Installer'
 const GOOGLE_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY || ''
 
 // Configure auto-updater
-// autoDownload is false by default - user can control via settings
-autoUpdater.autoDownload = false
+// autoDownload is true by default and can no longer be disabled by the user.
+autoUpdater.autoDownload = true
 autoUpdater.autoInstallOnAppQuit = true
 
 // Disable strict semver check to allow custom suffixes like -revX.
@@ -438,7 +438,7 @@ ipcMain.handle('get-disk-space', async (event, folderPath) => {
         while (!fs.existsSync(checkPath) && checkPath !== path.parse(checkPath).root) {
           checkPath = path.dirname(checkPath)
         }
-      } catch (e) {
+      } catch {
         // Ignore errors and fallback to folderPath
       }
       command = `df -k "${checkPath}"`
@@ -1006,11 +1006,17 @@ app.whenReady().then(() => {
       }
     })
 
-    autoUpdater.on('update-downloaded', (info) => {
+    autoUpdater.on('update-downloaded', async (info) => {
       console.log('[AutoUpdater] Update downloaded:', info.version)
       if (mainWindow) {
         mainWindow.webContents.send('update-downloaded', info)
       }
+
+      // Automatically restart to apply update after a short delay
+      console.log('[AutoUpdater] Forcing restart in 5 seconds to apply update...')
+      setTimeout(() => {
+        autoUpdater.quitAndInstall()
+      }, 5000)
     })
 
     autoUpdater.on('error', (err) => {
@@ -1051,11 +1057,11 @@ app.whenReady().then(() => {
     return false
   })
 
-  // IPC: Set auto-download setting
-  ipcMain.handle('set-auto-download', (_, enabled) => {
-    autoUpdater.autoDownload = enabled
-    console.log('[AutoUpdater] Auto-download set to:', enabled)
-    return enabled
+  // IPC: Set auto-download setting (Hardcoded to true as per request)
+  ipcMain.handle('set-auto-download', () => {
+    autoUpdater.autoDownload = true
+    console.log('[AutoUpdater] Auto-download forced to true')
+    return true
   })
 
   // IPC: Install update and restart

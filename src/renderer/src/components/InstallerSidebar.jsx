@@ -99,7 +99,10 @@ export function InstallerSidebar({
     }
     // Persist to config file
     window.api.storeRead?.('hypertopia-config.json').then((config) => {
-      window.api.storeWrite?.('hypertopia-config.json', { ...(config || {}), sidebarCollapsed: isCollapsed })
+      window.api.storeWrite?.('hypertopia-config.json', {
+        ...(config || {}),
+        sidebarCollapsed: isCollapsed
+      })
     })
   }, [isCollapsed, onCollapsedChange])
 
@@ -457,7 +460,6 @@ export function InstallerSidebar({
       {isCollapsed ? (
         // Collapsed View - Compact but useful
         <div className="flex h-full flex-col items-center justify-between py-3 px-2 gap-2">
-
           {/* TOP: Logo + settings shortcut */}
           <div className="flex flex-col items-center gap-3 w-full">
             {/* App Logo */}
@@ -501,9 +503,7 @@ export function InstallerSidebar({
               <button
                 onClick={() => setIsDownloadPanelOpen(true)}
                 className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-all hover:bg-[#0081FB]/10 hover:text-[#0081FB] ${
-                  isDownloading
-                    ? 'text-[#0081FB]'
-                    : 'text-gray-500 dark:text-white/40'
+                  isDownloading ? 'text-[#0081FB]' : 'text-gray-500 dark:text-white/40'
                 }`}
               >
                 {isDownloading && (
@@ -526,12 +526,18 @@ export function InstallerSidebar({
               <div className="flex flex-col items-center gap-2">
                 {/* File type badge – click to open detail */}
                 {(() => {
-                  const gameName = status?.manifestData?.gameName
-                    || (sourceType === 'folder' ? status?.apkName : file?.name)
-                    || ''
+                  const gameName =
+                    status?.manifestData?.gameName ||
+                    (sourceType === 'folder' ? status?.apkName : file?.name) ||
+                    ''
                   const shortName = gameName.replace(/\.apk$/i, '')
                   return (
-                    <Tooltip content={status.hasObb ? 'APK + OBB — klik untuk detail' : 'APK — klik untuk detail'} side="right">
+                    <Tooltip
+                      content={
+                        status.hasObb ? 'APK + OBB — klik untuk detail' : 'APK — klik untuk detail'
+                      }
+                      side="right"
+                    >
                       <button
                         onClick={() => setShowFileDetail(true)}
                         className={`group flex flex-col items-center gap-1 rounded-xl p-1.5 transition-all hover:scale-105 ${
@@ -544,7 +550,13 @@ export function InstallerSidebar({
                         {shortName && (
                           <span
                             className="text-[9px] font-semibold leading-none whitespace-nowrap"
-                            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', maxHeight: 64, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            style={{
+                              writingMode: 'vertical-rl',
+                              transform: 'rotate(180deg)',
+                              maxHeight: 64,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}
                           >
                             {shortName.length > 14 ? shortName.slice(0, 14) + '\u2026' : shortName}
                           </span>
@@ -639,50 +651,59 @@ export function InstallerSidebar({
             <Tooltip
               content={
                 selectedDevice
-                  ? (compactDeviceModel || selectedDevice) + (compactDeviceBattery ? ` · ${compactDeviceBattery.level}%${compactDeviceBattery.charging ? ' ⚡' : ''}` : '')
-                  : (t('no_device_connected') || 'Tidak ada perangkat')
+                  ? (compactDeviceModel || selectedDevice) +
+                    (compactDeviceBattery
+                      ? ` · ${compactDeviceBattery.level}%${compactDeviceBattery.charging ? ' ⚡' : ''}`
+                      : '')
+                  : t('no_device_connected') || 'Tidak ada perangkat'
               }
               side="right"
             >
-            <button
-              onClick={() => setIsCollapsed(false)}
-              className={`group flex flex-col items-center gap-1.5 rounded-lg p-1.5 transition-all hover:bg-gray-100 dark:hover:bg-white/5 ${
-                selectedDevice
-                  ? 'text-[#0081FB]'
-                  : 'text-gray-400 dark:text-white/30'
-              }`}
-            >
-              <Icon
-                icon={
-                  (compactDeviceModel || '').toLowerCase().includes('quest')
-                    ? 'ri:meta-fill'
-                    : 'fluent:phone-32-filled'
-                }
-                className="h-5 w-5 shrink-0"
-              />
-              {selectedDevice && (
-                <span
-                  className="text-[9px] font-semibold whitespace-nowrap group-hover:text-[#0066d6] leading-none"
-                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', maxHeight: 64, overflow: 'hidden', textOverflow: 'ellipsis' }}
-                >
-                  {(() => {
-                    const label = compactDeviceModel || selectedDevice
-                    return label.length > 12 ? label.slice(0, 12) + '…' : label
-                  })()}
-                </span>
-              )}
-              {compactDeviceBattery != null && (
-                <div className="flex flex-col items-center gap-0">
-                  <Icon
-                    icon={getBatteryIcon(compactDeviceBattery.level + '%')}
-                    className={`h-4 w-4 shrink-0 ${getBatteryColor(compactDeviceBattery.level + '%')}`}
-                  />
-                  <span className={`text-[8px] font-bold tabular-nums leading-none ${getBatteryColor(compactDeviceBattery.level + '%')}`}>
-                    {compactDeviceBattery.level}%
+              <button
+                onClick={() => setIsCollapsed(false)}
+                className={`group flex flex-col items-center gap-1.5 rounded-lg p-1.5 transition-all hover:bg-gray-100 dark:hover:bg-white/5 ${
+                  selectedDevice ? 'text-[#0081FB]' : 'text-gray-400 dark:text-white/30'
+                }`}
+              >
+                <Icon
+                  icon={
+                    (compactDeviceModel || '').toLowerCase().includes('quest')
+                      ? 'ri:meta-fill'
+                      : 'fluent:phone-32-filled'
+                  }
+                  className="h-5 w-5 shrink-0"
+                />
+                {selectedDevice && (
+                  <span
+                    className="text-[9px] font-semibold whitespace-nowrap group-hover:text-[#0066d6] leading-none"
+                    style={{
+                      writingMode: 'vertical-rl',
+                      transform: 'rotate(180deg)',
+                      maxHeight: 64,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                  >
+                    {(() => {
+                      const label = compactDeviceModel || selectedDevice
+                      return label.length > 12 ? label.slice(0, 12) + '…' : label
+                    })()}
                   </span>
-                </div>
-              )}
-            </button>
+                )}
+                {compactDeviceBattery != null && (
+                  <div className="flex flex-col items-center gap-0">
+                    <Icon
+                      icon={getBatteryIcon(compactDeviceBattery.level + '%')}
+                      className={`h-4 w-4 shrink-0 ${getBatteryColor(compactDeviceBattery.level + '%')}`}
+                    />
+                    <span
+                      className={`text-[8px] font-bold tabular-nums leading-none ${getBatteryColor(compactDeviceBattery.level + '%')}`}
+                    >
+                      {compactDeviceBattery.level}%
+                    </span>
+                  </div>
+                )}
+              </button>
             </Tooltip>
           </div>
         </div>

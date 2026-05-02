@@ -383,8 +383,12 @@ export function LiveAssist() {
                               {index + 1}
                             </div>
                             <div className="min-w-0">
-                              <p className="font-medium text-gray-900 dark:text-white truncate">{request.userName}</p>
-                              <p className="text-xs text-gray-500 dark:text-white/50 truncate">{request.userEmail}</p>
+                              <p className="font-medium text-gray-900 dark:text-white truncate">
+                                {request.userName}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-white/50 truncate">
+                                {request.userEmail}
+                              </p>
                               {/* TeamViewer Info */}
                               <div className="mt-2 space-y-1">
                                 <div className="flex items-center gap-2 text-xs">
@@ -392,7 +396,9 @@ export function LiveAssist() {
                                     icon="mdi:monitor-dashboard"
                                     className="h-3.5 w-3.5 text-[#0081FB] shrink-0"
                                   />
-                                  <span className="text-gray-600 dark:text-white/70">ID: {request.teamviewerId}</span>
+                                  <span className="text-gray-600 dark:text-white/70">
+                                    ID: {request.teamviewerId}
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-2 text-xs">
                                   <Icon
@@ -409,7 +415,9 @@ export function LiveAssist() {
                                       icon="mdi:message-text"
                                       className="h-3.5 w-3.5 text-gray-400 dark:text-white/40 shrink-0 mt-0.5"
                                     />
-                                    <span className="text-gray-500 dark:text-white/50">{request.description}</span>
+                                    <span className="text-gray-500 dark:text-white/50">
+                                      {request.description}
+                                    </span>
                                   </div>
                                 )}
                               </div>
@@ -454,7 +462,9 @@ export function LiveAssist() {
                   <Icon icon="mdi:account" className="h-6 w-6 text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">{activeRequest.userName}</h3>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    {activeRequest.userName}
+                  </h3>
                   <p className="text-xs text-emerald-400">{activeRequest.userEmail}</p>
                 </div>
                 <div className="ml-auto flex items-center gap-2 text-emerald-400 text-sm">
@@ -471,13 +481,17 @@ export function LiveAssist() {
                 </h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-gray-400 dark:text-white/40 mb-1 block">TeamViewer ID</label>
+                    <label className="text-xs text-gray-400 dark:text-white/40 mb-1 block">
+                      TeamViewer ID
+                    </label>
                     <div className="bg-gray-50 dark:bg-white/5 rounded-lg px-4 py-3 text-gray-900 dark:text-white font-mono text-lg select-all border border-gray-200 dark:border-white/10">
                       {activeRequest.teamviewerId}
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 dark:text-white/40 mb-1 block">Password</label>
+                    <label className="text-xs text-gray-400 dark:text-white/40 mb-1 block">
+                      Password
+                    </label>
                     <div className="bg-gray-50 dark:bg-white/5 rounded-lg px-4 py-3 text-gray-900 dark:text-white font-mono text-lg select-all border border-gray-200 dark:border-white/10">
                       {activeRequest.teamviewerPassword}
                     </div>
@@ -488,7 +502,9 @@ export function LiveAssist() {
                     <p className="text-xs text-gray-400 dark:text-white/40 mb-1">
                       {t('live_assist_issue_desc') || 'Issue Description'}
                     </p>
-                    <p className="text-sm text-gray-600 dark:text-white/70">{activeRequest.description}</p>
+                    <p className="text-sm text-gray-600 dark:text-white/70">
+                      {activeRequest.description}
+                    </p>
                   </div>
                 )}
               </div>
@@ -703,9 +719,14 @@ export function LiveAssist() {
               {/* Issue Description (Optional) */}
               <div>
                 <label className="block text-sm font-medium text-gray-600 dark:text-white/70 mb-1.5">
-                  <Icon icon="mdi:message-text" className="inline h-4 w-4 mr-1 text-gray-400 dark:text-white/50" />
+                  <Icon
+                    icon="mdi:message-text"
+                    className="inline h-4 w-4 mr-1 text-gray-400 dark:text-white/50"
+                  />
                   {t('live_assist_desc_label') || 'Describe your issue'}{' '}
-                  <span className="text-gray-400 dark:text-white/30">({t('optional') || 'optional'})</span>
+                  <span className="text-gray-400 dark:text-white/30">
+                    ({t('optional') || 'optional'})
+                  </span>
                 </label>
                 <textarea
                   value={description}
@@ -774,7 +795,9 @@ export function LiveAssist() {
                     {t('live_assist_queue_position') || 'Queue Position'}:
                   </span>
                 </div>
-                <span className="text-2xl font-bold text-gray-900 dark:text-white">#{queuePosition}</span>
+                <span className="text-2xl font-bold text-gray-900 dark:text-white">
+                  #{queuePosition}
+                </span>
                 <span className="text-xs text-gray-400 dark:text-white/40">/ {totalInQueue}</span>
               </div>
             )}
