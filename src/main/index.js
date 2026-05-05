@@ -2034,12 +2034,31 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 
       console.log('[OBB Push] Files to push:', obbFiles.length)
 
-      // Create remote folder
+      // Create remote folder (without quotes - spawn passes args individually)
       const remoteObbFolder = `/sdcard/Android/obb/${obbFolderName}`
       try {
         await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteObbFolder])
       } catch (e) {
         console.warn('mkdir obb folder failed:', e.message)
+      }
+
+      // Verify the directory was actually created
+      try {
+        const lsResult = await runAdbCommand([...deviceFlag, 'shell', 'ls', '-d', remoteObbFolder])
+        console.log('[OBB Push] Directory verified:', lsResult.trim())
+      } catch (verifyErr) {
+        console.warn('[OBB Push] Directory verification failed, attempting push of entire folder...')
+        // Fallback: push entire OBB folder at once (adb push handles dir creation)
+        try {
+          sendProgress('PUSHING_OBB', 0, `Copying OBB folder...`)
+          await runAdbCommand([...deviceFlag, 'push', obbPath, remoteObbFolder])
+          sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
+          // Skip individual file push since folder push succeeded
+          obbFiles.length = 0
+        } catch (pushFolderErr) {
+          console.error('[OBB Push] Folder push also failed:', pushFolderErr.message)
+          throw pushFolderErr
+        }
       }
 
       // Push each file individually with progress tracking
@@ -2052,7 +2071,8 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 
         if (!createdDirs.has(remoteDirPath)) {
           try {
-            await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', `"${remoteDirPath}"`])
+            // NOTE: Do NOT wrap path in quotes - spawn() passes each arg separately
+            await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteDirPath])
             createdDirs.add(remoteDirPath)
           } catch (err) {
             console.warn(`[OBB Push] Failed to create dir ${remoteDirPath}:`, err.message)
@@ -2422,12 +2442,31 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
 
       console.log('[OBB Push Folder] Files to push:', obbFiles.length)
 
-      // Create remote folder
+      // Create remote folder (without quotes - spawn passes args individually)
       const remoteObbFolder = `/sdcard/Android/obb/${obbFolderName}`
       try {
         await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteObbFolder])
       } catch (e) {
         console.warn('mkdir obb folder failed:', e.message)
+      }
+
+      // Verify the directory was actually created
+      try {
+        const lsResult = await runAdbCommand([...deviceFlag, 'shell', 'ls', '-d', remoteObbFolder])
+        console.log('[OBB Push Folder] Directory verified:', lsResult.trim())
+      } catch (verifyErr) {
+        console.warn('[OBB Push Folder] Directory verification failed, attempting push of entire folder...')
+        // Fallback: push entire OBB folder at once (adb push handles dir creation)
+        try {
+          sendProgress('PUSHING_OBB', 0, `Copying OBB folder...`)
+          await runAdbCommand([...deviceFlag, 'push', obbPath, remoteObbFolder])
+          sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
+          // Skip individual file push since folder push succeeded
+          obbFiles.length = 0
+        } catch (pushFolderErr) {
+          console.error('[OBB Push Folder] Folder push also failed:', pushFolderErr.message)
+          throw pushFolderErr
+        }
       }
 
       // Push each file individually with progress tracking
@@ -2440,7 +2479,8 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
 
         if (!createdDirs.has(remoteDirPath)) {
           try {
-            await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', `"${remoteDirPath}"`])
+            // NOTE: Do NOT wrap path in quotes - spawn() passes each arg separately
+            await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteDirPath])
             createdDirs.add(remoteDirPath)
           } catch (err) {
             console.warn(`[OBB Push Folder] Failed to create dir ${remoteDirPath}:`, err.message)
