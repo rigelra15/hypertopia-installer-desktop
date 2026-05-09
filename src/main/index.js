@@ -1860,6 +1860,42 @@ function runAdbCommand(args, onOutput) {
   })
 }
 
+async function pushObbFile(deviceFlag, localFilePath, remoteDestPath, sendProgress, label) {
+  try {
+    await runAdbCommand([...deviceFlag, 'push', localFilePath, remoteDestPath])
+    return
+  } catch (directErr) {
+    console.warn(`[OBB Fallback] Direct push failed for ${label}: ${directErr.message}`)
+  }
+
+  const tmpName = `obb_tmp_${Date.now()}_${path.basename(localFilePath)}`
+  const tmpPath = `/data/local/tmp/${tmpName}`
+
+  try {
+    await runAdbCommand([...deviceFlag, 'push', localFilePath, tmpPath])
+  } catch (tmpErr) {
+    throw new Error(`Failed to push OBB file "${label}" (direct and /tmp): ${tmpErr.message}`)
+  }
+
+  const remoteDir = remoteDestPath.substring(0, remoteDestPath.lastIndexOf('/'))
+  try {
+    await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteDir])
+  } catch (e) {
+    console.warn(`[OBB Fallback] mkdir ${remoteDir} failed:`, e.message)
+  }
+
+  try {
+    await runAdbCommand([...deviceFlag, 'shell', 'mv', tmpPath, remoteDestPath])
+  } catch {
+    try {
+      await runAdbCommand([...deviceFlag, 'shell', 'cp', tmpPath, remoteDestPath])
+      await runAdbCommand([...deviceFlag, 'shell', 'rm', tmpPath]).catch(() => {})
+    } catch (cpErr) {
+      throw new Error(`Failed to move OBB file "${label}" to final location: ${cpErr.message}`)
+    }
+  }
+}
+
 // IPC: Install Game
 ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) => {
   // Reset cancellation state at start
@@ -2046,8 +2082,10 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
       try {
         const lsResult = await runAdbCommand([...deviceFlag, 'shell', 'ls', '-d', remoteObbFolder])
         console.log('[OBB Push] Directory verified:', lsResult.trim())
-      } catch (verifyErr) {
-        console.warn('[OBB Push] Directory verification failed, attempting push of entire folder...')
+      } catch {
+        console.warn(
+          '[OBB Push] Directory verification failed, attempting push of entire folder...'
+        )
         // Fallback: push entire OBB folder at once (adb push handles dir creation)
         try {
           sendProgress('PUSHING_OBB', 0, `Copying OBB folder...`)
@@ -2083,7 +2121,7 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
         sendProgress('PUSHING_OBB', progressPercent, `Copying: ${fileObj.name}`)
         console.log(`[OBB Push] Pushing file ${i + 1}/${obbFiles.length}: ${fileObj.relativePath}`)
 
-        await runAdbCommand([...deviceFlag, 'push', fileObj.localPath, remoteFilePath])
+        await pushObbFile(deviceFlag, fileObj.localPath, remoteFilePath, sendProgress, fileObj.name)
       }
 
       sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
@@ -2454,8 +2492,10 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
       try {
         const lsResult = await runAdbCommand([...deviceFlag, 'shell', 'ls', '-d', remoteObbFolder])
         console.log('[OBB Push Folder] Directory verified:', lsResult.trim())
-      } catch (verifyErr) {
-        console.warn('[OBB Push Folder] Directory verification failed, attempting push of entire folder...')
+      } catch {
+        console.warn(
+          '[OBB Push Folder] Directory verification failed, attempting push of entire folder...'
+        )
         // Fallback: push entire OBB folder at once (adb push handles dir creation)
         try {
           sendProgress('PUSHING_OBB', 0, `Copying OBB folder...`)
@@ -2493,7 +2533,7 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
           `[OBB Push Folder] Pushing file ${i + 1}/${obbFiles.length}: ${fileObj.relativePath}`
         )
 
-        await runAdbCommand([...deviceFlag, 'push', fileObj.localPath, remoteFilePath])
+        await pushObbFile(deviceFlag, fileObj.localPath, remoteFilePath, sendProgress, fileObj.name)
       }
 
       sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
@@ -3677,14 +3717,19 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
         sendProgress('PUSHING_OBB', progressPercent, `Copying: ${obbFileName}`)
         console.log(`[Install Archive] Pushing OBB ${i + 1}/${obbFiles.length}: ${obbFileName}`)
 
-        await runAdbCommand([...deviceFlag, 'push', localFilePath, remoteFilePath], (output) => {
-          const match = output.match(/\[\s*(\d+)%\]/)
-          if (match) {
-            const fileProgress = parseInt(match[1])
-            const totalProgress = Math.round(((i + fileProgress / 100) / obbFiles.length) * 100)
-            sendProgress('PUSHING_OBB', totalProgress, `Copying: ${obbFileName}`)
-          }
-        })
+        try {
+          await runAdbCommand([...deviceFlag, 'push', localFilePath, remoteFilePath], (output) => {
+            const match = output.match(/\[\s*(\d+)%\]/)
+            if (match) {
+              const fileProgress = parseInt(match[1])
+              const totalProgress = Math.round(((i + fileProgress / 100) / obbFiles.length) * 100)
+              sendProgress('PUSHING_OBB', totalProgress, `Copying: ${obbFileName}`)
+            }
+          })
+        } catch (directErr) {
+          console.warn(`[Install Archive] Direct OBB push failed, using fallback: ${directErr.message}`)
+          await pushObbFile(deviceFlag, localFilePath, remoteFilePath, sendProgress, obbFileName)
+        }
       }
 
       sendProgress('PUSHING_OBB', 100, 'OBB data copied successfully!')
