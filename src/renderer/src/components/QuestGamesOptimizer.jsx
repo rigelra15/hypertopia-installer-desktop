@@ -37,8 +37,8 @@ export function QuestGamesOptimizer({
   const [qgoLinks, setQgoLinks] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState('version-desc')
+  const [searchQuery, _setSearchQuery] = useState('')
+  const [sortBy, _setSortBy] = useState('version-desc')
 
   const [showDownloadModal, setShowDownloadModal] = useState(false)
   const [deviceModel, setDeviceModel] = useState(null)
@@ -353,41 +353,6 @@ export function QuestGamesOptimizer({
     return compareSemver(version, max) > 0 ? version : max
   }, null)
 
-  // Handle deep link download from website
-  useEffect(() => {
-    if (pendingDeepLinkDownload && pendingDeepLinkDownload.game && qgoLinks.length > 0) {
-      console.log('[DeepLinkDownload] QGO - Looking for version:', pendingDeepLinkDownload.version)
-
-      // Find the QGO version that matches
-      const matchingItem = qgoLinks.find((item) => {
-        const itemVersion = extractVersion(item.description)
-        return itemVersion === pendingDeepLinkDownload.version
-      })
-
-      if (matchingItem) {
-        console.log('[DeepLinkDownload] QGO - Found matching version:', matchingItem.description)
-        // Download directly
-        handleDownload(matchingItem)
-        if (onDeepLinkProcessed) {
-          onDeepLinkProcessed()
-        }
-      } else {
-        console.log('[DeepLinkDownload] QGO - Version not found, showing latest')
-        // If version not found, just open the latest version modal
-        const latestItem = qgoLinks.find((item) => {
-          const itemVersion = extractVersion(item.description)
-          return itemVersion === maxVersion
-        })
-        if (latestItem) {
-          handleDownload(latestItem)
-        }
-        if (onDeepLinkProcessed) {
-          onDeepLinkProcessed()
-        }
-      }
-    }
-  }, [pendingDeepLinkDownload, qgoLinks, maxVersion, onDeepLinkProcessed, handleDownload])
-
   // Update QGO download count via API
   const updateQgoDownloadCount = async (version) => {
     try {
@@ -486,6 +451,38 @@ export function QuestGamesOptimizer({
     },
     [t, startDownload, downloadInfo.totalBytes, handleRefresh, toast]
   )
+
+  // Handle deep link download from website
+  useEffect(() => {
+    if (pendingDeepLinkDownload && pendingDeepLinkDownload.game && qgoLinks.length > 0) {
+      console.log('[DeepLinkDownload] QGO - Looking for version:', pendingDeepLinkDownload.version)
+
+      const matchingItem = qgoLinks.find((item) => {
+        const itemVersion = extractVersion(item.description)
+        return itemVersion === pendingDeepLinkDownload.version
+      })
+
+      if (matchingItem) {
+        console.log('[DeepLinkDownload] QGO - Found matching version:', matchingItem.description)
+        handleDownload(matchingItem)
+        if (onDeepLinkProcessed) {
+          onDeepLinkProcessed()
+        }
+      } else {
+        console.log('[DeepLinkDownload] QGO - Version not found, showing latest')
+        const latestItem = qgoLinks.find((item) => {
+          const itemVersion = extractVersion(item.description)
+          return itemVersion === maxVersion
+        })
+        if (latestItem) {
+          handleDownload(latestItem)
+        }
+        if (onDeepLinkProcessed) {
+          onDeepLinkProcessed()
+        }
+      }
+    }
+  }, [pendingDeepLinkDownload, qgoLinks, maxVersion, onDeepLinkProcessed, handleDownload])
 
   // Handle delete downloaded file — opens custom confirm modal
   const handleDeleteFile = (item) => {
@@ -831,7 +828,6 @@ export function QuestGamesOptimizer({
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {t('qgo_title') || 'Quest Games Optimizer'}
                 </h2>
-                {/* Show installed version badge */}
                 {installedQgoVersion && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold text-white">
                     <Icon icon="mdi:check-circle" className="h-3 w-3" />v{installedQgoVersion}{' '}
@@ -846,65 +842,25 @@ export function QuestGamesOptimizer({
               </p>
             </div>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-white/5 px-3 py-2 text-sm text-gray-500 dark:text-white/70 transition-all hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
-          >
-            <Icon
-              icon={isLoading ? 'mdi:loading' : 'mdi:refresh'}
-              className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
-            />
-            <span className="hidden sm:inline">{t('refresh_btn') || 'Refresh'}</span>
-          </button>
-        </div>
-      </div>
-      {/* Info Card */}
-      {hasQgoAccess && (
-        <div className="border-b border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#191919] p-4">
-          <div className="p-4 bg-[#0081FB]/10 border-l-4 border-[#0081FB] rounded">
-            <div className="text-sm text-gray-800 dark:text-white/90">
-              {t('language_code') === 'id' || t('qgo_download') === 'Unduh' ? (
-                <>
-                  Aplikasi Quest Games Optimizer terhubung dengan email:{' '}
-                  <strong>hypertopiaqgo@gmail.com</strong>
-                </>
-              ) : (
-                <>
-                  The Quest Games Optimizer app is connected to email:{' '}
-                  <strong>hypertopiaqgo@gmail.com</strong>
-                </>
-              )}
-            </div>
+          <div className="flex items-center gap-2">
+            {hasQgoAccess && (
+              <span className="flex items-center gap-1.5 rounded-lg bg-[#0081FB]/10 px-3 py-2 text-sm text-[#0081FB]">
+                <Icon icon="mdi:email-outline" className="h-4 w-4" />
+                <span className="text-xs">Email: <strong>hypertopiaqgo@gmail.com</strong></span>
+              </span>
+            )}
+            <button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-white/5 px-3 py-2 text-sm text-gray-500 dark:text-white/70 transition-all hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
+            >
+              <Icon
+                icon={isLoading ? 'mdi:loading' : 'mdi:refresh'}
+                className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
+              />
+              <span className="hidden sm:inline">{t('refresh_btn') || 'Refresh'}</span>
+            </button>
           </div>
-        </div>
-      )}
-
-      {/* Search and Sort Controls */}
-      <div className="flex flex-col gap-3 border-b border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#191919] p-4">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Icon
-              icon="mdi:magnify"
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-white/40"
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t('qgo_search_placeholder') || 'Search version...'}
-              className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] py-2 pl-10 pr-4 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/30 outline-none focus:border-[#0081FB]/50 transition-colors"
-            />
-          </div>
-
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-[#0081FB]/50 transition-colors cursor-pointer"
-          >
-            <option value="version-desc">{t('qgo_sort_version_new') || 'Version (Newest)'}</option>
-            <option value="version-asc">{t('qgo_sort_version_old') || 'Version (Oldest)'}</option>
-          </select>
         </div>
       </div>
 
