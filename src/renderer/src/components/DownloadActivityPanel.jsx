@@ -465,7 +465,7 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                                     coverSrc
                                       ? 'bg-gray-100 dark:bg-[#111]'
                                       : entry.type === 'install'
-                                        ? 'bg-purple-500/10'
+                                        ? 'bg-[#0081FB]/10'
                                         : 'bg-[#0081FB]/10'
                                   }`}
                                 >
@@ -483,7 +483,7 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                                             ? 'mdi:package-down'
                                             : 'mdi:file-download-outline'
                                         }
-                                        className={`h-7 w-7 ${entry.type === 'install' ? 'text-purple-500' : 'text-[#0081FB]'}`}
+                                        className={`h-7 w-7 text-[#0081FB]`}
                                       />
                                     </div>
                                   )}
@@ -526,7 +526,7 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                                 <span
                                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                     entry.type === 'install'
-                                      ? 'bg-purple-600 text-white'
+                                      ? 'bg-[#0081FB] text-white'
                                       : 'bg-emerald-600 text-white'
                                   }`}
                                 >

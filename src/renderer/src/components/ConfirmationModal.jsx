@@ -150,7 +150,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
                         <span
                           className={`text-xs px-2.5 py-0.5 rounded font-bold uppercase tracking-wider ${
                             hasObb
-                              ? 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30'
+                              ? 'bg-[#0081FB]/20 text-[#0081FB] dark:text-[#0081FB] border border-[#0081FB]/30'
                               : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
                           }`}
                         >
@@ -162,7 +162,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
                             type === 'zip' || type === 'archive'
                               ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-500 border border-yellow-500/30'
                               : type === 'rar'
-                                ? 'bg-purple-500/20 text-purple-700 dark:text-purple-500 border border-purple-500/30'
+                                ? 'bg-[#0081FB]/20 text-[#0081FB] dark:text-[#0081FB] border border-[#0081FB]/30'
                                 : type === 'folder'
                                   ? 'bg-[#0081FB]/20 text-[#0060cc] dark:text-[#0081FB] border border-[#0081FB]/30'
                                   : 'bg-gray-500/20 text-gray-600 dark:text-gray-400 border border-gray-500/30'

@@ -18,6 +18,15 @@ export function AuthHelpModal({ isOpen, onClose, isAuthorized }) {
     return () => window.removeEventListener('keydown', handleEsc)
   }, [isOpen, onClose, isAuthorized])
 
+  useEffect(() => {
+    if (isAuthorized && isOpen) {
+      const timer = setTimeout(() => {
+        onClose()
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [isAuthorized, isOpen, onClose])
+
   return (
     <AnimatePresence>
       {isOpen && (
