@@ -265,7 +265,7 @@ function App() {
         </div>
 
         {/* Content */}
-        <div className="flex w-full flex-1 flex-col md:h-full min-w-0">
+        <div className="flex w-full flex-1 flex-col overflow-hidden min-h-0 md:h-full min-w-0">
           {/* Tab Switcher */}
           <div className="flex items-center border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#111] p-2 gap-2">
             {/* Left Navigation Button - Only show if scrolling is needed */}
