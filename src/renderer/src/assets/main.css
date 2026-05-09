@@ -33,6 +33,19 @@ body.dark,
   overflow: hidden;
 }
 
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes scroll-title {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
 /* Custom Title Bar Styles */
 .title-bar {
   position: relative;
