@@ -542,7 +542,7 @@ export function InstallerSidebar({
                         onClick={() => setShowFileDetail(true)}
                         className={`group flex flex-col items-center gap-1 rounded-xl p-1.5 transition-all hover:scale-105 ${
                           status.hasObb
-                            ? 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20'
+                            ? 'bg-[#0081FB]/10 text-[#0081FB] hover:bg-[#0081FB]/20'
                             : 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-500/20'
                         }`}
                       >
@@ -589,7 +589,7 @@ export function InstallerSidebar({
                     className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
                       !status.hasApk || !status.hasObb || isInstalling || !selectedDevice
                         ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-300 dark:text-white/20'
-                        : 'bg-purple-500/10 text-purple-500 dark:text-purple-400 hover:bg-purple-500/20'
+                        : 'bg-[#0081FB]/10 text-[#0081FB] dark:text-[#0081FB] hover:bg-[#0081FB]/20'
                     }`}
                   >
                     <Icon icon="mdi:lightning-bolt" className="h-4 w-4" />
@@ -639,7 +639,7 @@ export function InstallerSidebar({
             <Tooltip content="Games Optimizer" side="right">
               <button
                 onClick={() => onNavigateToTab && onNavigateToTab('qgo')}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 dark:text-white/40 hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400 transition-all"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 dark:text-white/40 hover:bg-[#0081FB]/10 hover:text-[#0081FB] dark:hover:text-[#0081FB] transition-all"
               >
                 <Icon icon="mdi:tune-variant" className="h-4 w-4" />
               </button>
@@ -923,7 +923,7 @@ export function InstallerSidebar({
                       <span
                         className={`inline-flex items-center rounded bg-gray-100 dark:bg-[#111520] px-2 py-1 text-[11px] font-bold tracking-wider ring-1 ring-inset ${
                           status.hasObb
-                            ? 'text-indigo-700 dark:text-indigo-400 ring-indigo-500/30'
+                            ? 'text-[#0081FB] dark:text-[#0081FB] ring-[#0081FB]/30'
                             : 'text-emerald-700 dark:text-emerald-400 ring-emerald-500/30'
                         }`}
                       >
@@ -993,9 +993,9 @@ export function InstallerSidebar({
               </button>
               <button
                 onClick={() => onNavigateToTab && onNavigateToTab('qgo')}
-                className="group flex items-center gap-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-2.5 transition-all hover:border-purple-500/50 hover:bg-purple-500/10 text-left"
+                className="group flex items-center gap-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-2.5 transition-all hover:border-[#0081FB]/50 hover:bg-[#0081FB]/10 text-left"
               >
-                <div className="rounded-lg bg-purple-500/20 p-1.5 text-purple-700 dark:text-purple-400 shrink-0 transition-all group-hover:bg-purple-500/30">
+                <div className="rounded-lg bg-[#0081FB]/20 p-1.5 text-[#0081FB] dark:text-[#0081FB] shrink-0 transition-all group-hover:bg-[#0081FB]/30">
                   <Icon icon="mdi:rocket-launch" className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -1098,7 +1098,7 @@ export function InstallerSidebar({
                 className={`group relative flex flex-1 items-center justify-center gap-1.5 overflow-hidden rounded-xl py-2 text-xs font-semibold transition-all ${
                   !file || !status.hasApk || !status.hasObb || isInstalling || !selectedDevice
                     ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20'
-                    : 'bg-linear-to-r from-purple-600 to-purple-400 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98]'
+                    : 'bg-[#0081FB] hover:bg-[#006fd6] text-white active:scale-[0.98]'
                 }`}
               >
                 {isInstalling && status.hasObb ? (
