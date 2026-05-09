@@ -25,7 +25,11 @@ export default [
     rules: {
       ...eslintPluginReactHooks.configs.recommended.rules,
       ...eslintPluginReactRefresh.configs.vite.rules,
-      'no-unused-vars': ['error', { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }]
+      'no-unused-vars': ['error', { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }],
+      'react/no-unknown-property': [
+        'error',
+        { ignore: ['initial', 'animate', 'exit', 'transition', 'whileHover', 'whileTap', 'layout'] }
+      ]
     }
   },
   eslintConfigPrettier
