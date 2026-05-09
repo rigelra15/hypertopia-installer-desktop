@@ -8,6 +8,8 @@ import { useDownload } from '../contexts/DownloadContext'
 import { useToast } from '../hooks/useToast'
 import coverImages from '../utils/coverImages'
 import { Tooltip } from './Tooltip'
+import UpdateGameDialog from './UpdateGameDialog'
+import ReportGameDialog from './ReportGameDialog'
 
 // Firebase Database URL (same as website for game data)
 const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
@@ -119,6 +121,10 @@ export default function GameDetailModal({
   })
   const [confirmInstall, setConfirmInstall] = useState(null) // For install confirmation modal
   const [showInstallModal, setShowInstallModal] = useState(false) // For install progress modal
+
+  // Update and Report dialog state
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false)
+  const [showReportDialog, setShowReportDialog] = useState(false)
 
   // Safely extract game properties with fallbacks (must be before state that uses them)
   const gameTitle = game?.gameTitle || game?.name || game?.id?.replace(/!/g, '') || 'Unknown Game'
@@ -1093,7 +1099,7 @@ export default function GameDetailModal({
                               </span>
                             )}
                             {currentVersion.mixedReality === 'yes' && (
-                              <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full font-bold">
+                              <span className="text-xs bg-[#0081FB] text-white px-2 py-0.5 rounded-full font-bold">
                                 MR
                               </span>
                             )}
@@ -1166,7 +1172,7 @@ export default function GameDetailModal({
                               <button
                                 onClick={handleDeleteAllParts}
                                 disabled={isDownloading || isInstalling}
-                                className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-red-500/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                                className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
                               >
                                 <Icon icon="mdi:delete-sweep" className="w-5 h-5" />
                                 {t('delete_all_files') || 'Delete All Downloaded Files'}
@@ -1179,7 +1185,7 @@ export default function GameDetailModal({
                                   isDownloading ||
                                   isInstalling
                                 }
-                                className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-1"
+                                className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex flex-col items-center justify-center gap-1"
                               >
                                 {isDownloading ? (
                                   <div className="flex items-center gap-2">
@@ -1211,7 +1217,7 @@ export default function GameDetailModal({
                                 disabled={
                                   isDownloading || (showWidget && !downloadComplete) || isInstalling
                                 }
-                                className="flex-1 py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-red-500/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                                className="flex-1 py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
                               >
                                 <Icon icon="mdi:delete" className="w-5 h-5" />
                                 {t('delete_file') || 'Delete File'}
@@ -1224,7 +1230,7 @@ export default function GameDetailModal({
                                   isDownloading ||
                                   isInstalling
                                 }
-                                className="flex-1 py-3.5 bg-linear-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 disabled:from-gray-200 disabled:to-gray-200 dark:disabled:from-white/10 dark:disabled:to-white/10 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-green-500/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-0.5"
+                                className="flex-1 py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
                               >
                                 {isInstalling ? (
                                   <div className="flex items-center gap-2">
@@ -1233,18 +1239,16 @@ export default function GameDetailModal({
                                   </div>
                                 ) : (
                                   <>
-                                    <div className="flex items-center gap-2">
-                                      <Icon icon="bi:headset-vr" className="w-5 h-5" />
-                                      {t('install_game') || 'Install Game'}
-                                    </div>
+                                    <Icon icon="bi:headset-vr" className="w-5 h-5" />
+                                    {t('install_game') || 'Install Game'}
                                     {connectedDevice && deviceModel && (
-                                      <span className="text-xs text-white/90 font-normal">
-                                        {t('device') || 'Device'}: {deviceModel}
+                                      <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                                        {deviceModel}
                                       </span>
                                     )}
                                     {!connectedDevice && (
-                                      <span className="text-xs text-gray-500 dark:text-white/50 font-normal">
-                                        {t('no_device_connected') || 'No device connected'}
+                                      <span className="text-[10px] opacity-60">
+                                        {t('no_device_connected') || 'No device'}
                                       </span>
                                     )}
                                   </>
@@ -1260,7 +1264,7 @@ export default function GameDetailModal({
                                 isDownloading ||
                                 isInstalling
                               }
-                              className="w-full py-3.5 bg-linear-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 disabled:from-gray-200 disabled:to-gray-200 dark:disabled:from-white/10 dark:disabled:to-white/10 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-green-500/20 disabled:shadow-none transition-all flex flex-col items-center justify-center gap-0.5"
+                              className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
                             >
                               {isInstalling ? (
                                 <div className="flex items-center gap-2">
@@ -1274,13 +1278,11 @@ export default function GameDetailModal({
                                 </div>
                               ) : (
                                 <>
-                                  <div className="flex items-center gap-2">
-                                    <Icon icon="bi:headset-vr" className="w-5 h-5" />
-                                    {t('download_and_install') || 'Download & Install to Quest'}
-                                  </div>
+                                  <Icon icon="bi:headset-vr" className="w-5 h-5" />
+                                  {t('download_and_install') || 'Download & Install to Quest'}
                                   {deviceModel && (
-                                    <span className="text-xs text-white/90 font-normal">
-                                      {t('device') || 'Device'}: {deviceModel}
+                                    <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                                      {deviceModel}
                                     </span>
                                   )}
                                 </>
@@ -1295,7 +1297,7 @@ export default function GameDetailModal({
                                 isDownloading ||
                                 isInstalling
                               }
-                              className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base shadow-lg shadow-[#0081FB]/20 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                              className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
                             >
                               {isDownloading ? (
                                 <>
@@ -1327,6 +1329,26 @@ export default function GameDetailModal({
                     {!user
                       ? t('login_required') || 'Please login to download'
                       : t('not_eligible') || 'You are not eligible to access downloads'}
+                  </div>
+                )}
+
+                {/* Update & Report Buttons */}
+                {user && isEligible && gameStatus !== 'coming_soon' && (
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => setShowUpdateDialog(true)}
+                      className="flex-1 py-2.5 px-4 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 border border-yellow-500/20"
+                    >
+                      <Icon icon="mdi:update" className="w-4 h-4" />
+                      {t('request_type_update') || 'Request Update'}
+                    </button>
+                    <button
+                      onClick={() => setShowReportDialog(true)}
+                      className="flex-1 py-2.5 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 border border-red-500/20"
+                    >
+                      <Icon icon="mdi:alert-circle" className="w-4 h-4" />
+                      {t('request_type_report') || 'Report Issue'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -1695,7 +1717,7 @@ export default function GameDetailModal({
                         <span
                           className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
                             installProgress.gdFileName.toLowerCase().endsWith('.rar')
-                              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                              ? 'bg-[#0081FB]/20 text-[#0081FB] border border-[#0081FB]/30'
                               : installProgress.gdFileName.toLowerCase().endsWith('.7z')
                                 ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                                 : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
@@ -1778,6 +1800,24 @@ export default function GameDetailModal({
           </div>
         </div>
       )}
+
+      {/* Update Game Dialog */}
+      <UpdateGameDialog
+        isOpen={showUpdateDialog}
+        onClose={() => setShowUpdateDialog(false)}
+        gameTitle={gameTitle}
+        currentVersion={getCurrentVersion()?.version || gameVersion}
+        onSubmit={() => setShowUpdateDialog(false)}
+      />
+
+      {/* Report Game Dialog */}
+      <ReportGameDialog
+        isOpen={showReportDialog}
+        onClose={() => setShowReportDialog(false)}
+        gameTitle={gameTitle}
+        gameVersion={getCurrentVersion()?.version || gameVersion}
+        onSubmit={() => setShowReportDialog(false)}
+      />
     </AnimatePresence>
   )
 }

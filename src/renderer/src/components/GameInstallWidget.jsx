@@ -78,7 +78,7 @@ export default function GameInstallWidget({
       case 'EXTRACTING':
         return <Icon icon="mdi:folder-zip" className="h-5 w-5 text-orange-400 animate-pulse" />
       case 'INSTALLING':
-        return <Icon icon="mdi:package-down" className="h-5 w-5 text-purple-400 animate-pulse" />
+        return <Icon icon="mdi:package-down" className="h-5 w-5 text-[#0081FB] animate-pulse" />
       case 'PUSHING_OBB':
         return <Icon icon="mdi:file-send" className="h-5 w-5 text-cyan-400 animate-pulse" />
       case 'ERROR':
@@ -117,7 +117,7 @@ export default function GameInstallWidget({
       case 'EXTRACTING':
         return 'from-orange-500 to-yellow-400'
       case 'INSTALLING':
-        return 'from-purple-500 to-pink-400'
+        return 'from-[#0081FB] to-[#00a5ff]'
       case 'PUSHING_OBB':
         return 'from-cyan-500 to-teal-400'
       default:
@@ -134,7 +134,7 @@ export default function GameInstallWidget({
       case 'EXTRACTING':
         return 'bg-orange-500/20'
       case 'INSTALLING':
-        return 'bg-purple-500/20'
+        return 'bg-[#0081FB]/20'
       case 'PUSHING_OBB':
         return 'bg-cyan-500/20'
       case 'ERROR':

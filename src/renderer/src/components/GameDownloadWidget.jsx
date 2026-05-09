@@ -163,7 +163,7 @@ export default function GameDownloadWidget({
                     <span
                       className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
                         fileName.toLowerCase().endsWith('.rar')
-                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                          ? 'bg-[#0081FB]/20 text-[#0081FB] border border-[#0081FB]/30'
                           : fileName.toLowerCase().endsWith('.7z')
                             ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                             : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
@@ -316,7 +316,7 @@ export default function GameDownloadWidget({
                         </p>
                         {fileName && !isComplete && status !== 'downloading' && (
                           <span
-                            className={`shrink-0 px-1 py-0 text-[9px] font-bold rounded ${fileName.toLowerCase().endsWith('.rar') ? 'bg-purple-500/20 text-purple-400' : fileName.toLowerCase().endsWith('.7z') ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}
+                            className={`shrink-0 px-1 py-0 text-[9px] font-bold rounded ${fileName.toLowerCase().endsWith('.rar') ? 'bg-[#0081FB]/20 text-[#0081FB]' : fileName.toLowerCase().endsWith('.7z') ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}
                           >
                             {fileName.split('.').pop()?.toUpperCase()}
                           </span>
