@@ -813,7 +813,7 @@ export default function GameDetailModal({
                     >
                       <iframe
                         ref={glowRef}
-                        src={`https://www.youtube.com/embed/${game.videoIdYouTube}?autoplay=0&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${game.videoIdYouTube}&playsinline=1&enablejsapi=1`}
+                        src={`https://www.youtube.com/embed/${game.videoIdYouTube}?autoplay=0&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${game.videoIdYouTube}&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.protocol === 'file:' ? 'https://hypertopia.web.id' : window.location.origin)}`}
                         className="w-full h-full scale-110"
                         style={{ pointerEvents: 'none' }}
                       />
@@ -872,7 +872,7 @@ export default function GameDetailModal({
                         <iframe
                           ref={iframeRef}
                           key={game.videoIdYouTube}
-                          src={`https://www.youtube.com/embed/${game.videoIdYouTube}?autoplay=0&mute=0&controls=0&modestbranding=1&rel=0&loop=1&playlist=${game.videoIdYouTube}&playsinline=1&enablejsapi=1`}
+                          src={`https://www.youtube.com/embed/${game.videoIdYouTube}?autoplay=0&mute=0&controls=0&modestbranding=1&rel=0&loop=1&playlist=${game.videoIdYouTube}&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.protocol === 'file:' ? 'https://hypertopia.web.id' : window.location.origin)}`}
                           title={gameTitle}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           className="w-full h-full border-0"
