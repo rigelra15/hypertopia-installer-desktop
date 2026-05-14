@@ -156,6 +156,52 @@ export function GamesProvider({ children }) {
   )
 
   /**
+   * Securely fetch the download URL for a game from the server.
+   * Requires eligible user email — eligibility is verified server-side.
+   *
+   * @param {string} gameId - The Firebase key of the game
+   * @param {string} email  - The logged-in user's email
+   * @param {string} type   - 'standalone' | 'pcvr' | 'qgo'
+   * @returns {{ downloadUrl: string|null, linkDownload: Array|null }}
+   */
+  const fetchDownloadUrl = useCallback(async (gameId, email, type = 'standalone') => {
+    if (!gameId || !email) {
+      throw new Error('gameId and email are required')
+    }
+
+    const params = new URLSearchParams({ gameId, email, type })
+    const response = await fetch(`${API_BASE_URL}/api/v1/game/download-url?${params}`, {
+      headers: {
+        // Shared secret — bundled from .env at build time, not in source code
+        'X-API-Secret': import.meta.env.REACT_APP_HYPERTOPIA_API_SECRET || ''
+      }
+    })
+
+    if (response.status === 401) {
+      throw new Error('Installer tidak terautentikasi. Hubungi admin HyperTopia.')
+    }
+    if (response.status === 403) {
+      throw new Error('Akses ditolak. Akun kamu tidak memiliki akses untuk game ini.')
+    }
+    if (response.status === 404) {
+      throw new Error('Game tidak ditemukan atau belum ada link download.')
+    }
+    if (!response.ok) {
+      throw new Error('Gagal mengambil link download. Coba lagi nanti.')
+    }
+
+    const data = await response.json()
+    if (!data.success) {
+      throw new Error(data.error || 'Gagal mengambil link download.')
+    }
+
+    return {
+      downloadUrl: data.downloadUrl || null,
+      linkDownload: data.linkDownload || null
+    }
+  }, [])
+
+  /**
    * Fetch QGO links from API
    */
   const fetchQgoLinks = useCallback(
@@ -263,6 +309,9 @@ export function GamesProvider({ children }) {
     isLoading,
     error,
     cacheSize: Object.keys(gamesCache).length,
+
+    // Secure download URL (server-side eligibility check)
+    fetchDownloadUrl,
 
     // QGO
     qgoLinks,

@@ -27,7 +27,8 @@ export function QuestGamesOptimizer({
     qgoLinks: cachedQgoLinks,
     qgoDownloadStats: cachedQgoStats,
     qgoLoading,
-    fetchQgoLinks
+    fetchQgoLinks,
+    fetchDownloadUrl
   } = useGames()
   const toast = useToast()
 
@@ -409,7 +410,7 @@ export function QuestGamesOptimizer({
 
   const handleDownload = useCallback(
     async (item) => {
-      if (!item?.url) return
+      if (!item) return
 
       const version = extractVersion(item.description)
       const fileName = version ? `QuestGamesOptimizer_v${version}.apk` : 'QuestGamesOptimizer.apk'
@@ -417,7 +418,24 @@ export function QuestGamesOptimizer({
 
       setShowDownloadModal(true)
 
-      const result = await startDownload(item.url, fileName, gameTitle, version)
+      // Fetch secure URL from server instead of using item.url (which is now stripped)
+      let url
+      try {
+        const result = await fetchDownloadUrl(version, user?.email, 'qgo')
+        url = result.downloadUrl || (Array.isArray(result.linkDownload) ? result.linkDownload[0] : null)
+      } catch (err) {
+        setShowDownloadModal(false)
+        toast.error(err.message || 'Gagal mengambil link download.')
+        return
+      }
+
+      if (!url) {
+        setShowDownloadModal(false)
+        toast.error('Tidak ada link download untuk versi ini.')
+        return
+      }
+
+      const result = await startDownload(url, fileName, gameTitle, version)
 
       if (result.queued) {
         setShowDownloadModal(false)
@@ -449,7 +467,7 @@ export function QuestGamesOptimizer({
         toast.error(`${t('qgo_download_failed') || 'Download failed:'} ${result.error}`)
       }
     },
-    [t, startDownload, downloadInfo.totalBytes, handleRefresh, toast]
+    [t, startDownload, downloadInfo.totalBytes, handleRefresh, toast, fetchDownloadUrl, user]
   )
 
   // Handle deep link download from website
@@ -645,8 +663,21 @@ export function QuestGamesOptimizer({
       const version = extractVersion(confirmInstall.description)
       const fileName = version ? `QuestGamesOptimizer_v${version}.apk` : 'QuestGamesOptimizer.apk'
 
+      // Fetch secure URL from server instead of using confirmInstall.url
+      let url
+      try {
+        const result = await fetchDownloadUrl(version, user?.email, 'qgo')
+        url = result.downloadUrl || (Array.isArray(result.linkDownload) ? result.linkDownload[0] : null)
+      } catch (err) {
+        throw new Error(err.message || 'Gagal mengambil link download.')
+      }
+
+      if (!url) {
+        throw new Error('Tidak ada link download untuk versi ini.')
+      }
+
       const result = await window.api.downloadAndInstallApk(
-        confirmInstall.url,
+        url,
         fileName,
         selectedDevice
       )
@@ -846,7 +877,9 @@ export function QuestGamesOptimizer({
             {hasQgoAccess && (
               <span className="flex items-center gap-1.5 rounded-lg bg-[#0081FB]/10 px-3 py-2 text-sm text-[#0081FB]">
                 <Icon icon="mdi:email-outline" className="h-4 w-4" />
-                <span className="text-xs">Email: <strong>hypertopiaqgo@gmail.com</strong></span>
+                <span className="text-xs">
+                  Email: <strong>hypertopiaqgo@gmail.com</strong>
+                </span>
               </span>
             )}
             <button

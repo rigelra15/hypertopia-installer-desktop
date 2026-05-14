@@ -5,6 +5,7 @@ import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useDownload } from '../contexts/DownloadContext'
+import { useGames } from '../contexts/GamesContext'
 import { useToast } from '../hooks/useToast'
 import coverImages from '../utils/coverImages'
 import { Tooltip } from './Tooltip'
@@ -88,6 +89,7 @@ export default function GameDetailModal({
     cancelInstall
   } = useDownload()
   const toast = useToast()
+  const { fetchDownloadUrl } = useGames()
   const isEligible = accessTypes.includes('standalone')
 
   const [coverUrl, setCoverUrl] = useState(null)
@@ -539,21 +541,6 @@ export default function GameDetailModal({
     return Object.entries(game).filter(([k, v]) => k.startsWith('supportMetaQuest') && v)
   }
 
-  // Check if URL is a Google Drive URL
-  const isGoogleDriveUrl = (url) => {
-    return url && (url.includes('drive.google.com') || url.includes('docs.google.com'))
-  }
-
-  // Check if URL is a Dropbox URL
-  const isDropboxUrl = (url) => {
-    return url && url.includes('dropbox.com')
-  }
-
-  // Check if URL is downloadable in-app (Google Drive or Dropbox)
-  const isDownloadableUrl = (url) => {
-    return isGoogleDriveUrl(url) || isDropboxUrl(url)
-  }
-
   // Format bytes helper
   const formatBytes = (bytes) => {
     if (bytes === 0) return '0 B'
@@ -622,8 +609,13 @@ export default function GameDetailModal({
     }
   }
 
-  // Download file in-app using global context (supports Google Drive and Dropbox)
-  const downloadInApp = async (url, partIndex = null) => {
+  // Download file in-app — fetch URL from secure API first, then start download
+  const downloadInApp = async (gameId, partIndex = null) => {
+    if (!user?.email) {
+      toast.error(t('login_required') || 'Login diperlukan untuk mengunduh game.')
+      return
+    }
+
     const currentVer = getCurrentVersion()
     const version = currentVer.version || gameVersion
     let fileName = `${gameTitle.replace(/[<>:"/\\|?*]/g, '_')}_${version}`
@@ -633,16 +625,34 @@ export default function GameDetailModal({
     }
     fileName += '.zip'
 
+    // Fetch secure download URL from server (server verifies eligibility)
+    let url
+    try {
+      const result = await fetchDownloadUrl(gameId, user.email, 'standalone')
+      // For multi-part games, linkDownload is an array
+      if (result.linkDownload && Array.isArray(result.linkDownload)) {
+        url = partIndex !== null ? result.linkDownload[partIndex] : result.linkDownload[0]
+      } else {
+        url = result.downloadUrl
+      }
+    } catch (err) {
+      toast.error(err.message || t('download_failed') || 'Gagal mengambil link download.')
+      return
+    }
+
+    if (!url) {
+      toast.error(t('no_download_url') || 'Tidak ada link download untuk game ini.')
+      return
+    }
+
     await updateDownloadCount(partIndex)
 
     const result = await startDownload(url, fileName, gameTitle, version)
 
     if (result.success) {
-      // Update file size to database (only if not already set)
       if (downloadInfo.totalBytes > 0) {
         await updateStandaloneFileSize(gameTitle, downloadInfo.totalBytes)
       }
-      // Only show toast if widget is NOT visible (to avoid duplicate notification)
       if (!showWidget) {
         toast.success(`${t('download_success') || 'Download completed!'} ${fileName}`)
       }
@@ -653,69 +663,70 @@ export default function GameDetailModal({
     }
   }
 
-  // Handle download button click - show confirmation modal
+  // Handle download button click
   const handleDownload = async () => {
-    const currentVer = getCurrentVersion()
-    const downloadLinks = (currentVer.downloadLinks || []).filter((link) => link && link.trim())
-
-    if (downloadLinks.length === 0) {
+    if (!user?.email) {
+      toast.error(t('login_required') || 'Login diperlukan untuk mengunduh game.')
       return
     }
 
-    if (downloadLinks.length > 1) {
+    // Determine number of parts from current version (count only, no URLs needed)
+    const currentVer = getCurrentVersion()
+    // versions may have downloadLinks stripped — use partCount if available, else assume 1
+    const partCount = currentVer.partCount || currentVer.downloadLinks?.length || 1
+
+    if (partCount > 1) {
       setShowDownloadParts(true)
     } else {
-      // Single link - trigger download directly
-      const link = downloadLinks[0]
-      if (isDownloadableUrl(link) && window.api?.downloadFile) {
-        await downloadInApp(link, null)
-      } else if (window.api?.openExternal) {
-        await window.api.openExternal(link)
-      } else {
-        window.open(downloadLinks[0], '_blank')
-      }
+      await downloadInApp(game.id || gameTitle, null)
     }
   }
 
-  // Open single download link (for parts)
-  const openDownloadLink = async (link, partIndex) => {
-    if (isDownloadableUrl(link) && window.api?.downloadFile) {
-      // Trigger download directly for parts too
-      await downloadInApp(link, partIndex)
-    } else if (window.api?.openExternal) {
-      await window.api.openExternal(link)
-    } else {
-      window.open(link, '_blank')
-    }
+  // Open single download link (for parts) — fetch URL from server first
+  const openDownloadLink = async (partIndex) => {
+    await downloadInApp(game.id || gameTitle, partIndex)
   }
 
   // Handle Download and Install to device
   const handleDownloadAndInstall = () => {
-    const currentVer = getCurrentVersion()
-    const downloadLinks = (currentVer.downloadLinks || []).filter((link) => link && link.trim())
-
-    if (downloadLinks.length === 0) return
-
-    // Get first link (games are in ZIP/RAR format)
-    const link = downloadLinks[0]
-    if (isDownloadableUrl(link) && window.api?.downloadAndInstallArchive) {
-      setConfirmInstall({ link })
-    } else {
-      toast.error(
-        t('install_not_supported') ||
-          'Direct install is only supported for Google Drive and Dropbox links'
-      )
+    if (!user?.email) {
+      toast.error(t('login_required') || 'Login diperlukan untuk mengunduh game.')
+      return
     }
+    // Show confirm modal — URL will be fetched from server at confirm time
+    setConfirmInstall({ gameId: game.id || gameTitle })
   }
 
-  // Handle confirm install from modal
+  // Handle confirm install from modal — fetch URL from server
   const handleConfirmInstall = async () => {
     if (!confirmInstall || !connectedDevice) return
+    if (!user?.email) {
+      toast.error(t('login_required') || 'Login diperlukan untuk mengunduh game.')
+      setConfirmInstall(null)
+      return
+    }
+
+    // Fetch secure URL from server
+    let link
+    try {
+      const result = await fetchDownloadUrl(confirmInstall.gameId, user.email, 'standalone')
+      link =
+        result.downloadUrl || (Array.isArray(result.linkDownload) ? result.linkDownload[0] : null)
+    } catch (err) {
+      toast.error(err.message || 'Gagal mengambil link download.')
+      setConfirmInstall(null)
+      return
+    }
+
+    if (!link) {
+      toast.error('Tidak ada link download untuk game ini.')
+      setConfirmInstall(null)
+      return
+    }
 
     const currentVer = getCurrentVersion()
     const version = currentVer.version || gameVersion
-    // Determine file extension from URL or default to .zip
-    const urlLower = confirmInstall.link.toLowerCase()
+    const urlLower = link.toLowerCase()
     const isRar = urlLower.includes('.rar')
     const ext = isRar ? '.rar' : '.zip'
     const fileName = `${gameTitle.replace(/[<>:"/\\|?*]/g, '_')}_${version}${ext}`
@@ -732,19 +743,12 @@ export default function GameDetailModal({
       speed: 0
     })
 
-    // Also start the install widget for background tracking
     startInstallWidget(gameTitle, version, fileName)
 
     try {
-      // Update download count when install starts
       await updateDownloadCount()
 
-      // Use downloadAndInstallArchive for ZIP/RAR files (handles APK + OBB)
-      const result = await window.api.downloadAndInstallArchive(
-        confirmInstall.link,
-        fileName,
-        connectedDevice
-      )
+      const result = await window.api.downloadAndInstallArchive(link, fileName, connectedDevice)
 
       if (result.success) {
         setIsInstalling(false)
@@ -1167,7 +1171,8 @@ export default function GameDetailModal({
                       {gameStatus !== 'coming_soon' ? (
                         <>
                           {/* Multi-part games */}
-                          {currentVersion.downloadLinks?.length > 1 ? (
+                          {(currentVersion.partCount ?? currentVersion.downloadLinks?.length ?? 0) >
+                          1 ? (
                             areAllPartsDownloaded() ? (
                               <button
                                 onClick={handleDeleteAllParts}
@@ -1181,7 +1186,9 @@ export default function GameDetailModal({
                               <button
                                 onClick={handleDownload}
                                 disabled={
-                                  !currentVersion.downloadLinks?.length ||
+                                  !(
+                                    currentVersion.partCount ?? currentVersion.downloadLinks?.length
+                                  ) ||
                                   isDownloading ||
                                   isInstalling
                                 }
@@ -1208,7 +1215,12 @@ export default function GameDetailModal({
                                 )}
                               </button>
                             )
-                          ) : currentVersion.downloadLinks?.length === 1 &&
+                          ) : (currentVersion.partCount ??
+                              currentVersion.downloadLinks?.length ??
+                              0) <= 1 &&
+                            (currentVersion.partCount ??
+                              currentVersion.downloadLinks?.length ??
+                              0) >= 1 &&
                             isFileDownloaded(null) ? (
                             // Single file ALREADY downloaded → [Hapus File] + [Instal Game] in flex-row
                             <div className="flex flex-row gap-3">
@@ -1226,7 +1238,9 @@ export default function GameDetailModal({
                                 onClick={handleDownloadAndInstall}
                                 disabled={
                                   !connectedDevice ||
-                                  !currentVersion.downloadLinks?.length ||
+                                  !(
+                                    currentVersion.partCount ?? currentVersion.downloadLinks?.length
+                                  ) ||
                                   isDownloading ||
                                   isInstalling
                                 }
@@ -1260,7 +1274,9 @@ export default function GameDetailModal({
                             <button
                               onClick={handleDownloadAndInstall}
                               disabled={
-                                !currentVersion.downloadLinks?.length ||
+                                !(
+                                  currentVersion.partCount ?? currentVersion.downloadLinks?.length
+                                ) ||
                                 isDownloading ||
                                 isInstalling
                               }
@@ -1293,7 +1309,9 @@ export default function GameDetailModal({
                             <button
                               onClick={handleDownload}
                               disabled={
-                                !currentVersion.downloadLinks?.length ||
+                                !(
+                                  currentVersion.partCount ?? currentVersion.downloadLinks?.length
+                                ) ||
                                 isDownloading ||
                                 isInstalling
                               }

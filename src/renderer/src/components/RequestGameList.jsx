@@ -691,13 +691,13 @@ RequestCard.propTypes = {
     report: PropTypes.string,
     reason: PropTypes.string,
     requestedBy: PropTypes.string,
-    timeRequested: PropTypes.string,
+    timeRequested: PropTypes.string
   }).isRequired,
   language: PropTypes.string.isRequired,
   isAdmin: PropTypes.bool,
   onEdit: PropTypes.func,
   onDelete: PropTypes.func,
-  onStatusChange: PropTypes.func,
+  onStatusChange: PropTypes.func
 }
 
 RequestGameList.propTypes = {

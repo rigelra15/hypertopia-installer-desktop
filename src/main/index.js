@@ -3727,7 +3727,9 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
             }
           })
         } catch (directErr) {
-          console.warn(`[Install Archive] Direct OBB push failed, using fallback: ${directErr.message}`)
+          console.warn(
+            `[Install Archive] Direct OBB push failed, using fallback: ${directErr.message}`
+          )
           await pushObbFile(deviceFlag, localFilePath, remoteFilePath, sendProgress, obbFileName)
         }
       }

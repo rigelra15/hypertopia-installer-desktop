@@ -81,8 +81,11 @@ export function ErrorModal({ isOpen, onClose, error }) {
                 onClick={handleCopy}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
-                <Icon icon={copied ? 'line-md:check-all' : 'line-md:clipboard'} className="h-4 w-4" />
-                {copied ? (t('copied') || 'Copied!') : (t('btn_copy_error') || 'Copy Error')}
+                <Icon
+                  icon={copied ? 'line-md:check-all' : 'line-md:clipboard'}
+                  className="h-4 w-4"
+                />
+                {copied ? t('copied') || 'Copied!' : t('btn_copy_error') || 'Copy Error'}
               </button>
               <div className="flex-1" />
               <button

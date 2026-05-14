@@ -332,7 +332,9 @@ export function StandaloneGames({
                     className="flex items-center gap-2 rounded-lg bg-[#0081FB] hover:bg-[#006fd6] px-4 py-2 text-sm text-white font-medium transition-all"
                   >
                     <Icon icon="mdi:gamepad-square" className="h-4 w-4" />
-                    <span className="hidden sm:inline">{t('request_new_game') || 'Request Game'}</span>
+                    <span className="hidden sm:inline">
+                      {t('request_new_game') || 'Request Game'}
+                    </span>
                   </button>
                 )}
                 <button
@@ -531,8 +533,8 @@ export function StandaloneGames({
                     {/* Page Info */}
                     <p className="text-xs text-gray-400 dark:text-white/40">
                       {t('showing') || 'Showing'} {(currentPage - 1) * itemsPerPage + 1}-
-                      {Math.min(currentPage * itemsPerPage, totalItems)} {t('of') || 'of'} {totalItems}{' '}
-                      {t('standalone_games_count')}
+                      {Math.min(currentPage * itemsPerPage, totalItems)} {t('of') || 'of'}{' '}
+                      {totalItems} {t('standalone_games_count')}
                     </p>
 
                     {/* Pagination Controls */}
