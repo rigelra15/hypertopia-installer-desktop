@@ -132,8 +132,8 @@ jobs:
           body: ${{ steps.changelog.outputs.changelog }}
           tag_name: ${{ github.ref_name }}
           files: artifacts/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          repository: rigelra15/hypertopia-installer-releases
+          token: ${{ secrets.GH_PAT }}
 
       - name: Upload to Google Drive
         uses: adityak74/google-drive-upload-git-action@main

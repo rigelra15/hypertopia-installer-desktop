@@ -76,3 +76,5 @@ dmg:
 npmRebuild: false
 publish:
   provider: github
+  owner: rigelra15
+  repo: hypertopia-installer-releases
