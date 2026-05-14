@@ -135,10 +135,20 @@ jobs:
           repository: rigelra15/hypertopia-installer-releases
           token: ${{ secrets.GH_PAT }}
 
+      - name: Prepare Google Drive Credentials
+        id: gdrive_creds
+        run: |
+          cat << 'EOF' > creds.json
+          ${{ secrets.GDRIVE_CREDENTIALS }}
+          EOF
+          ENCODED=$(base64 -w 0 creds.json)
+          echo "::add-mask::$ENCODED"
+          echo "encoded=$ENCODED" >> $GITHUB_OUTPUT
+
       - name: Upload to Google Drive
         uses: adityak74/google-drive-upload-git-action@main
         with:
-          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+          credentials: ${{ steps.gdrive_creds.outputs.encoded }}
           filename: "artifacts/"
           folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
           name: ${{ github.ref_name }} # Creates a folder with the tag name
