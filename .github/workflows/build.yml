@@ -134,3 +134,12 @@ jobs:
           files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to Google Drive
+        uses: adityak74/google-drive-upload-git-action@main
+        with:
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+          filename: "artifacts/"
+          folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
+          name: ${{ github.ref_name }} # Creates a folder with the tag name
+          overwrite: "true"
