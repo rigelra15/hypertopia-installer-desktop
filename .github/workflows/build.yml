@@ -141,6 +141,7 @@ jobs:
           cat << 'EOF' > creds.json
           ${{ secrets.GDRIVE_CREDENTIALS }}
           EOF
+          sed -i 's/\\\\n/\\n/g' creds.json
           ENCODED=$(base64 -w 0 creds.json)
           echo "::add-mask::$ENCODED"
           echo "encoded=$ENCODED" >> $GITHUB_OUTPUT
