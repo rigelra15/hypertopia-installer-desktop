@@ -54,7 +54,7 @@ export function StandaloneGames({
   const [error, setError] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [sortBy, setSortBy] = useState('added') // 'added' | 'name' | 'downloads' | 'size' | 'rating'
+  const [sortBy, setSortBy] = useState('added') // 'updated' | 'added' | 'name' | 'downloads' | 'size' | 'rating'
   const [sortOrder, setSortOrder] = useState('asc') // 'asc' | 'desc'
   const searchTimeoutRef = useRef(null)
 
@@ -396,7 +396,8 @@ export function StandaloneGames({
                 onChange={(e) => setSortBy(e.target.value)}
                 className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-[#0081FB]/50 transition-colors cursor-pointer"
               >
-                <option value="added">{t('sort_by_added') || 'Terbaru'}</option>
+                <option value="updated">{t('sort_by_updated') || 'Terakhir Diupdate'}</option>
+                <option value="added">{t('sort_by_added') || 'Terbaru Ditambahkan'}</option>
                 <option value="name">{t('sort_by_name') || 'Nama'}</option>
                 <option value="downloads">{t('sort_by_downloads') || 'Download'}</option>
                 <option value="size">{t('sort_by_size') || 'Ukuran'}</option>
