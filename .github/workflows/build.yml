@@ -37,6 +37,7 @@ jobs:
         env:
           REACT_APP_GOOGLE_API_KEY: ${{ secrets.REACT_APP_GOOGLE_API_KEY }}
           REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
+          REACT_APP_HYPERTOPIA_API_SECRET: ${{ secrets.REACT_APP_HYPERTOPIA_API_SECRET }}
 
       - name: Build installers (Windows)
         if: matrix.os == 'windows-latest'
@@ -44,6 +45,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REACT_APP_GOOGLE_API_KEY: ${{ secrets.REACT_APP_GOOGLE_API_KEY }}
           REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
+          REACT_APP_HYPERTOPIA_API_SECRET: ${{ secrets.REACT_APP_HYPERTOPIA_API_SECRET }}
         run: npx electron-builder --publish never --win
 
       - name: Build installers (Mac)
@@ -52,6 +54,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REACT_APP_GOOGLE_API_KEY: ${{ secrets.REACT_APP_GOOGLE_API_KEY }}
           REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
+          REACT_APP_HYPERTOPIA_API_SECRET: ${{ secrets.REACT_APP_HYPERTOPIA_API_SECRET }}
         run: npx electron-builder --publish never --mac --x64 --arm64
 
       - name: Upload artifacts (Windows)
@@ -134,4 +137,3 @@ jobs:
           files: artifacts/*
           repository: rigelra15/hypertopia-installer-releases
           token: ${{ secrets.GH_PAT }}
-

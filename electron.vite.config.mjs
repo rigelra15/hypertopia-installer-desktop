@@ -36,7 +36,11 @@ if (dotenvResult.parsed) {
 }
 
 // Fallback to process.env for keys not found in .env file (e.g. CI/GitHub Actions)
-;['REACT_APP_GOOGLE_API_KEY', 'REACT_APP_GOOGLE_CLIENT_ID'].forEach((key) => {
+;[
+  'REACT_APP_GOOGLE_API_KEY',
+  'REACT_APP_GOOGLE_CLIENT_ID',
+  'REACT_APP_HYPERTOPIA_API_SECRET'
+].forEach((key) => {
   if (!env[key] && process.env[key]) {
     env[key] = process.env[key]
   }
@@ -44,6 +48,10 @@ if (dotenvResult.parsed) {
 
 console.log('[electron.vite.config] Loaded env keys:', Object.keys(env))
 console.log('[electron.vite.config] GOOGLE_API_KEY present:', !!env.REACT_APP_GOOGLE_API_KEY)
+console.log(
+  '[electron.vite.config] HYPERTOPIA_API_SECRET present:',
+  !!env.REACT_APP_HYPERTOPIA_API_SECRET
+)
 
 // Get git commit count and changelog
 let commitCount = '0'
@@ -90,7 +98,10 @@ export default defineConfig({
       __APP_VERSION__: JSON.stringify(appVersion),
       __APP_CHANGELOG__: JSON.stringify(changelog),
       __COMMIT_COUNT__: JSON.stringify(commitCount),
-      __BUILD_DATE__: JSON.stringify(buildDate)
+      __BUILD_DATE__: JSON.stringify(buildDate),
+      'import.meta.env.REACT_APP_HYPERTOPIA_API_SECRET': JSON.stringify(
+        env.REACT_APP_HYPERTOPIA_API_SECRET || ''
+      )
     },
     plugins: [react(), tailwindcss()]
   }
