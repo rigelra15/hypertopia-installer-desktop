@@ -86,14 +86,58 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  // Record login event to Firebase RTDB at loginHistory/{uid}/{pushId}
+  // Best-effort: failures are logged but never block the auth flow.
+  const recordLogin = useCallback(async (userData, method) => {
+    if (!userData?.uid) return
+    try {
+      let deviceInfo = null
+      try {
+        if (window.api?.getDeviceInfo) {
+          deviceInfo = await window.api.getDeviceInfo()
+        }
+      } catch {
+        // ignore
+      }
+
+      const event = {
+        timestamp: Date.now(),
+        method,
+        platform: 'desktop',
+        email: userData.email || null,
+        uid: userData.uid,
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+        deviceInfo,
+      }
+
+      const res = await fetch(
+        `${FIREBASE_DB_URL}/loginHistory/${userData.uid}.json`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(event)
+        }
+      )
+      if (!res.ok) {
+        console.warn('recordLogin response not ok:', res.status)
+      }
+    } catch (err) {
+      console.warn('recordLogin failed:', err)
+    }
+  }, [])
+
   // Save user and check eligibility
   const saveUser = useCallback(
-    async (userData) => {
+    async (userData, method) => {
       localStorage.setItem('hypertopia_user', JSON.stringify(userData))
       setUser(userData)
+      // Fire-and-forget login history recording (only on fresh login)
+      if (method) {
+        recordLogin(userData, method)
+      }
       await checkEligibility(userData.email)
     },
-    [checkEligibility]
+    [checkEligibility, recordLogin]
   )
 
   // Load saved user from localStorage on mount
@@ -132,7 +176,7 @@ export function AuthProvider({ children }) {
               photoURL: data.photoURL || null,
               loginAt: Date.now()
             }
-            await saveUser(userData)
+            await saveUser(userData, 'browser-deep-link')
           }
         } catch (err) {
           console.error('[Auth] Error parsing deep link token:', err)
@@ -221,7 +265,7 @@ export function AuthProvider({ children }) {
               loginAt: Date.now()
             }
 
-            await saveUser(userData)
+            await saveUser(userData, 'device-code')
             setDeviceCode(null)
 
             // Delete used code

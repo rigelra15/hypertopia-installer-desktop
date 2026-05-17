@@ -309,7 +309,22 @@ if (mainWindow) {
   })
 }
 
-// IPC: Get App Version (Git Commit Count & Date)
+// IPC: Get Device Info (used for login history metadata)
+ipcMain.handle('get-device-info', () => {
+  // Lazy-require to avoid duplicate require at top
+  const osMod = require('os')
+  return {
+    platform: process.platform, // 'darwin' | 'win32' | 'linux'
+    arch: process.arch,
+    osRelease: osMod.release(),
+    osVersion: typeof osMod.version === 'function' ? osMod.version() : '',
+    hostname: osMod.hostname(),
+    appVersion: app.getVersion(),
+    electronVersion: process.versions.electron,
+    totalMemMB: Math.round(osMod.totalmem() / 1024 / 1024)
+  }
+})
+
 // IPC: Get App Version (Git Commit Count & Date)
 ipcMain.handle('get-app-version', async () => {
   // Production: Use the version from package.json and injected build date
