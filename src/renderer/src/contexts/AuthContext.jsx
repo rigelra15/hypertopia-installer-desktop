@@ -112,6 +112,40 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }, [checkEligibility])
 
+  // Listen for auth-callback from deep link (browser login flow)
+  useEffect(() => {
+    if (!window.electron?.ipcRenderer) return
+
+    const handleAuthCallback = async (_, data) => {
+      console.log('[Auth] Deep link auth-callback received:', data)
+      if (data?.success && data?.email && data?.accessToken) {
+        // Decode JWT to get uid
+        try {
+          const parts = data.accessToken.split('.')
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+            const uid = payload.user_id || payload.sub || null
+            const userData = {
+              uid,
+              email: data.email,
+              displayName: data.displayName || null,
+              photoURL: data.photoURL || null,
+              loginAt: Date.now()
+            }
+            await saveUser(userData)
+          }
+        } catch (err) {
+          console.error('[Auth] Error parsing deep link token:', err)
+        }
+      }
+    }
+
+    window.electron.ipcRenderer.on('auth-callback', handleAuthCallback)
+    return () => {
+      window.electron.ipcRenderer.removeListener('auth-callback', handleAuthCallback)
+    }
+  }, [saveUser])
+
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
