@@ -1,22 +1,10 @@
-import { useState, useEffect, useReducer } from 'react'
+import { useState } from 'react'
 import { Icon } from '@iconify/react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import PropTypes from 'prop-types'
 import ProfileModal from './ProfileModal'
 import RedeemModal from './RedeemModal'
-
-// Timer reducer - avoids setState sync in effect
-function timerReducer(state, action) {
-  switch (action.type) {
-    case 'tick':
-      return action.expiresAt ? Math.max(0, Math.floor((action.expiresAt - Date.now()) / 1000)) : 0
-    case 'reset':
-      return 0
-    default:
-      return state
-  }
-}
 
 export function UserMenu({ onLiveAssist }) {
   const { t } = useLanguage()
@@ -26,36 +14,18 @@ export function UserMenu({ onLiveAssist }) {
     loading,
     eligibilityLoading,
     checkEligibility,
-    deviceCode,
-    deviceCodeLoading,
-    deviceCodeError,
-    startDeviceCodeLogin,
     cancelDeviceCodeLogin,
     logout
   } = useAuth()
   const [showDropdown, setShowDropdown] = useState(false)
   const [loginModalRequested, setLoginModalRequested] = useState(false)
-  const [timeLeft, dispatchTimer] = useReducer(timerReducer, 0)
   const [imageError, setImageError] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [showRedeemModal, setShowRedeemModal] = useState(false)
+  const [browserLoginLoading, setBrowserLoginLoading] = useState(false)
+  const [browserLoginError, setBrowserLoginError] = useState(null)
 
-  // Derive showLoginModal from state - modal shows only if requested AND (has code OR loading OR error)
-  const showLoginModal =
-    loginModalRequested && !user && (deviceCode || deviceCodeLoading || deviceCodeError)
-
-  // Countdown timer using reducer
-  const expiresAt = deviceCode?.expiresAt
-  useEffect(() => {
-    if (!expiresAt) return undefined
-
-    dispatchTimer({ type: 'tick', expiresAt })
-    const interval = setInterval(() => {
-      dispatchTimer({ type: 'tick', expiresAt })
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [expiresAt])
+  const showLoginModal = loginModalRequested && !user
 
   const handleLogout = async () => {
     try {
@@ -70,31 +40,31 @@ export function UserMenu({ onLiveAssist }) {
 
   const handleStartLogin = () => {
     setLoginModalRequested(true)
-    startDeviceCodeLogin()
+    setBrowserLoginError(null)
+  }
+
+  const handleBrowserLogin = async () => {
+    setBrowserLoginLoading(true)
+    setBrowserLoginError(null)
+
+    try {
+      const result = await window.api?.googleSignIn?.()
+      if (result?.success === false) {
+        setBrowserLoginError(result.error || t('deep_link_failed') || 'Browser login failed')
+      }
+    } catch (error) {
+      console.error('Browser login failed:', error)
+      setBrowserLoginError(t('deep_link_failed') || 'Browser login failed')
+    } finally {
+      setBrowserLoginLoading(false)
+    }
   }
 
   const handleCancelLogin = () => {
     cancelDeviceCodeLogin()
     setLoginModalRequested(false)
-  }
-
-  const [copied, setCopied] = useState(false)
-  const handleCopyCode = async () => {
-    if (deviceCode?.code) {
-      try {
-        await navigator.clipboard.writeText(deviceCode.code)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      } catch (err) {
-        console.error('Failed to copy:', err)
-      }
-    }
-  }
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
+    setBrowserLoginLoading(false)
+    setBrowserLoginError(null)
   }
 
   if (loading) {
@@ -112,13 +82,13 @@ export function UserMenu({ onLiveAssist }) {
         {/* Login Button */}
         <button
           onClick={handleStartLogin}
-          disabled={deviceCodeLoading}
+          disabled={browserLoginLoading}
           className="flex items-center gap-2 rounded-lg bg-[#0081FB] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#0070E0] disabled:opacity-50 shadow-sm"
         >
-          {deviceCodeLoading ? (
+          {browserLoginLoading ? (
             <>
               <Icon icon="mdi:loading" className="h-4 w-4 animate-spin" />
-              <span>{t('generating_code') || 'Generating...'}</span>
+              <span>{t('opening_browser') || 'Opening browser...'}</span>
             </>
           ) : (
             <>
@@ -150,92 +120,32 @@ export function UserMenu({ onLiveAssist }) {
 
                 {/* Header */}
                 <div className="text-center mb-6">
-                  <div className="w-14 h-14 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center shadow-lg">
-                    <Icon icon="mdi:link-variant" className="h-7 w-7 text-white" />
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0081FB]/10">
+                    <Icon icon="mdi:web" className="h-7 w-7 text-[#0081FB]" />
                   </div>
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                     {t('login_title') || 'Login to HyperTopia'}
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-white/60 mt-1">
-                    {t('device_code_instruction') || 'Go to website and enter this code:'}
+                    {t('login_browser_description') || 'Login securely using your web browser.'}
                   </p>
                 </div>
 
-                {deviceCode ? (
-                  <>
-                    {/* Website Link */}
-                    <a
-                      href="https://hypertopia.web.id/link-device"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-center mb-4"
-                    >
-                      <span className="text-sm text-blue-400 hover:text-blue-300 underline">
-                        hypertopia.web.id/link-device
-                      </span>
-                    </a>
+                <button
+                  onClick={handleBrowserLogin}
+                  disabled={browserLoginLoading}
+                  className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0081FB] px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-[#0070E0] disabled:opacity-50"
+                >
+                  <Icon
+                    icon={browserLoginLoading ? 'mdi:loading' : 'mdi:web'}
+                    className={`h-5 w-5 ${browserLoginLoading ? 'animate-spin' : ''}`}
+                  />
+                  <span>{t('login_with_browser') || 'Login with Browser'}</span>
+                </button>
 
-                    {/* Code Display */}
-                    <div className="flex justify-center gap-2 mb-4">
-                      {deviceCode.code.split('').map((char, i) => (
-                        <div
-                          key={i}
-                          className="w-12 h-14 bg-gradient-to-b from-gray-100 dark:from-[#2a2a2a] to-gray-50 dark:to-[#1a1a1a] border border-gray-300 dark:border-white/20 rounded-xl flex items-center justify-center text-2xl font-bold text-gray-900 dark:text-white shadow-lg"
-                        >
-                          {char}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Copy Button */}
-                    <button
-                      onClick={handleCopyCode}
-                      className={`flex items-center justify-center gap-2 mx-auto mb-6 px-4 py-2 rounded-lg text-sm transition-all ${
-                        copied
-                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                          : 'bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-white/70 border border-gray-200 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/10'
-                      }`}
-                    >
-                      <Icon icon={copied ? 'mdi:check' : 'mdi:content-copy'} className="h-4 w-4" />
-                      <span>
-                        {copied ? t('copied') || 'Copied!' : t('copy_code') || 'Copy Code'}
-                      </span>
-                    </button>
-
-                    {/* Timer */}
-                    <div className="flex items-center justify-center gap-2 text-sm mb-4">
-                      <Icon
-                        icon="mdi:clock-outline"
-                        className="h-4 w-4 text-gray-400 dark:text-white/50"
-                      />
-                      <span
-                        className={
-                          timeLeft < 60 ? 'text-red-400' : 'text-gray-500 dark:text-white/50'
-                        }
-                      >
-                        {t('expires_in') || 'Expires in'} {formatTime(timeLeft)}
-                      </span>
-                    </div>
-
-                    {/* Waiting Indicator */}
-                    <div className="flex items-center justify-center gap-2 text-xs text-gray-400 dark:text-white/40 mb-6">
-                      <Icon icon="mdi:loading" className="h-4 w-4 animate-spin" />
-                      <span>{t('waiting_for_link') || 'Waiting for website link...'}</span>
-                    </div>
-                  </>
-                ) : deviceCodeError ? (
-                  <div className="text-center py-4 mb-4">
-                    <div className="w-12 h-12 mx-auto mb-3 bg-red-500/20 rounded-full flex items-center justify-center">
-                      <Icon icon="mdi:alert-circle" className="h-6 w-6 text-red-400" />
-                    </div>
-                    <p className="text-red-400 text-sm">{deviceCodeError}</p>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Icon
-                      icon="mdi:loading"
-                      className="h-8 w-8 animate-spin text-white/50 mx-auto"
-                    />
+                {browserLoginError && (
+                  <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-center text-xs text-red-400">
+                    {browserLoginError}
                   </div>
                 )}
 

@@ -47,8 +47,8 @@ export function OBBManager({ selectedDevice, onCountChange }) {
       <div className="flex flex-col gap-3 border-b border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-[#191919] p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0081FB] to-[#00C2FF] shadow-lg shadow-[#0081FB]/20">
-              <Icon icon="mdi:folder-multiple" className="h-5 w-5 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0081FB]/10">
+              <Icon icon="mdi:folder-multiple" className="h-5 w-5 text-[#0081FB]" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">

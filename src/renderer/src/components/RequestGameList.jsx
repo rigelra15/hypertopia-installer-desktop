@@ -514,47 +514,7 @@ export function RequestGameList({ onEdit }) {
 
   return (
     <div className="flex flex-1 flex-col bg-white dark:bg-[#111] overflow-hidden">
-      <div className="border-b border-gray-200 dark:border-white/10 p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Icon icon="material-symbols:list-alt" className="text-[#0081FB]" />
-            {language === 'en' ? 'Game Requests' : 'Request Game'}
-            <span className="ml-2 px-2 py-0.5 bg-[#0081FB]/20 text-[#0081FB] text-xs rounded-full font-medium">
-              {userRequests.length}
-            </span>
-          </h2>
-          {!isAdmin && (
-            <button
-              onClick={() => setShowAllRequests((prev) => !prev)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                showAllRequests
-                  ? 'bg-[#0081FB] text-white'
-                  : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-white/60 hover:bg-gray-200 dark:hover:bg-white/15'
-              }`}
-            >
-              <Icon icon={showAllRequests ? 'mdi:eye-off' : 'mdi:eye'} className="text-sm" />
-              {showAllRequests
-                ? language === 'en'
-                  ? 'My Requests'
-                  : 'Request Saya'
-                : language === 'en'
-                  ? 'All Requests'
-                  : 'Semua Request'}
-            </button>
-          )}
-        </div>
-        <p className="text-xs text-gray-400 dark:text-white/40 mt-1">
-          {showAllRequests || isAdmin
-            ? language === 'en'
-              ? 'View all game requests from users'
-              : 'Lihat semua request game dari pengguna'
-            : language === 'en'
-              ? 'Track your game requests and their status'
-              : 'Pantau request game dan statusnya'}
-        </p>
-      </div>
-
-      <div className="border-b border-gray-200 dark:border-white/10 p-3 flex flex-wrap gap-2">
+      <div className="border-b border-gray-200 dark:border-white/10 p-3 flex flex-wrap gap-2 items-center">
         <div className="flex-1 min-w-[160px]">
           <div className="relative">
             <Icon
@@ -570,6 +530,28 @@ export function RequestGameList({ onEdit }) {
             />
           </div>
         </div>
+        <span className="px-2 py-1 bg-[#0081FB]/20 text-[#0081FB] text-xs rounded-full font-medium shrink-0">
+          {userRequests.length}
+        </span>
+        {!isAdmin && (
+          <button
+            onClick={() => setShowAllRequests((prev) => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 ${
+              showAllRequests
+                ? 'bg-[#0081FB] text-white'
+                : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-white/60 hover:bg-gray-200 dark:hover:bg-white/15'
+            }`}
+          >
+            <Icon icon={showAllRequests ? 'mdi:eye-off' : 'mdi:eye'} className="text-sm" />
+            {showAllRequests
+              ? language === 'en'
+                ? 'My Requests'
+                : 'Request Saya'
+              : language === 'en'
+                ? 'All Requests'
+                : 'Semua Request'}
+          </button>
+        )}
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}

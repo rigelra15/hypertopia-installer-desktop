@@ -311,8 +311,8 @@ export function StandaloneGames({
           <div className="flex flex-col gap-3 border-b border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-[#191919] p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-[#0081FB] to-[#00C2FF] shadow-lg shadow-[#0081FB]/20">
-                  <Icon icon="mdi:gamepad-variant" className="h-5 w-5 text-white" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0081FB]/10">
+                  <Icon icon="mdi:gamepad-variant" className="h-5 w-5 text-[#0081FB]" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -589,7 +589,33 @@ export function StandaloneGames({
           </div>
         </>
       ) : (
-        <RequestGameList />
+        <>
+          <div className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#111] p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0081FB]/10">
+                <Icon icon="mdi:gamepad-square" className="h-5 w-5 text-[#0081FB]" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {t('request_game_title') || 'Request Game'}
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-white/50">
+                  {t('request_game_subtitle') || 'Submit a new game request or report an issue'}
+                </p>
+              </div>
+            </div>
+            {user && (
+              <button
+                onClick={() => setShowRequestModal(true)}
+                className="flex items-center gap-2 rounded-lg bg-[#0081FB] hover:bg-[#006fd6] px-4 py-2 text-sm text-white font-medium transition-all"
+              >
+                <Icon icon="mdi:plus" className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('request_new_game') || 'New Request'}</span>
+              </button>
+            )}
+          </div>
+          <RequestGameList />
+        </>
       )}
 
       {/* Device Preference Modal */}

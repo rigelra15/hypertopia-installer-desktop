@@ -90,7 +90,7 @@ export function DeviceManager({ selectedDevice, initialSubTab }) {
             onClick={() => setActiveSubTab(tab.id)}
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
               activeSubTab === tab.id
-                ? 'bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white'
+                ? 'bg-[#0081FB]/10 text-[#0081FB]'
                 : 'text-gray-500 dark:text-white/50 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-700 dark:hover:text-white/70'
             }`}
           >

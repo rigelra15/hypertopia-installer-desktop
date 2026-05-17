@@ -7,7 +7,6 @@ import { useDownload } from '../contexts/DownloadContext'
 import { useGames } from '../contexts/GamesContext'
 import { useToast } from '../hooks/useToast'
 import PropTypes from 'prop-types'
-import QGOLogo from '../assets/images/qgo-logo.png'
 
 const API_BASE_URL = 'https://api.hypertopia.web.id'
 
@@ -851,8 +850,8 @@ export function QuestGamesOptimizer({
       <div className="border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#111] p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1.5">
-              <img src={QGOLogo} alt="QGO Logo" className="h-full w-full object-contain" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0081FB]/10">
+              <Icon icon="mdi:tune-variant" className="h-5 w-5 text-[#0081FB]" />
             </div>
             <div>
               <div className="flex items-center gap-2">

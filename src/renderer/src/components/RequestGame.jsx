@@ -6,7 +6,7 @@ import RequestGameModal from './RequestGameModal'
 import RequestGameList from './RequestGameList'
 
 export function RequestGame() {
-  const { language } = useLanguage()
+  const { t } = useLanguage()
   const { user } = useAuth()
   const [showModal, setShowModal] = useState(false)
   const [editingRequest, setEditingRequest] = useState(null)
@@ -35,16 +35,19 @@ export function RequestGame() {
     return (
       <div className="flex flex-1 flex-col bg-white dark:bg-[#111] overflow-hidden">
         <div className="border-b border-gray-200 dark:border-white/10 p-4">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Icon icon="material-symbols:gamepad" className="text-blue-500" />
-            <span className="text-blue-500">{language === 'en' ? 'Request' : 'Request'}</span>{' '}
-            {language === 'en' ? 'Game' : 'Game'}
-          </h2>
-          <p className="text-xs text-gray-400 dark:text-white/40 mt-1">
-            {language === 'en'
-              ? 'Request new games or report issues'
-              : 'Request game baru atau lapor masalah'}
-          </p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0081FB]/10">
+              <Icon icon="mdi:gamepad-square" className="h-5 w-5 text-[#0081FB]" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {t('request_game_title') || 'Request Game'}
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-white/50">
+                {t('request_game_subtitle') || 'Submit a new game request or report an issue'}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center p-8">
@@ -52,12 +55,10 @@ export function RequestGame() {
             <Icon icon="material-symbols:person" className="text-4xl text-blue-500" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            {language === 'en' ? 'Login Required' : 'Harus Login'}
+            {t('request_login_required') || 'Login Required'}
           </h3>
           <p className="text-sm text-gray-500 dark:text-white/50 text-center max-w-sm">
-            {language === 'en'
-              ? 'Please login to request games and track your requests'
-              : 'Silakan login untuk request game dan pantau request Anda'}
+            {t('request_login_desc') || 'Please login to request games and track your requests'}
           </p>
         </div>
       </div>
@@ -66,32 +67,29 @@ export function RequestGame() {
 
   return (
     <div className="flex flex-1 flex-col bg-white dark:bg-[#111] overflow-hidden">
-      <div className="border-b border-gray-200 dark:border-white/10 p-4">
-        <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#111] p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0081FB]/10">
+            <Icon icon="mdi:gamepad-square" className="h-5 w-5 text-[#0081FB]" />
+          </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <Icon icon="material-symbols:gamepad" className="text-blue-500" />
-              <span className="text-blue-500">
-                {language === 'en' ? 'Request' : 'Request'}
-              </span>{' '}
-              {language === 'en' ? 'Game' : 'Game'}
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              {t('request_game_title') || 'Request Game'}
             </h2>
-            <p className="text-xs text-gray-400 dark:text-white/40 mt-1">
-              {language === 'en'
-                ? 'Request new games or report issues'
-                : 'Request game baru atau lapor masalah'}
+            <p className="text-xs text-gray-500 dark:text-white/50 mt-1">
+              {t('request_game_subtitle') || 'Submit a new game request or report an issue'}
             </p>
           </div>
-          <button
-            onClick={handleOpenModal}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
-          >
-            <Icon icon="material-symbols:add" className="text-lg" />
-            <span className="hidden sm:inline">
-              {language === 'en' ? 'New Request' : 'Request Baru'}
-            </span>
-          </button>
         </div>
+        <button
+          onClick={handleOpenModal}
+          className="flex items-center gap-2 rounded-lg bg-[#0081FB] hover:bg-[#006fd6] px-4 py-2 text-sm text-white font-medium transition-all"
+        >
+          <Icon icon="mdi:plus" className="h-4 w-4" />
+          <span className="hidden sm:inline">
+            {t('request_new_game') || 'New Request'}
+          </span>
+        </button>
       </div>
 
       <RequestGameList onEdit={handleEdit} />
