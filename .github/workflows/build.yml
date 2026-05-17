@@ -9,7 +9,60 @@ permissions:
   contents: write
 
 jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Previous Tag
+        id: previoustag
+        run: |
+          CURRENT_TAG="${{ github.ref_name }}"
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${CURRENT_TAG}$" | head -1)
+          echo "Previous tag: $PREV_TAG"
+          echo "Current tag: $CURRENT_TAG"
+          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+
+      - name: List commits between tags
+        run: |
+          echo "Commits between ${{ steps.previoustag.outputs.tag }} and ${{ github.ref_name }}:"
+          git log --oneline ${{ steps.previoustag.outputs.tag }}..${{ github.ref_name }} || echo "No previous tag found, showing recent commits:"
+          git log --oneline -10
+
+      - name: Setup Node for changelog
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          PREV_TAG="${{ steps.previoustag.outputs.tag }}"
+          CURR_TAG="${{ github.ref_name }}"
+          echo "Generating changelog from $PREV_TAG to $CURR_TAG"
+
+          CHANGELOG=$(node scripts/generate-changelog.js "$PREV_TAG" "$CURR_TAG")
+
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "=== Changelog Preview ==="
+          echo "$CHANGELOG"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.changelog.outputs.changelog }}
+          tag_name: ${{ github.ref_name }}
+          repository: rigelra15/hypertopia-installer-releases
+          token: ${{ secrets.GH_PAT }}
+
   build:
+    needs: release
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
@@ -57,83 +110,14 @@ jobs:
           REACT_APP_HYPERTOPIA_API_SECRET: ${{ secrets.REACT_APP_HYPERTOPIA_API_SECRET }}
         run: npx electron-builder --publish never --mac --x64 --arm64
 
-      - name: Upload artifacts (Windows)
+      - name: Upload release assets (Windows)
         if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-windows
-          path: |
-            dist/*.exe
-            dist/*.yml
-            dist/*.blockmap
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: gh release upload "${{ github.ref_name }}" dist/*.exe dist/*.yml dist/*.blockmap --repo rigelra15/hypertopia-installer-releases --clobber
 
-      - name: Upload artifacts (Mac)
+      - name: Upload release assets (Mac)
         if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-mac
-          path: |
-            dist/*.dmg
-            dist/*.zip
-            dist/*.yml
-            dist/*.blockmap
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Get Previous Tag
-        id: previoustag
-        run: |
-          CURRENT_TAG="${{ github.ref_name }}"
-          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${CURRENT_TAG}$" | head -1)
-          echo "Previous tag: $PREV_TAG"
-          echo "Current tag: $CURRENT_TAG"
-          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: List commits between tags
-        run: |
-          echo "Commits between ${{ steps.previoustag.outputs.tag }} and ${{ github.ref_name }}:"
-          git log --oneline ${{ steps.previoustag.outputs.tag }}..${{ github.ref_name }} || echo "No previous tag found, showing recent commits:"
-          git log --oneline -10
-
-      - name: Setup Node for changelog
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Generate Changelog
-        id: changelog
-        run: |
-          PREV_TAG="${{ steps.previoustag.outputs.tag }}"
-          CURR_TAG="${{ github.ref_name }}"
-          echo "Generating changelog from $PREV_TAG to $CURR_TAG"
-
-          CHANGELOG=$(node scripts/generate-changelog.js "$PREV_TAG" "$CURR_TAG")
-
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          echo "=== Changelog Preview ==="
-          echo "$CHANGELOG"
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          body: ${{ steps.changelog.outputs.changelog }}
-          tag_name: ${{ github.ref_name }}
-          files: artifacts/*
-          repository: rigelra15/hypertopia-installer-releases
-          token: ${{ secrets.GH_PAT }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: gh release upload "${{ github.ref_name }}" dist/*.dmg dist/*.zip dist/*.yml dist/*.blockmap --repo rigelra15/hypertopia-installer-releases --clobber
