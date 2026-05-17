@@ -355,7 +355,7 @@ ipcMain.handle('get-latest-release', async () => {
   try {
     const { net } = require('electron')
     const response = await net.fetch(
-      'https://api.github.com/repos/rigelra15/hypertopia-installer-desktop/releases/latest',
+      'https://api.github.com/repos/rigelra15/hypertopia-installer-releases/releases/latest',
       {
         headers: { 'User-Agent': 'HyperTopia-Installer' }
       }
