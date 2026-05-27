@@ -97,6 +97,7 @@ export default function UpdateModal({
       footer={footer}
       closeOnBackdrop={false}
       hideTrafficLights={true}
+      overlayOpacity={40}
     >
       <div className="p-6">
         {/* Version info */}

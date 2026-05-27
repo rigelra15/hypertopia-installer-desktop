@@ -24,6 +24,7 @@ export function Modal({
   closeOnBackdrop = true,
   headerRight,
   hideTrafficLights = false,
+  overlayOpacity = 70,
 }) {
   const [showTooltip, setShowTooltip] = useState(false)
 
@@ -34,7 +35,8 @@ export function Modal({
       {isOpen && (
         <>
           <motion.div
-            className="fixed inset-0 z-50 bg-black/70"
+            className="fixed inset-0 z-50"
+            style={{ backgroundColor: `rgba(0,0,0,${overlayOpacity / 100})` }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -145,5 +147,5 @@ Modal.propTypes = {
   footer: PropTypes.node,
   closeOnBackdrop: PropTypes.bool,
   headerRight: PropTypes.node,
-  hideTrafficLights: PropTypes.bool,
+  overlayOpacity: PropTypes.number,
 }
