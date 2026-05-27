@@ -46,7 +46,12 @@ export function ProfileModal({ isOpen, onClose, user }) {
 
       // 1. Fetch profile metadata from API (accessTypes, registrationDate, etc.)
       const response = await fetch(
-        `${API_BASE_URL}/api/v1/user-profile?email=${encodeURIComponent(user.email)}`
+        `${API_BASE_URL}/api/v1/user-profile?email=${encodeURIComponent(user.email)}`,
+        {
+          headers: {
+            'X-API-Secret': import.meta.env.REACT_APP_HYPERTOPIA_API_SECRET || import.meta.env.VITE_HYPERTOPIA_API_SECRET || ''
+          }
+        }
       )
 
       if (!response.ok) {

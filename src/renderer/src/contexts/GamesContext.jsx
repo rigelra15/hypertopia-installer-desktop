@@ -170,10 +170,12 @@ export function GamesProvider({ children }) {
     }
 
     const params = new URLSearchParams({ gameId, email, type })
+    // eslint-disable-next-line no-undef
+    const buildId = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev-build'
     const response = await fetch(`${API_BASE_URL}/api/v1/game/download-url?${params}`, {
       headers: {
-        // Shared secret — bundled from .env at build time, not in source code
-        'X-API-Secret': import.meta.env.REACT_APP_HYPERTOPIA_API_SECRET || ''
+        'X-API-Secret': import.meta.env.REACT_APP_HYPERTOPIA_API_SECRET || '',
+        'X-Build-ID': buildId,
       }
     })
 

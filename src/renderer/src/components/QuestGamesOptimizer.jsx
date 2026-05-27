@@ -386,7 +386,10 @@ export function QuestGamesOptimizer({
 
       const response = await fetch(`${API_BASE_URL}/api/v1/game-size`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Secret': import.meta.env.REACT_APP_HYPERTOPIA_API_SECRET || import.meta.env.VITE_HYPERTOPIA_API_SECRET || ''
+        },
         body: JSON.stringify({
           type: 'qgo',
           identifier: version,

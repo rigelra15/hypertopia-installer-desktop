@@ -3,6 +3,7 @@ import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'child_process'
+import { createHmac } from 'crypto'
 import { config } from 'dotenv'
 import { readFileSync, existsSync } from 'fs'
 
@@ -75,6 +76,20 @@ try {
 
 const appVersion = `v1.0.${commitCount}`
 
+// ── App Attestation: BUILD_ID ─────────────────────────────────────────────────
+// HMAC-SHA256(appVersion + buildDate + commitCount, APP_SECRET)
+// Embedded at build time — server validates this to ensure only genuine builds
+// can call protected endpoints. Each build produces a unique ID.
+// To revoke a compromised build, add its BUILD_ID to the server's blocklist.
+const buildPayload = `${appVersion}:${buildDate}:${commitCount}`
+const appSecret = env.REACT_APP_HYPERTOPIA_API_SECRET || ''
+const buildId = appSecret
+  ? createHmac('sha256', appSecret).update(buildPayload).digest('hex')
+  : 'dev-build'
+
+console.log('[electron.vite.config] BUILD_ID generated:', buildId.slice(0, 8) + '...')
+console.log('[electron.vite.config] Build payload:', buildPayload)
+
 export default defineConfig({
   main: {
     build: {
@@ -99,6 +114,7 @@ export default defineConfig({
       __APP_CHANGELOG__: JSON.stringify(changelog),
       __COMMIT_COUNT__: JSON.stringify(commitCount),
       __BUILD_DATE__: JSON.stringify(buildDate),
+      __BUILD_ID__: JSON.stringify(buildId),
       'import.meta.env.REACT_APP_HYPERTOPIA_API_SECRET': JSON.stringify(
         env.REACT_APP_HYPERTOPIA_API_SECRET || ''
       )
