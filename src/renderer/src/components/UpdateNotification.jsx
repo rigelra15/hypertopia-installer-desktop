@@ -22,6 +22,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
   const [showWidget, setShowWidget] = useState(false) // NEW: floating widget visibility
   const [dismissed, setDismissed] = useState(false)
   const [currentVersion, setCurrentVersion] = useState('')
+  const [macUpdateInfo, setMacUpdateInfo] = useState(null) // Mac manual update info
   const autoUpdate = true // Forced to true
 
   // Fetch current app version on mount
@@ -51,6 +52,13 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
       setShowWidget(true)
     })
 
+    // Mac: manual update notification (no auto-install, open browser instead)
+    const unsubMacAvailable = window.api.onUpdateAvailableMac?.((info) => {
+      console.log('[Update] Mac update available:', info)
+      setMacUpdateInfo(info)
+      onUpdateAvailable?.(true, info)
+    })
+
     const unsubProgress = window.api.onUpdateDownloadProgress((progress) => {
       setDownloadProgress(progress.percent || 0)
       setDownloadSpeed(progress.bytesPerSecond || 0)
@@ -71,6 +79,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
 
     return () => {
       unsubAvailable?.()
+      unsubMacAvailable?.()
       unsubProgress?.()
       unsubDownloaded?.()
     }
@@ -102,6 +111,47 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
 
   return (
     <>
+      {/* Mac Manual Update Banner */}
+      <AnimatePresence>
+        {macUpdateInfo && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mx-3 mb-2 rounded-xl border border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-[#1a1200] overflow-hidden"
+          >
+            <div className="p-3 flex items-center gap-3">
+              <div className="rounded-lg p-1.5 bg-orange-100 dark:bg-orange-900/30 shrink-0">
+                <Icon icon="mdi:apple" className="h-4 w-4 text-orange-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-gray-900 dark:text-white">
+                  {t('update_available') || 'Update Available'} — v{macUpdateInfo.version}
+                </p>
+                <p className="text-[10px] text-gray-500 dark:text-white/50 mt-0.5">
+                  {t('update_mac_manual') || 'Download manual diperlukan di macOS'}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => window.api.openExternal?.(macUpdateInfo.releaseUrl)}
+                  className="py-1.5 px-3 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-semibold transition-colors flex items-center gap-1"
+                >
+                  <Icon icon="mdi:download" className="h-3.5 w-3.5" />
+                  {t('update_download_now') || 'Download'}
+                </button>
+                <button
+                  onClick={() => setMacUpdateInfo(null)}
+                  className="rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white/60 transition-colors"
+                >
+                  <Icon icon="mdi:close" className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Update Modal */}
       <UpdateModal
         isOpen={showModal}

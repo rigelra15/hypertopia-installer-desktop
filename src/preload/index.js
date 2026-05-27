@@ -67,6 +67,11 @@ const api = {
     ipcRenderer.on('update-available', subscription)
     return () => ipcRenderer.removeListener('update-available', subscription)
   },
+  onUpdateAvailableMac: (callback) => {
+    const subscription = (_event, info) => callback(info)
+    ipcRenderer.on('update-available-mac', subscription)
+    return () => ipcRenderer.removeListener('update-available-mac', subscription)
+  },
   onUpdateDownloadProgress: (callback) => {
     const subscription = (_event, progress) => callback(progress)
     ipcRenderer.on('update-download-progress', subscription)

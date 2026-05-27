@@ -993,8 +993,64 @@ app.whenReady().then(() => {
 
   // Auto-updater events (only in production)
   if (app.isPackaged) {
-    // Check for updates after window is ready
-    autoUpdater.checkForUpdatesAndNotify()
+    const isMac = process.platform === 'darwin'
+
+    if (isMac) {
+      // macOS: autoUpdater requires code-signing + notarization.
+      // Until the app is signed, we do a manual version check via GitHub API
+      // and prompt the user to download from the releases page instead.
+      console.log('[AutoUpdater] macOS detected — using manual update check (app not code-signed)')
+
+      const checkForUpdatesMac = async () => {
+        try {
+          const { net } = await import('electron')
+          const request = net.request({
+            method: 'GET',
+            url: 'https://api.github.com/repos/rigelra15/hypertopia-installer/releases/latest',
+            headers: { 'User-Agent': 'HyperTopia-Installer' }
+          })
+          request.on('response', (response) => {
+            let body = ''
+            response.on('data', (chunk) => { body += chunk })
+            response.on('end', () => {
+              try {
+                const release = JSON.parse(body)
+                const latestVersion = release.tag_name?.replace(/^v/, '')
+                const currentVersion = app.getVersion()
+                if (latestVersion && latestVersion !== currentVersion) {
+                  console.log(`[AutoUpdater] Mac: update available ${currentVersion} → ${latestVersion}`)
+                  if (mainWindow) {
+                    mainWindow.webContents.send('update-available-mac', {
+                      version: latestVersion,
+                      releaseDate: release.published_at,
+                      releaseUrl: release.html_url,
+                      body: release.body || ''
+                    })
+                  }
+                } else {
+                  console.log('[AutoUpdater] Mac: already on latest version')
+                }
+              } catch (e) {
+                console.error('[AutoUpdater] Mac: failed to parse release info', e.message)
+              }
+            })
+          })
+          request.on('error', (err) => {
+            console.error('[AutoUpdater] Mac: version check failed', err.message)
+          })
+          request.end()
+        } catch (err) {
+          console.error('[AutoUpdater] Mac: update check error', err.message)
+        }
+      }
+
+      // Check on startup and expose IPC
+      checkForUpdatesMac()
+      ipcMain.handle('check-for-updates-mac', checkForUpdatesMac)
+
+    } else {
+      // Windows/Linux: use electron-updater normally
+      autoUpdater.checkForUpdatesAndNotify()
 
     autoUpdater.on('checking-for-update', () => {
       console.log('[AutoUpdater] Checking for updates...')
@@ -1044,11 +1100,16 @@ app.whenReady().then(() => {
         })
       }
     })
+    } // end else (Windows/Linux)
   }
 
   // IPC: Check for updates manually
   ipcMain.handle('check-for-updates', async () => {
     if (app.isPackaged) {
+      if (process.platform === 'darwin') {
+        ipcMain.emit('check-for-updates-mac')
+        return null
+      }
       return autoUpdater.checkForUpdates()
     } else {
       // Direct dev simulation for UI testing
