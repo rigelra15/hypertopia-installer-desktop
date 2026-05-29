@@ -7,8 +7,7 @@ import { useDownload } from '../contexts/DownloadContext'
 import { useGames } from '../contexts/GamesContext'
 import { useToast } from '../hooks/useToast'
 import PropTypes from 'prop-types'
-
-const API_BASE_URL = 'https://api.hypertopia.web.id'
+import { apiFetch, API_BASE_URL } from '../utils/apiClient'
 
 // QGO package name pattern
 const QGO_PACKAGE_PATTERNS = ['com.anagan.qgo', 'questgamesoptimizer', 'qgo']
@@ -31,8 +30,8 @@ export function QuestGamesOptimizer({
   } = useGames()
   const toast = useToast()
 
-  // Check if user has QGO access
-  const hasQgoAccess = accessTypes.includes('qgo')
+  // Check if user has QGO access (case-insensitive)
+  const hasQgoAccess = accessTypes.some((t) => t.toLowerCase() === 'qgo')
 
   const [qgoLinks, setQgoLinks] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -238,17 +237,8 @@ export function QuestGamesOptimizer({
           // App version might be in version, versionName, or we extract from name
           const version =
             qgoApp.version || qgoApp.versionName || extractVersion(qgoApp.name) || null
-          console.log(
-            '[QGO] Found installed QGO:',
-            qgoApp.package,
-            'version:',
-            version,
-            'raw:',
-            qgoApp
-          )
           setInstalledQgoVersion(version)
         } else {
-          console.log('[QGO] QGO not found on device')
           setInstalledQgoVersion(null)
         }
       } catch (err) {
@@ -356,8 +346,6 @@ export function QuestGamesOptimizer({
   // Update QGO download count via API
   const updateQgoDownloadCount = async (version) => {
     try {
-      console.log('[QGO] Updating download count for version:', version)
-
       const response = await fetch(`${API_BASE_URL}/api/v1/qgo/download-stats`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -366,9 +354,7 @@ export function QuestGamesOptimizer({
 
       const result = await response.json()
 
-      if (response.ok && result.success) {
-        console.log('[QGO] Download count updated:', result)
-      } else {
+      if (!(response.ok && result.success)) {
         console.error('[QGO] Failed to update download count:', result)
       }
     } catch (error) {
@@ -382,14 +368,8 @@ export function QuestGamesOptimizer({
     if (!version || !fileSize || fileSize <= 0) return
 
     try {
-      console.log('[QGO] Updating file size for version:', version, 'size:', fileSize)
-
-      const response = await fetch(`${API_BASE_URL}/api/v1/game-size`, {
+      const response = await apiFetch('/api/v1/game-size', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Secret': import.meta.env.REACT_APP_HYPERTOPIA_API_SECRET || import.meta.env.VITE_HYPERTOPIA_API_SECRET || ''
-        },
         body: JSON.stringify({
           type: 'qgo',
           identifier: version,
@@ -399,9 +379,7 @@ export function QuestGamesOptimizer({
 
       const result = await response.json()
 
-      if (response.ok && result.success) {
-        console.log('[QGO] File size update result:', result)
-      } else {
+      if (!(response.ok && result.success)) {
         console.error('[QGO] Failed to update file size:', result)
       }
     } catch (error) {
@@ -424,7 +402,8 @@ export function QuestGamesOptimizer({
       let url
       try {
         const result = await fetchDownloadUrl(version, user?.email, 'qgo')
-        url = result.downloadUrl || (Array.isArray(result.linkDownload) ? result.linkDownload[0] : null)
+        url =
+          result.downloadUrl || (Array.isArray(result.linkDownload) ? result.linkDownload[0] : null)
       } catch (err) {
         setShowDownloadModal(false)
         toast.error(err.message || 'Gagal mengambil link download.')
@@ -475,21 +454,17 @@ export function QuestGamesOptimizer({
   // Handle deep link download from website
   useEffect(() => {
     if (pendingDeepLinkDownload && pendingDeepLinkDownload.game && qgoLinks.length > 0) {
-      console.log('[DeepLinkDownload] QGO - Looking for version:', pendingDeepLinkDownload.version)
-
       const matchingItem = qgoLinks.find((item) => {
         const itemVersion = extractVersion(item.description)
         return itemVersion === pendingDeepLinkDownload.version
       })
 
       if (matchingItem) {
-        console.log('[DeepLinkDownload] QGO - Found matching version:', matchingItem.description)
         handleDownload(matchingItem)
         if (onDeepLinkProcessed) {
           onDeepLinkProcessed()
         }
       } else {
-        console.log('[DeepLinkDownload] QGO - Version not found, showing latest')
         const latestItem = qgoLinks.find((item) => {
           const itemVersion = extractVersion(item.description)
           return itemVersion === maxVersion
@@ -573,12 +548,10 @@ export function QuestGamesOptimizer({
         })
 
         if (qgoApp) {
-          console.log('[QGO] Uninstalling previous version:', qgoApp.package, qgoApp.version)
           const uninstallResult = await window.api.uninstallApp(selectedDevice, qgoApp.package)
           if (!uninstallResult.success) {
             throw new Error(uninstallResult.message || 'Failed to uninstall previous version')
           }
-          console.log('[QGO] Previous version uninstalled successfully')
         }
       }
 
@@ -669,7 +642,8 @@ export function QuestGamesOptimizer({
       let url
       try {
         const result = await fetchDownloadUrl(version, user?.email, 'qgo')
-        url = result.downloadUrl || (Array.isArray(result.linkDownload) ? result.linkDownload[0] : null)
+        url =
+          result.downloadUrl || (Array.isArray(result.linkDownload) ? result.linkDownload[0] : null)
       } catch (err) {
         throw new Error(err.message || 'Gagal mengambil link download.')
       }
@@ -678,11 +652,7 @@ export function QuestGamesOptimizer({
         throw new Error('Tidak ada link download untuk versi ini.')
       }
 
-      const result = await window.api.downloadAndInstallApk(
-        url,
-        fileName,
-        selectedDevice
-      )
+      const result = await window.api.downloadAndInstallApk(url, fileName, selectedDevice)
 
       if (result.success) {
         setConfirmInstall(null)

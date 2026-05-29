@@ -86,9 +86,7 @@ export function RequestGame() {
           className="flex items-center gap-2 rounded-lg bg-[#0081FB] hover:bg-[#006fd6] px-4 py-2 text-sm text-white font-medium transition-all"
         >
           <Icon icon="mdi:plus" className="h-4 w-4" />
-          <span className="hidden sm:inline">
-            {t('request_new_game') || 'New Request'}
-          </span>
+          <span className="hidden sm:inline">{t('request_new_game') || 'New Request'}</span>
         </button>
       </div>
 

@@ -143,7 +143,6 @@ function App() {
   const handleSetupComplete = (path) => {
     setShowSetupModal(false)
     setExtractPath(path)
-    console.log('Extract path set to:', path)
   }
 
   // Tab configuration
@@ -203,8 +202,6 @@ function App() {
   // Listen for deep link download from website
   useEffect(() => {
     const removeDeepLinkListener = window.api.onDeepLinkDownload((data) => {
-      console.log('[DeepLinkDownload] Received from website:', data)
-
       // Navigate to the correct tab based on type
       if (data.type === 'qgo') {
         setActiveTab('qgo')

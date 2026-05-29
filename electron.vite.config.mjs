@@ -40,19 +40,13 @@ if (dotenvResult.parsed) {
 ;[
   'REACT_APP_GOOGLE_API_KEY',
   'REACT_APP_GOOGLE_CLIENT_ID',
-  'REACT_APP_HYPERTOPIA_API_SECRET'
+  'REACT_APP_HYPERTOPIA_API_SECRET',
+  'REACT_APP_ZIP_PASSWORD'
 ].forEach((key) => {
   if (!env[key] && process.env[key]) {
     env[key] = process.env[key]
   }
 })
-
-console.log('[electron.vite.config] Loaded env keys:', Object.keys(env))
-console.log('[electron.vite.config] GOOGLE_API_KEY present:', !!env.REACT_APP_GOOGLE_API_KEY)
-console.log(
-  '[electron.vite.config] HYPERTOPIA_API_SECRET present:',
-  !!env.REACT_APP_HYPERTOPIA_API_SECRET
-)
 
 // Get git commit count and changelog
 let commitCount = '0'
@@ -87,9 +81,6 @@ const buildId = appSecret
   ? createHmac('sha256', appSecret).update(buildPayload).digest('hex')
   : 'dev-build'
 
-console.log('[electron.vite.config] BUILD_ID generated:', buildId.slice(0, 8) + '...')
-console.log('[electron.vite.config] Build payload:', buildPayload)
-
 export default defineConfig({
   main: {
     build: {
@@ -99,7 +90,15 @@ export default defineConfig({
     },
     define: {
       'process.env.REACT_APP_GOOGLE_API_KEY': JSON.stringify(env.REACT_APP_GOOGLE_API_KEY || ''),
-      'process.env.REACT_APP_GOOGLE_CLIENT_ID': JSON.stringify(env.REACT_APP_GOOGLE_CLIENT_ID || '')
+      'process.env.REACT_APP_GOOGLE_CLIENT_ID': JSON.stringify(
+        env.REACT_APP_GOOGLE_CLIENT_ID || ''
+      ),
+      // Secret and BUILD_ID live in main process only — never in renderer bundle
+      'process.env.REACT_APP_HYPERTOPIA_API_SECRET': JSON.stringify(
+        env.REACT_APP_HYPERTOPIA_API_SECRET || ''
+      ),
+      'process.env.REACT_APP_ZIP_PASSWORD': JSON.stringify(env.REACT_APP_ZIP_PASSWORD || ''),
+      'process.env.BUILD_ID': JSON.stringify(buildId)
     }
   },
   preload: {},
@@ -114,10 +113,10 @@ export default defineConfig({
       __APP_CHANGELOG__: JSON.stringify(changelog),
       __COMMIT_COUNT__: JSON.stringify(commitCount),
       __BUILD_DATE__: JSON.stringify(buildDate),
-      __BUILD_ID__: JSON.stringify(buildId),
-      'import.meta.env.REACT_APP_HYPERTOPIA_API_SECRET': JSON.stringify(
-        env.REACT_APP_HYPERTOPIA_API_SECRET || ''
-      )
+      // BUILD_ID is kept for renderer display purposes only (no secret value, just the HMAC hash)
+      __BUILD_ID__: JSON.stringify(buildId)
+      // NOTE: REACT_APP_HYPERTOPIA_API_SECRET is intentionally NOT injected into the renderer.
+      // All authenticated API calls go through the 'api-fetch' IPC handler in main process.
     },
     plugins: [react(), tailwindcss()]
   }

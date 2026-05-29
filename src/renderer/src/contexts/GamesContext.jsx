@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
-
-const API_BASE_URL = 'https://api.hypertopia.web.id'
+import { apiFetch, API_BASE_URL } from '../utils/apiClient'
 
 // Cache TTL - 5 minutes (matches server-side cache)
 const CACHE_TTL_MS = 5 * 60 * 1000
@@ -170,14 +169,7 @@ export function GamesProvider({ children }) {
     }
 
     const params = new URLSearchParams({ gameId, email, type })
-    // eslint-disable-next-line no-undef
-    const buildId = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev-build'
-    const response = await fetch(`${API_BASE_URL}/api/v1/game/download-url?${params}`, {
-      headers: {
-        'X-API-Secret': import.meta.env.REACT_APP_HYPERTOPIA_API_SECRET || '',
-        'X-Build-ID': buildId,
-      }
-    })
+    const response = await apiFetch(`/api/v1/game/download-url?${params}`)
 
     if (response.status === 401) {
       throw new Error('Installer tidak terautentikasi. Hubungi admin HyperTopia.')
@@ -268,8 +260,6 @@ export function GamesProvider({ children }) {
     if (hasPreloaded.current) return
     hasPreloaded.current = true
 
-    console.log('[GamesContext] Preloading data in background...')
-
     try {
       // Fetch first page of games (default params)
       const gamesPromise = fetchGames({
@@ -286,8 +276,6 @@ export function GamesProvider({ children }) {
       )
 
       await Promise.all([gamesPromise, qgoPromise])
-
-      console.log('[GamesContext] Preload complete!')
     } catch (err) {
       console.warn('[GamesContext] Preload error:', err)
     }

@@ -7,14 +7,10 @@ const api = {
   scanZip: (filePath) => ipcRenderer.invoke('scan-zip', filePath),
   getFilePath: (file) => {
     // Debug logging
-    console.log('[getFilePath] Input file object:', file)
-    console.log('[getFilePath] file.path:', file?.path)
-    console.log('[getFilePath] file.name:', file?.name)
 
     // Try webUtils.getPathForFile first (new Electron API)
     try {
       const webUtilsPath = webUtils.getPathForFile(file)
-      console.log('[getFilePath] webUtils.getPathForFile result:', webUtilsPath)
       if (webUtilsPath && webUtilsPath.length > 0) {
         return webUtilsPath
       }
@@ -24,7 +20,6 @@ const api = {
 
     // Fallback to file.path (older Electron / some browsers)
     if (file?.path && file.path.length > 0) {
-      console.log('[getFilePath] Using fallback file.path:', file.path)
       return file.path
     }
 
@@ -47,6 +42,7 @@ const api = {
     ipcRenderer.invoke('uninstall-app', deviceSerial, packageName),
   // New APIs for folder selection
   selectGameFolder: () => ipcRenderer.invoke('select-game-folder'),
+  selectArchiveFile: () => ipcRenderer.invoke('select-archive-file'),
   scanFolder: (folderPath) => ipcRenderer.invoke('scan-folder', folderPath),
   installGameFolder: (folderPath, type, deviceSerial) =>
     ipcRenderer.invoke('install-game-folder', { folderPath, type, deviceSerial }),
@@ -142,7 +138,9 @@ const api = {
   // Reads a JSON file from app userData directory. Returns parsed object/array, or null if not found.
   storeRead: (fileName) => ipcRenderer.invoke('store-read', fileName),
   // Writes data as pretty-printed JSON to app userData directory.
-  storeWrite: (fileName, data) => ipcRenderer.invoke('store-write', fileName, data)
+  storeWrite: (fileName, data) => ipcRenderer.invoke('store-write', fileName, data),
+  // Secure API proxy — secret never leaves main process
+  apiFetch: (path, options) => ipcRenderer.invoke('api-fetch', { path, options })
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

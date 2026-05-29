@@ -40,7 +40,6 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
   useEffect(() => {
     // Listen for update events from main process
     const unsubAvailable = window.api.onUpdateAvailable((info) => {
-      console.log('[Update] Available:', info)
       setUpdateInfo(info)
       setUpdateState('available')
       setDismissed(false)
@@ -54,7 +53,6 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
 
     // Mac: manual update notification (no auto-install, open browser instead)
     const unsubMacAvailable = window.api.onUpdateAvailableMac?.((info) => {
-      console.log('[Update] Mac update available:', info)
       setMacUpdateInfo(info)
       onUpdateAvailable?.(true, info)
     })
@@ -68,7 +66,6 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
     })
 
     const unsubDownloaded = window.api.onUpdateDownloaded((info) => {
-      console.log('[Update] Downloaded:', info)
       setUpdateInfo(info)
       setUpdateState('ready')
       setDownloadProgress(100)

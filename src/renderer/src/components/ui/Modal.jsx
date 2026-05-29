@@ -8,7 +8,7 @@ const sizeMap = {
   md: 'max-w-lg',
   lg: 'max-w-2xl',
   xl: 'max-w-4xl',
-  full: 'max-w-[95vw]',
+  full: 'max-w-[95vw]'
 }
 
 export function Modal({
@@ -24,7 +24,7 @@ export function Modal({
   closeOnBackdrop = true,
   headerRight,
   hideTrafficLights = false,
-  overlayOpacity = 70,
+  overlayOpacity = 70
 }) {
   const [showTooltip, setShowTooltip] = useState(false)
 
@@ -53,73 +53,74 @@ export function Modal({
             >
               {/* macOS Traffic Light Header */}
               {!hideTrafficLights && (
-              <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-200 dark:border-white/10">
-                {/* Traffic Lights */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* Red - Close (clickable) */}
-                  <div
-                    className="relative"
-                    onMouseEnter={() => setShowTooltip(true)}
-                    onMouseLeave={() => setShowTooltip(false)}
-                  >
-                    <button
-                      onClick={() => onClose()}
-                      className="w-3.5 h-3.5 rounded-full bg-[#FF5F57]/60 hover:bg-[#FF3B30] transition-colors flex items-center justify-center group"
+                <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-200 dark:border-white/10">
+                  {/* Traffic Lights */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Red - Close (clickable) */}
+                    <div
+                      className="relative"
+                      onMouseEnter={() => setShowTooltip(true)}
+                      onMouseLeave={() => setShowTooltip(false)}
                     >
-                      <Icon
-                        icon="material-symbols:close"
-                        className="h-3 w-3 text-[#4A0000] opacity-0 group-hover:opacity-100 transition-opacity"
-                      />
-                    </button>
-                    {/* Custom Tooltip */}
-                    {showTooltip && (
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-[10px] font-medium rounded-md whitespace-nowrap z-50 pointer-events-none">
-                        <div className="flex items-center gap-1">
-                          <Icon icon="material-symbols:close" className="h-3 w-3" />
-                          <span>Close</span>
-                        </div>
-                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 dark:bg-gray-700 rotate-45" />
-                      </div>
-                    )}
-                  </div>
-                  {/* Yellow - Grayed out */}
-                  <div className="w-3.5 h-3.5 rounded-full bg-gray-400/30" />
-                  {/* Green - Grayed out */}
-                  <div className="w-3.5 h-3.5 rounded-full bg-gray-400/30" />
-                </div>
-
-                {/* Title */}
-                {title && (
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3">
-                      {icon && (
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${iconColor}15` }}>
-                          <Icon icon={icon} className="h-4 w-4" style={{ color: iconColor }} />
+                      <button
+                        onClick={() => onClose()}
+                        className="w-3.5 h-3.5 rounded-full bg-[#FF5F57]/60 hover:bg-[#FF3B30] transition-colors flex items-center justify-center group"
+                      >
+                        <Icon
+                          icon="material-symbols:close"
+                          className="h-3 w-3 text-[#4A0000] opacity-0 group-hover:opacity-100 transition-opacity"
+                        />
+                      </button>
+                      {/* Custom Tooltip */}
+                      {showTooltip && (
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-[10px] font-medium rounded-md whitespace-nowrap z-50 pointer-events-none">
+                          <div className="flex items-center gap-1">
+                            <Icon icon="material-symbols:close" className="h-3 w-3" />
+                            <span>Close</span>
+                          </div>
+                          <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 dark:bg-gray-700 rotate-45" />
                         </div>
                       )}
-                      <div className="min-w-0">
-                        <h2 className="text-base font-semibold text-gray-900 dark:text-white truncate">
-                          {title}
-                        </h2>
-                        {subtitle && (
-                          <p className="text-xs text-gray-500 dark:text-white/50 mt-0.5">
-                            {subtitle}
-                          </p>
+                    </div>
+                    {/* Yellow - Grayed out */}
+                    <div className="w-3.5 h-3.5 rounded-full bg-gray-400/30" />
+                    {/* Green - Grayed out */}
+                    <div className="w-3.5 h-3.5 rounded-full bg-gray-400/30" />
+                  </div>
+
+                  {/* Title */}
+                  {title && (
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3">
+                        {icon && (
+                          <div
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                            style={{ backgroundColor: `${iconColor}15` }}
+                          >
+                            <Icon icon={icon} className="h-4 w-4" style={{ color: iconColor }} />
+                          </div>
                         )}
+                        <div className="min-w-0">
+                          <h2 className="text-base font-semibold text-gray-900 dark:text-white truncate">
+                            {title}
+                          </h2>
+                          {subtitle && (
+                            <p className="text-xs text-gray-500 dark:text-white/50 mt-0.5">
+                              {subtitle}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Extra header content (right side) */}
-                {headerRight && <div className="shrink-0">{headerRight}</div>}
-              </div>
+                  {/* Extra header content (right side) */}
+                  {headerRight && <div className="shrink-0">{headerRight}</div>}
+                </div>
               )}
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
-                {children}
-              </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar">{children}</div>
 
               {/* Footer */}
               {footer && (
@@ -147,5 +148,6 @@ Modal.propTypes = {
   footer: PropTypes.node,
   closeOnBackdrop: PropTypes.bool,
   headerRight: PropTypes.node,
-  overlayOpacity: PropTypes.number,
+  hideTrafficLights: PropTypes.bool,
+  overlayOpacity: PropTypes.number
 }

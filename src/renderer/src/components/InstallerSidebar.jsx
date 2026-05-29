@@ -255,10 +255,6 @@ export function InstallerSidebar({
 
       const filePath = window.api.getFilePath(paramFile)
       // Debug logging for production troubleshooting
-      console.log('[processFile] paramFile:', paramFile)
-      console.log('[processFile] paramFile.name:', paramFile?.name)
-      console.log('[processFile] paramFile.path:', paramFile?.path)
-      console.log('[processFile] resolved filePath:', filePath)
 
       if (!filePath) throw new Error('Could not resolve file path.')
 
@@ -304,9 +300,24 @@ export function InstallerSidebar({
   }
 
   // Handle archive selection (existing behavior)
-  const handleSelectArchive = () => {
+  const handleSelectArchive = async () => {
     setShowBrowseModal(false)
-    fileInputRef.current.click()
+    try {
+      const fileInfo = await window.api.selectArchiveFile()
+      if (!fileInfo) return
+
+      const fileObj = {
+        name: fileInfo.name,
+        path: fileInfo.path,
+        size: fileInfo.size || 0
+      }
+
+      setSourceType('archive')
+      setFolderPath(null)
+      processFile(fileObj)
+    } catch (err) {
+      console.error('Failed to select archive:', err)
+    }
   }
 
   // Handle folder selection (new behavior)
@@ -724,6 +735,7 @@ export function InstallerSidebar({
               type: sourceType,
               hasObb: status?.hasObb,
               obbFolder: status?.obbFolder,
+              apkName: status?.apkName || null,
               apkSize: status?.apkSize || 0,
               obbSize: status?.obbSize || 0,
               obbEntries: [],
@@ -903,7 +915,7 @@ export function InstallerSidebar({
                 </button>
               </div>
             ) : (
-              <div className="mb-6 rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#151921] p-5 shadow-lg">
+              <div className="mb-6 rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#151921] p-5">
                 <div className="flex items-start gap-4">
                   <div
                     className={`shrink-0 rounded-xl p-3 ${
@@ -931,6 +943,18 @@ export function InstallerSidebar({
                           ? t('badge_apk_obb') || 'APK + OBB'
                           : t('badge_apk') || 'APK ONLY'}
                       </span>
+
+                      {sourceType !== 'folder' && (
+                        <span
+                          className={`inline-flex items-center rounded bg-gray-100 dark:bg-[#111520] px-2 py-1 text-[11px] font-bold tracking-wider ring-1 ring-inset ${
+                            file?.name?.toLowerCase().endsWith('.rar')
+                              ? 'text-purple-600 dark:text-purple-400 ring-purple-500/30'
+                              : 'text-yellow-700 dark:text-yellow-500 ring-yellow-500/30'
+                          }`}
+                        >
+                          {file?.name?.toLowerCase().endsWith('.rar') ? 'RAR' : 'ZIP'}
+                        </span>
+                      )}
 
                       <span className="inline-flex items-center rounded bg-gray-100 dark:bg-[#111520] px-2 py-1 text-[11px] font-bold tracking-wider text-gray-600 dark:text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600/30">
                         {(() => {
@@ -960,7 +984,7 @@ export function InstallerSidebar({
                   >
                     <Icon icon="mdi:swap-horizontal" className="text-sm" />
                     {t('change_method') ||
-                      (language === 'id' ? 'Ganti File/Folder' : 'Change File/Folder')}
+                      (language === 'id' ? 'Ganti Metode' : 'Change Method')}
                   </button>
                   <button
                     onClick={openDetailsModal}
@@ -974,7 +998,7 @@ export function InstallerSidebar({
             )}
 
             {/* Quick Access Buttons */}
-            <div className="mb-6 grid grid-cols-2 gap-3">
+            <div className="mb-6 flex flex-col gap-3">
               <button
                 onClick={() => onNavigateToTab && onNavigateToTab('games')}
                 className="group flex items-center gap-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-2.5 transition-all hover:border-[#0081FB]/50 hover:bg-[#0081FB]/10 text-left"
@@ -1173,6 +1197,7 @@ export function InstallerSidebar({
           type: sourceType,
           hasObb: status?.hasObb,
           obbFolder: status?.obbFolder,
+          apkName: status?.apkName || null,
           apkSize: status?.apkSize || 0,
           obbSize: status?.obbSize || 0,
           obbEntries: [],

@@ -272,13 +272,14 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Icon icon="mdi:clock-outline" className="h-6 w-6 text-gray-300 dark:text-white/20" />
+                      <Icon
+                        icon="mdi:clock-outline"
+                        className="h-6 w-6 text-gray-300 dark:text-white/20"
+                      />
                     </div>
                   )}
                   <div className="absolute top-1.5 left-1.5 h-5 w-5 rounded-full bg-black/60 flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-white leading-none">
-                      {idx + 1}
-                    </span>
+                    <span className="text-[10px] font-bold text-white leading-none">{idx + 1}</span>
                   </div>
                 </div>
 
@@ -356,9 +357,7 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
             historyTab === 'downloads' ? e.type === 'download' : e.type === 'install'
           )
           const emptyIcon =
-            historyTab === 'downloads'
-              ? 'mdi:download-off-outline'
-              : 'mdi:package-variant-remove'
+            historyTab === 'downloads' ? 'mdi:download-off-outline' : 'mdi:package-variant-remove'
           const emptyTitle =
             historyTab === 'downloads'
               ? t('da_no_recent') || 'Belum ada riwayat unduhan'
@@ -374,9 +373,7 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                 <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center mb-3">
                   <Icon icon={emptyIcon} className="h-6 w-6 text-gray-400 dark:text-white/20" />
                 </div>
-                <p className="text-sm font-medium text-gray-500 dark:text-white/30">
-                  {emptyTitle}
-                </p>
+                <p className="text-sm font-medium text-gray-500 dark:text-white/30">{emptyTitle}</p>
                 <p className="text-xs text-gray-400 dark:text-white/20 mt-1">{emptySub}</p>
               </div>
             )
@@ -384,11 +381,11 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
 
           return (
             <div className="flex flex-col gap-2">
-            {filtered.map((entry, idx) => (
+              {filtered.map((entry, idx) => (
                 <div
                   key={entry.id || `${entry.gameTitle}-${entry.completedAt}-${idx}`}
-              className="relative rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#191919] overflow-hidden flex flex-row"
-            >
+                  className="relative rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#191919] overflow-hidden flex flex-row"
+                >
                   {!entry.seen && (
                     <span className="absolute top-2 left-[108px] h-2 w-2 rounded-full bg-[#0081FB] z-10" />
                   )}
@@ -463,7 +460,9 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
                             : 'bg-emerald-600 text-white'
                         }`}
                       >
-                        {entry.type === 'install' ? t('installed') || 'Installed' : t('downloaded') || 'Downloaded'}
+                        {entry.type === 'install'
+                          ? t('installed') || 'Installed'
+                          : t('downloaded') || 'Downloaded'}
                       </span>
                       {(() => {
                         const isQgo = (entry.gameTitle || '')

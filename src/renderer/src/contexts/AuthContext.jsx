@@ -1,10 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
+import { apiFetch } from '../utils/apiClient'
 
 const AuthContext = createContext()
 
-// Firebase Database URL
+// Firebase Database URL (used only for device-code login flow, NOT eligibility)
 const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
 
 // Generate random 5-character alphanumeric code (uppercase only for easier reading)
@@ -29,7 +30,7 @@ export function AuthProvider({ children }) {
   const [deviceCodeError, setDeviceCodeError] = useState(null)
   const pollIntervalRef = useRef(null)
 
-  // Check eligibility for all categories
+  // Check eligibility for all categories — server-side via API (never exposes other users' data)
   const checkEligibility = useCallback(async (email) => {
     if (!email) {
       setAccessTypes([])
@@ -39,41 +40,22 @@ export function AuthProvider({ children }) {
     setEligibilityLoading(true)
 
     try {
-      // Fetch all data from each category and filter client-side
-      // This avoids the need for Firebase Rules indexing on REST API
-      const [standaloneRes, pcvrRes, qgoRes] = await Promise.all([
-        fetch(`${FIREBASE_DB_URL}/eligibleUsers/standalone.json`),
-        fetch(`${FIREBASE_DB_URL}/eligibleUsers/pcvr.json`),
-        fetch(`${FIREBASE_DB_URL}/eligibleUsers/qgo.json`)
-      ])
+      const res = await apiFetch(`/api/v1/user-profile?email=${encodeURIComponent(email)}`)
 
-      const [standaloneData, pcvrData, qgoData] = await Promise.all([
-        standaloneRes.ok ? standaloneRes.json() : null,
-        pcvrRes.ok ? pcvrRes.json() : null,
-        qgoRes.ok ? qgoRes.json() : null
-      ])
+      if (!res.ok) {
+        console.warn('[Auth] Eligibility check failed:', res.status)
+        setAccessTypes([])
+        return []
+      }
 
-      // Filter by email client-side
-      const hasStandaloneAccess =
-        standaloneData &&
-        Object.values(standaloneData).some(
-          (user) => user && user.email && user.email.toLowerCase() === email.toLowerCase()
-        )
-      const hasPcvrAccess =
-        pcvrData &&
-        Object.values(pcvrData).some(
-          (user) => user && user.email && user.email.toLowerCase() === email.toLowerCase()
-        )
-      const hasQgoAccess =
-        qgoData &&
-        Object.values(qgoData).some(
-          (user) => user && user.email && user.email.toLowerCase() === email.toLowerCase()
-        )
+      const data = await res.json()
+      if (!data.success || !data.profile) {
+        setAccessTypes([])
+        return []
+      }
 
-      const access = []
-      if (hasStandaloneAccess) access.push('standalone')
-      if (hasPcvrAccess) access.push('pcvr')
-      if (hasQgoAccess) access.push('qgo')
+      // API returns accessTypes array directly on the profile object
+      const access = Array.isArray(data.profile.accessTypes) ? data.profile.accessTypes : []
 
       setAccessTypes(access)
       return access
@@ -107,17 +89,14 @@ export function AuthProvider({ children }) {
         email: userData.email || null,
         uid: userData.uid,
         userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
-        deviceInfo,
+        deviceInfo
       }
 
-      const res = await fetch(
-        `${FIREBASE_DB_URL}/loginHistory/${userData.uid}.json`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(event)
-        }
-      )
+      const res = await fetch(`${FIREBASE_DB_URL}/loginHistory/${userData.uid}.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(event)
+      })
       if (!res.ok) {
         console.warn('recordLogin response not ok:', res.status)
       }
@@ -161,26 +140,16 @@ export function AuthProvider({ children }) {
     if (!window.electron?.ipcRenderer) return
 
     const handleAuthCallback = async (_, data) => {
-      console.log('[Auth] Deep link auth-callback received:', data)
-      if (data?.success && data?.email && data?.accessToken) {
-        // Decode JWT to get uid
-        try {
-          const parts = data.accessToken.split('.')
-          if (parts.length === 3) {
-            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
-            const uid = payload.user_id || payload.sub || null
-            const userData = {
-              uid,
-              email: data.email,
-              displayName: data.displayName || null,
-              photoURL: data.photoURL || null,
-              loginAt: Date.now()
-            }
-            await saveUser(userData, 'browser-deep-link')
-          }
-        } catch (err) {
-          console.error('[Auth] Error parsing deep link token:', err)
+      // uid is now extracted in main process — no JWT decode in renderer
+      if (data?.success && data?.email) {
+        const userData = {
+          uid: data.uid || null,
+          email: data.email,
+          displayName: data.displayName || null,
+          photoURL: data.photoURL || null,
+          loginAt: Date.now()
         }
+        await saveUser(userData, 'browser-deep-link')
       }
     }
 

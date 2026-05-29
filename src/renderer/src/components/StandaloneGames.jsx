@@ -47,7 +47,7 @@ export function StandaloneGames({
   const { t } = useLanguage()
   const { user, accessTypes } = useAuth()
   const { fetchGames: fetchGamesFromContext, getCachedGames } = useGames()
-  const isEligible = accessTypes.includes('standalone')
+  const isEligible = accessTypes.some((t) => t.toLowerCase() === 'standalone')
 
   const [games, setGames] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -205,8 +205,6 @@ export function StandaloneGames({
   // Handle deep link download from website
   useEffect(() => {
     if (pendingDeepLinkDownload && pendingDeepLinkDownload.game && games.length > 0) {
-      console.log('[DeepLinkDownload] Looking for game:', pendingDeepLinkDownload.game)
-
       // Find the game that matches the name
       const matchingGame = games.find((game) => {
         const gameTitle = game.gameTitle || game.name || ''
@@ -214,7 +212,6 @@ export function StandaloneGames({
       })
 
       if (matchingGame) {
-        console.log('[DeepLinkDownload] Found matching game:', matchingGame.gameTitle)
         setSelectedGame(matchingGame)
         setShowGameDetail(true)
         // Clear the pending download
@@ -222,7 +219,6 @@ export function StandaloneGames({
           onDeepLinkProcessed()
         }
       } else {
-        console.log('[DeepLinkDownload] Game not found in current page, searching...')
         // Set search query to find the game
         setSearchQuery(pendingDeepLinkDownload.game)
         setDebouncedSearch(pendingDeepLinkDownload.game)
@@ -377,8 +373,8 @@ export function StandaloneGames({
                 />
               </div>
 
-              {/* Items Per Page */}
-              <select
+              {/* Items Per Page - hidden */}
+              {/* <select
                 value={itemsPerPage}
                 onChange={(e) => setItemsPerPage(Number(e.target.value))}
                 className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] px-2 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-[#0081FB]/50 transition-colors cursor-pointer"
@@ -388,10 +384,10 @@ export function StandaloneGames({
                     {option}
                   </option>
                 ))}
-              </select>
+              </select> */}
 
-              {/* Sort By Dropdown */}
-              <select
+              {/* Sort By Dropdown - hidden */}
+              {/* <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-[#0081FB]/50 transition-colors cursor-pointer"
@@ -402,14 +398,14 @@ export function StandaloneGames({
                 <option value="downloads">{t('sort_by_downloads') || 'Download'}</option>
                 <option value="size">{t('sort_by_size') || 'Ukuran'}</option>
                 <option value="rating">{t('sort_by_rating') || 'Rating'}</option>
-              </select>
+              </select> */}
 
               {/* Device Preference Button */}
               <button
                 onClick={() => setShowDeviceModal(true)}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                   devicePreference
-                    ? 'border-blue-500/50 bg-blue-500/10 text-blue-400'
+                    ? 'border-[#0081FB] bg-[#0081FB] text-white hover:bg-[#0070e0]'
                     : 'border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] text-gray-500 dark:text-white/70 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
                 }`}
                 title={t('device_preference_title') || 'Select Device'}
@@ -425,8 +421,8 @@ export function StandaloneGames({
                 </span>
               </button>
 
-              {/* Sort Order Toggle */}
-              <button
+              {/* Sort Order Toggle - hidden */}
+              {/* <button
                 onClick={toggleSortOrder}
                 className="flex items-center justify-center rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] p-2 text-gray-500 dark:text-white/70 transition-colors hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white"
                 title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
@@ -435,10 +431,10 @@ export function StandaloneGames({
                   icon={sortOrder === 'asc' ? 'mdi:sort-ascending' : 'mdi:sort-descending'}
                   className="h-5 w-5"
                 />
-              </button>
+              </button> */}
 
-              {/* View Mode Toggle */}
-              <div className="flex items-center rounded-lg border border-gray-200 dark:border-white/10 overflow-hidden">
+              {/* View Mode Toggle - hidden */}
+              {/* <div className="flex items-center rounded-lg border border-gray-200 dark:border-white/10 overflow-hidden">
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`flex items-center justify-center p-2 transition-colors ${
@@ -461,7 +457,7 @@ export function StandaloneGames({
                 >
                   <Icon icon="mdi:view-list" className="h-4 w-4" />
                 </button>
-              </div>
+              </div> */}
             </div>
           </div>
 

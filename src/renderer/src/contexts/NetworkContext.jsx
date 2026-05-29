@@ -84,14 +84,12 @@ export function NetworkProvider({ children }) {
    * Handle online/offline browser events
    */
   const handleOnline = useCallback(() => {
-    console.log('[Network] Browser reports online')
     setIsOnline(true)
     // Verify API is actually reachable
     checkApiConnectivity()
   }, [checkApiConnectivity])
 
   const handleOffline = useCallback(() => {
-    console.log('[Network] Browser reports offline')
     setIsOnline(false)
     setIsApiReachable(false)
     setShowOfflineNotification(true)

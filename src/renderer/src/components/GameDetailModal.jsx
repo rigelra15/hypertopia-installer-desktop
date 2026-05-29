@@ -11,12 +11,10 @@ import coverImages from '../utils/coverImages'
 import { Tooltip } from './Tooltip'
 import UpdateGameDialog from './UpdateGameDialog'
 import ReportGameDialog from './ReportGameDialog'
+import { apiFetch } from '../utils/apiClient'
 
 // Firebase Database URL (same as website for game data)
 const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
-
-// HyperTopia API URL
-const API_BASE_URL = 'https://api.hypertopia.web.id'
 
 // Helper function to compare versions (from highest to lowest)
 const compareVersions = (versionA, versionB) => {
@@ -90,7 +88,7 @@ export default function GameDetailModal({
   } = useDownload()
   const toast = useToast()
   const { fetchDownloadUrl } = useGames()
-  const isEligible = accessTypes.includes('standalone')
+  const isEligible = accessTypes.some((t) => t.toLowerCase() === 'standalone')
 
   const [coverUrl, setCoverUrl] = useState(null)
   const [loadingImage, setLoadingImage] = useState(true)
@@ -402,8 +400,6 @@ export default function GameDetailModal({
           body: JSON.stringify(historyEntry)
         })
       }
-
-      console.log('[GameDetailModal] Download count updated successfully')
     } catch (error) {
       console.error('[GameDetailModal] Failed to update download count:', error)
       // Don't show error to user - download count update is non-critical
@@ -587,12 +583,8 @@ export default function GameDetailModal({
     if (!identifier || !fileSize || fileSize <= 0) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/game-size`, {
+      const response = await apiFetch('/api/v1/game-size', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Secret': import.meta.env.REACT_APP_HYPERTOPIA_API_SECRET || import.meta.env.VITE_HYPERTOPIA_API_SECRET || ''
-        },
         body: JSON.stringify({
           type: 'standalone',
           identifier: identifier,
@@ -600,9 +592,7 @@ export default function GameDetailModal({
         })
       })
 
-      if (response.ok) {
-        console.log(`[GameDetailModal] File size updated for ${identifier}: ${fileSize} bytes`)
-      } else {
+      if (!response.ok) {
         console.warn('[GameDetailModal] Failed to update file size:', await response.text())
       }
     } catch (error) {

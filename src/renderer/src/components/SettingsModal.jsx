@@ -47,7 +47,7 @@ export function SettingsModal({
           setIsCheckingLatest(false)
         })
     }
-  }, [isOpen])
+  }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const loadDiskSpace = async () => {
@@ -164,7 +164,8 @@ export function SettingsModal({
                   <span className="text-[#0081FB] font-medium">
                     {t('settings_folder_usage_label') || 'Used for:'}
                   </span>{' '}
-                  {t('settings_folder_usage_items') || 'Extraction, Standalone Games, QGO downloads'}
+                  {t('settings_folder_usage_items') ||
+                    'Extraction, Standalone Games, QGO downloads'}
                 </div>
               </div>
             </div>
@@ -258,7 +259,10 @@ export function SettingsModal({
                 className="w-full flex items-center justify-between rounded-lg border border-green-500/30 bg-green-500/10 p-3 transition-all hover:bg-green-500/20"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <Icon icon="line-md:arrow-up-circle" className="h-5 w-5 shrink-0 text-green-400" />
+                  <Icon
+                    icon="line-md:arrow-up-circle"
+                    className="h-5 w-5 shrink-0 text-green-400"
+                  />
                   <div className="min-w-0 text-left">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       {t('update_new_version') || 'New Version Available!'}
@@ -294,10 +298,16 @@ export function SettingsModal({
                   onChange={(e) => setLanguage(e.target.value)}
                   className="appearance-none bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-xs font-bold text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white uppercase cursor-pointer outline-none focus:ring-1 focus:ring-[#0081FB]/50 transition-all w-full"
                 >
-                  <option value="en" className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white">
+                  <option
+                    value="en"
+                    className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                  >
                     English (EN)
                   </option>
-                  <option value="id" className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white">
+                  <option
+                    value="id"
+                    className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                  >
                     Indonesia (ID)
                   </option>
                 </select>
@@ -328,16 +338,28 @@ export function SettingsModal({
                   onChange={(e) => setTheme(e.target.value)}
                   className="appearance-none bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg pl-3 pr-8 py-1.5 text-xs font-bold text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white uppercase cursor-pointer outline-none focus:ring-1 focus:ring-[#0081FB]/50 transition-all w-full"
                 >
-                  <option value="dark" className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white">
+                  <option
+                    value="dark"
+                    className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                  >
                     {t('settings_theme_dark') || 'Dark'}
                   </option>
-                  <option value="light" className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white">
+                  <option
+                    value="light"
+                    className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                  >
                     {t('settings_theme_light') || 'Light'}
                   </option>
-                  <option value="system" className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white">
+                  <option
+                    value="system"
+                    className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                  >
                     {t('settings_theme_system') || 'System'}
                   </option>
-                  <option value="auto" className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white">
+                  <option
+                    value="auto"
+                    className="bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white"
+                  >
                     {t('settings_theme_auto') || 'Auto (Time)'}
                   </option>
                 </select>
@@ -373,14 +395,20 @@ export function SettingsModal({
                   <span className="text-xs font-mono text-gray-400 dark:text-white/40">
                     v{appVersion ? appVersion.version : '...'}
                   </span>
-                  <Icon icon="line-md:chevron-right" className="h-4 w-4 text-gray-300 dark:text-white/30" />
+                  <Icon
+                    icon="line-md:chevron-right"
+                    className="h-4 w-4 text-gray-300 dark:text-white/30"
+                  />
                 </div>
               </button>
 
               <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 space-y-2 text-left">
                 <div className="flex items-center justify-between">
                   <div className="flex min-w-0 items-center gap-2">
-                    <Icon icon="mdi:cellphone-arrow-down" className="h-4 w-4 shrink-0 text-gray-400 dark:text-white/40" />
+                    <Icon
+                      icon="mdi:cellphone-arrow-down"
+                      className="h-4 w-4 shrink-0 text-gray-400 dark:text-white/40"
+                    />
                     <span className="text-xs text-gray-500 dark:text-white/50 truncate">
                       {t('settings_installed_version') || 'Installed Version'}
                     </span>
@@ -391,7 +419,10 @@ export function SettingsModal({
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex min-w-0 items-center gap-2">
-                    <Icon icon="mdi:cloud-check-outline" className="h-4 w-4 shrink-0 text-gray-400 dark:text-white/40" />
+                    <Icon
+                      icon="mdi:cloud-check-outline"
+                      className="h-4 w-4 shrink-0 text-gray-400 dark:text-white/40"
+                    />
                     <span className="text-xs text-gray-500 dark:text-white/50 truncate">
                       {t('settings_latest_version') || 'Latest Version'}
                     </span>
@@ -416,9 +447,15 @@ export function SettingsModal({
                     }`}
                   >
                     <Icon
-                      icon={latestRelease.version === appVersion.version ? 'mdi:check-circle' : 'mdi:alert-circle'}
+                      icon={
+                        latestRelease.version === appVersion.version
+                          ? 'mdi:check-circle'
+                          : 'mdi:alert-circle'
+                      }
                       className={`h-4 w-4 shrink-0 ${
-                        latestRelease.version === appVersion.version ? 'text-green-500' : 'text-amber-500'
+                        latestRelease.version === appVersion.version
+                          ? 'text-green-500'
+                          : 'text-amber-500'
                       }`}
                     />
                     <span
@@ -430,30 +467,42 @@ export function SettingsModal({
                     >
                       {latestRelease.version === appVersion.version
                         ? t('settings_version_up_to_date') || 'Your app is up to date!'
-                        : t('settings_version_outdated') || `Update available: v${latestRelease.version}`}
+                        : t('settings_version_outdated') ||
+                          `Update available: v${latestRelease.version}`}
                     </span>
                   </div>
                 )}
 
-                {!isCheckingLatest && latestRelease?.version && appVersion?.version && latestRelease.version !== appVersion.version && (
-                  <div className="mt-1 rounded-md border border-[#0081FB]/20 bg-[#0081FB]/5 p-2.5">
-                    <div className="flex gap-2">
-                      <Icon icon="mdi:information-outline" className="h-4 w-4 shrink-0 text-[#0081FB] mt-0.5" />
-                      <div className="min-w-0 text-[11px] text-gray-600 dark:text-white/60 leading-relaxed text-left">
-                        <p>
-                          {t('settings_manual_update_hint') || "If auto-update doesn't detect this version, you can download it manually:"}
-                        </p>
-                        <button
-                          onClick={() => window.api.openExternal?.('https://hypertopia.web.id/software-pembantu')}
-                          className="mt-1 inline-flex items-center gap-1 text-[#0081FB] font-medium hover:underline text-left"
-                        >
-                          <Icon icon="mdi:open-in-new" className="h-3 w-3" />
-                          HyperTopia → Software Pembantu → HyperTopia Installer → Download
-                        </button>
+                {!isCheckingLatest &&
+                  latestRelease?.version &&
+                  appVersion?.version &&
+                  latestRelease.version !== appVersion.version && (
+                    <div className="mt-1 rounded-md border border-[#0081FB]/20 bg-[#0081FB]/5 p-2.5">
+                      <div className="flex gap-2">
+                        <Icon
+                          icon="mdi:information-outline"
+                          className="h-4 w-4 shrink-0 text-[#0081FB] mt-0.5"
+                        />
+                        <div className="min-w-0 text-[11px] text-gray-600 dark:text-white/60 leading-relaxed text-left">
+                          <p>
+                            {t('settings_manual_update_hint') ||
+                              "If auto-update doesn't detect this version, you can download it manually:"}
+                          </p>
+                          <button
+                            onClick={() =>
+                              window.api.openExternal?.(
+                                'https://hypertopia.web.id/software-pembantu'
+                              )
+                            }
+                            className="mt-1 inline-flex items-center gap-1 text-[#0081FB] font-medium hover:underline text-left"
+                          >
+                            <Icon icon="mdi:open-in-new" className="h-3 w-3" />
+                            HyperTopia → Software Pembantu → HyperTopia Installer → Download
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
 
               <button

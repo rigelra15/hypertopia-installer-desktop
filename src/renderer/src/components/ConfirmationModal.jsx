@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -39,8 +38,13 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
   }
 
   const getSubtitle = () => {
-    if (mode === 'clear-all') return t('clear_downloads_desc') || 'All files in the Downloads folder will be permanently deleted.'
-    if (mode === 'delete') return t('delete_confirm_desc') || 'This file will be permanently deleted.'
+    if (mode === 'clear-all')
+      return (
+        t('clear_downloads_desc') ||
+        'All files in the Downloads folder will be permanently deleted.'
+      )
+    if (mode === 'delete')
+      return t('delete_confirm_desc') || 'This file will be permanently deleted.'
     if (mode === 'view') return null
     return t('confirm_install_desc') || 'Review the file details before installing.'
   }
@@ -164,22 +168,18 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
           </span>
           <span
             className={`text-xs px-2.5 py-0.5 rounded font-bold uppercase tracking-wider ${
-              type === 'zip' || type === 'archive'
-                ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-500 border border-yellow-500/30'
-                : type === 'rar'
-                  ? 'bg-[#0081FB]/20 text-[#0081FB] dark:text-[#0081FB] border border-[#0081FB]/30'
-                  : type === 'folder'
-                    ? 'bg-[#0081FB]/20 text-[#0060cc] dark:text-[#0081FB] border border-[#0081FB]/30'
-                    : 'bg-gray-500/20 text-gray-600 dark:text-gray-400 border border-gray-500/30'
+              name?.toLowerCase().endsWith('.rar')
+                ? 'bg-purple-500/20 text-purple-700 dark:text-purple-400 border border-purple-500/30'
+                : type === 'folder'
+                  ? 'bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30'
+                  : 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-500 border border-yellow-500/30'
             }`}
           >
-            {type === 'zip' || type === 'archive'
-              ? t('badge_zip') || 'ZIP'
-              : type === 'rar'
-                ? t('badge_rar') || 'RAR'
-                : type === 'folder'
-                  ? 'FOLDER'
-                  : 'FILE'}
+            {name?.toLowerCase().endsWith('.rar')
+              ? 'RAR'
+              : type === 'folder'
+                ? 'FOLDER'
+                : 'ZIP'}
           </span>
           <span className="text-xs px-2.5 py-0.5 rounded font-bold tracking-wider text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-600/30 border border-gray-300 dark:border-gray-500/30 sm:ml-auto">
             {formatSize(size)} TOTAL
@@ -233,10 +233,22 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
                 {formatSize(type === 'apk' ? size : fileData.apkSize || size)}
               </span>
             </div>
-            <span className="text-gray-700 dark:text-gray-200 font-medium break-all">
-              {name}
-            </span>
+            <span className="text-gray-700 dark:text-gray-200 font-medium break-all">{name}</span>
           </div>
+
+          {fileData.apkName && type !== 'folder' && (
+            <div className="flex flex-col gap-1 text-sm mt-2 pt-3 border-t border-gray-200 dark:border-[#2A3241]">
+              <div className="flex justify-between items-center mb-1 gap-2">
+                <span className="text-gray-600 dark:text-gray-400 font-medium flex items-center gap-1.5 shrink-0">
+                  <Icon icon="mdi:android" className="text-base" />
+                  APK
+                </span>
+              </div>
+              <span className="text-gray-700 dark:text-gray-200 font-medium break-all text-xs font-mono">
+                {fileData.apkName}
+              </span>
+            </div>
+          )}
           {hasObb && (
             <div className="flex flex-col text-sm gap-2 mt-2 pt-3 border-t border-gray-200 dark:border-[#2A3241]">
               <div className="flex justify-between items-center mb-1">
@@ -262,7 +274,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
                   {t('obb_files_list') || 'OBB Files'}
                 </div>
                 <div className="flex flex-col gap-1 mt-1 max-h-36 overflow-y-auto custom-scrollbar pr-1">
-                  {type === 'folder' &&
+                  {fileData.obbFiles?.length > 0 &&
                     fileData.obbFiles?.map((f, i) => (
                       <div
                         key={i}

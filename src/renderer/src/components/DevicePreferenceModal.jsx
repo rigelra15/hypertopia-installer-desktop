@@ -136,9 +136,7 @@ export function DevicePreferenceModal({ isOpen, onClose, onSave, currentDevice }
               />
               <span
                 className={`font-medium ${
-                  selectedDevice === device.id
-                    ? 'text-blue-400'
-                    : 'text-gray-900 dark:text-white'
+                  selectedDevice === device.id ? 'text-blue-400' : 'text-gray-900 dark:text-white'
                 }`}
               >
                 {device.label}

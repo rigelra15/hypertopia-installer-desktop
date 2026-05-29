@@ -94,7 +94,7 @@ export function SetupModal({ isOpen, onComplete }) {
       isOpen={isOpen}
       onClose={() => {}}
       title={t('setup_title') || 'Welcome to HyperTopia'}
-      subtitle={t('setup_desc') || 'Let\'s set up your installation'}
+      subtitle={t('setup_desc') || "Let's set up your installation"}
       icon="line-md:cog-filled"
       iconColor="#0081FB"
       size="md"
@@ -111,12 +111,15 @@ export function SetupModal({ isOpen, onComplete }) {
                 {t('setup_folder_usage_title') || 'This folder will be used for:'}
               </p>
               <ul className="list-disc list-inside space-y-0.5 text-gray-600 dark:text-white/70">
-                <li>{t('setup_folder_usage_1') || 'Temporary file extraction during installation'}</li>
+                <li>
+                  {t('setup_folder_usage_1') || 'Temporary file extraction during installation'}
+                </li>
                 <li>{t('setup_folder_usage_2') || 'Standalone Games downloads'}</li>
                 <li>{t('setup_folder_usage_3') || 'QGO (Quest Games Optimizer) downloads'}</li>
               </ul>
               <p className="mt-2 text-gray-400 dark:text-white/50">
-                {t('setup_folder_usage_note') || 'No need to select separate folders for downloads!'}
+                {t('setup_folder_usage_note') ||
+                  'No need to select separate folders for downloads!'}
               </p>
             </div>
           </div>
@@ -134,9 +137,7 @@ export function SetupModal({ isOpen, onComplete }) {
                   {extractPath}
                 </p>
               ) : (
-                <p className="text-xs text-gray-400 dark:text-white/30">
-                  {t('setup_no_folder')}
-                </p>
+                <p className="text-xs text-gray-400 dark:text-white/30">{t('setup_no_folder')}</p>
               )}
             </div>
             <button
@@ -162,7 +163,11 @@ export function SetupModal({ isOpen, onComplete }) {
           >
             <div className="flex gap-2">
               <Icon
-                icon={extractPath && extractPath.endsWith('HyperTopiaExtraction') ? 'mdi:check-circle' : 'mdi:information-outline'}
+                icon={
+                  extractPath && extractPath.endsWith('HyperTopiaExtraction')
+                    ? 'mdi:check-circle'
+                    : 'mdi:information-outline'
+                }
                 className={`h-4 w-4 shrink-0 ${
                   extractPath && extractPath.endsWith('HyperTopiaExtraction')
                     ? 'text-green-500'
@@ -171,7 +176,8 @@ export function SetupModal({ isOpen, onComplete }) {
               />
               <p className="text-xs text-gray-600 dark:text-white/70">
                 {extractPath && extractPath.endsWith('HyperTopiaExtraction')
-                  ? t('setup_folder_already_correct') || 'Folder yang dipilih sudah benar dan akan digunakan langsung.'
+                  ? t('setup_folder_already_correct') ||
+                    'Folder yang dipilih sudah benar dan akan digunakan langsung.'
                   : t('setup_folder_auto_create')}
               </p>
             </div>
@@ -200,7 +206,9 @@ export function SetupModal({ isOpen, onComplete }) {
               ></div>
             </div>
             <div className="mt-2 flex items-center justify-between text-[10px] text-gray-400 dark:text-white/40">
-              <span>{diskSpace.percent}% {t('storage_used')}</span>
+              <span>
+                {diskSpace.percent}% {t('storage_used')}
+              </span>
               <span>{diskSpace.used} used</span>
             </div>
           </div>
@@ -215,7 +223,11 @@ export function SetupModal({ isOpen, onComplete }) {
             {[
               { value: 'light', icon: 'ph:sun-bold', label: t('settings_theme_light') || 'Light' },
               { value: 'dark', icon: 'ph:moon-bold', label: t('settings_theme_dark') || 'Dark' },
-              { value: 'system', icon: 'ph:monitor-bold', label: t('settings_theme_system') || 'System' }
+              {
+                value: 'system',
+                icon: 'ph:monitor-bold',
+                label: t('settings_theme_system') || 'System'
+              }
             ].map(({ value, icon, label }) => (
               <button
                 key={value}

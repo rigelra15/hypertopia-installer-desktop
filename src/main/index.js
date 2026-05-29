@@ -1,9 +1,11 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
-import { join } from 'path'
+import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { exec, spawn, execFile } from 'child_process'
 import { autoUpdater } from 'electron-updater'
+import fs from 'fs-extra'
+import os from 'os'
 
 // Set app name for native OS integrations
 app.name = 'HyperTopia Installer'
@@ -70,8 +72,6 @@ app.on('open-url', (event, url) => {
 
 // Process deep link URL
 function handleDeepLink(url) {
-  console.log('[DeepLink] Received URL:', url)
-
   try {
     // Parse URL: hypertopia://auth-callback?token=xxx&email=xxx&name=xxx&photo=xxx
     // Or: hypertopia://download?game=xxx&version=xxx&url=xxx&type=standalone|qgo
@@ -85,29 +85,36 @@ function handleDeepLink(url) {
       const photo = params.get('photo')
 
       if (token && email) {
-        console.log('[DeepLink] Auth success for:', email)
+        // Extract uid from JWT payload in main process
+        let uid = null
+        try {
+          const payloadBase64 = token.split('.')[1]
+          if (payloadBase64) {
+            const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf8')
+            const payload = JSON.parse(payloadJson)
+            uid = payload.sub || payload.uid || payload.user_id || null
+          }
+        } catch (jwtErr) {
+          console.warn('[DeepLink] Could not extract uid from JWT:', jwtErr.message)
+        }
+
+        const authData = {
+          success: true,
+          uid,
+          email: decodeURIComponent(email),
+          displayName: name ? decodeURIComponent(name) : null,
+          photoURL: photo ? decodeURIComponent(photo) : null
+        }
 
         // Resolve pending auth if exists
         if (pendingAuthResolve) {
-          pendingAuthResolve({
-            success: true,
-            accessToken: token,
-            email: decodeURIComponent(email),
-            displayName: name ? decodeURIComponent(name) : null,
-            photoURL: photo ? decodeURIComponent(photo) : null
-          })
+          pendingAuthResolve(authData)
           pendingAuthResolve = null
         }
 
         // Also send to renderer if window exists
         if (mainWindow) {
-          mainWindow.webContents.send('auth-callback', {
-            success: true,
-            accessToken: token,
-            email: decodeURIComponent(email),
-            displayName: name ? decodeURIComponent(name) : null,
-            photoURL: photo ? decodeURIComponent(photo) : null
-          })
+          mainWindow.webContents.send('auth-callback', authData)
         }
       }
     } else if (urlObj.hostname === 'download' || urlObj.pathname.includes('download')) {
@@ -117,8 +124,6 @@ function handleDeepLink(url) {
       const version = params.get('version')
       const downloadUrl = params.get('url')
       const type = params.get('type') // 'standalone' or 'qgo'
-
-      console.log('[DeepLink] Download request:', { game, version, type })
 
       if (game && mainWindow) {
         // Send download request to renderer
@@ -151,14 +156,12 @@ function resetInstallationState() {
 
 // Cancel installation handler
 ipcMain.handle('cancel-installation', async () => {
-  console.log('[Cancel] Cancellation requested')
   installationState.isCancelled = true
 
   // Kill active child process if exists
   if (installationState.activeChildProcess) {
     try {
       installationState.activeChildProcess.kill('SIGTERM')
-      console.log('[Cancel] Killed active child process')
     } catch (err) {
       console.warn('[Cancel] Failed to kill child process:', err.message)
     }
@@ -168,7 +171,6 @@ ipcMain.handle('cancel-installation', async () => {
   if (installationState.tempDir && fs.existsSync(installationState.tempDir)) {
     try {
       await fs.remove(installationState.tempDir)
-      console.log('[Cancel] Cleaned up temp directory:', installationState.tempDir)
     } catch (err) {
       console.warn('[Cancel] Failed to cleanup temp dir:', err.message)
     }
@@ -198,14 +200,12 @@ function resetDownloadState() {
 
 // Cancel download handler
 ipcMain.handle('cancel-download', async () => {
-  console.log('[CancelDownload] Cancellation requested')
   downloadState.isCancelled = true
 
   // Abort active HTTP request if exists
   if (downloadState.activeRequest) {
     try {
       downloadState.activeRequest.destroy()
-      console.log('[CancelDownload] Destroyed active HTTP request')
     } catch (err) {
       console.warn('[CancelDownload] Failed to destroy request:', err.message)
     }
@@ -215,7 +215,6 @@ ipcMain.handle('cancel-download', async () => {
   if (downloadState.activeStream) {
     try {
       downloadState.activeStream.destroy()
-      console.log('[CancelDownload] Destroyed write stream')
     } catch (err) {
       console.warn('[CancelDownload] Failed to destroy stream:', err.message)
     }
@@ -224,10 +223,8 @@ ipcMain.handle('cancel-download', async () => {
   // Cleanup partial file if exists
   if (downloadState.activeFilePath) {
     try {
-      const fsNative = require('fs')
-      if (fsNative.existsSync(downloadState.activeFilePath)) {
-        fsNative.unlinkSync(downloadState.activeFilePath)
-        console.log('[CancelDownload] Cleaned up partial file:', downloadState.activeFilePath)
+      if (fs.existsSync(downloadState.activeFilePath)) {
+        fs.unlinkSync(downloadState.activeFilePath)
       }
     } catch (err) {
       console.warn('[CancelDownload] Failed to cleanup file:', err.message)
@@ -253,13 +250,21 @@ function createWindow() {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
-      webviewTag: true
+      webviewTag: false
     }
   })
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.maximize()
     mainWindow.show()
+  })
+
+  // Send maximize/unmaximize events to renderer
+  mainWindow.on('maximize', () => {
+    mainWindow.webContents.send('window-maximized')
+  })
+  mainWindow.on('unmaximize', () => {
+    mainWindow.webContents.send('window-unmaximized')
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -299,29 +304,19 @@ ipcMain.handle('is-window-maximized', () => {
   return mainWindow ? mainWindow.isMaximized() : false
 })
 
-// Send maximize/unmaximize events to renderer
-if (mainWindow) {
-  mainWindow.on('maximize', () => {
-    mainWindow.webContents.send('window-maximized')
-  })
-  mainWindow.on('unmaximize', () => {
-    mainWindow.webContents.send('window-unmaximized')
-  })
-}
+// Send maximize/unmaximize events to renderer — moved inside createWindow() above
 
 // IPC: Get Device Info (used for login history metadata)
 ipcMain.handle('get-device-info', () => {
-  // Lazy-require to avoid duplicate require at top
-  const osMod = require('os')
   return {
     platform: process.platform, // 'darwin' | 'win32' | 'linux'
     arch: process.arch,
-    osRelease: osMod.release(),
-    osVersion: typeof osMod.version === 'function' ? osMod.version() : '',
-    hostname: osMod.hostname(),
+    osRelease: os.release(),
+    osVersion: typeof os.version === 'function' ? os.version() : '',
+    hostname: os.hostname(),
     appVersion: app.getVersion(),
     electronVersion: process.versions.electron,
-    totalMemMB: Math.round(osMod.totalmem() / 1024 / 1024)
+    totalMemMB: Math.round(os.totalmem() / 1024 / 1024)
   }
 })
 
@@ -406,13 +401,11 @@ ipcMain.handle('select-extract-folder', async () => {
 
   // Check if selected folder is already named "HyperTopiaExtraction"
   if (folderName === 'HyperTopiaExtraction') {
-    console.log('[Folder] Selected folder is already HyperTopiaExtraction:', selectedFolder)
     return selectedFolder
   }
 
   // Return the path WITH HyperTopiaExtraction appended (preview only, not created yet)
   const extractFolder = path.join(selectedFolder, 'HyperTopiaExtraction')
-  console.log('[Folder] Preview extract folder:', extractFolder)
   return extractFolder
 })
 
@@ -424,7 +417,6 @@ ipcMain.handle('ensure-extract-folder', async (event, folderPath) => {
 
   try {
     await fs.ensureDir(folderPath)
-    console.log('[Folder] Created/ensured folder exists:', folderPath)
     return { success: true, path: folderPath }
   } catch (err) {
     console.error('[Folder] Error creating folder:', err)
@@ -472,7 +464,6 @@ ipcMain.handle('get-disk-space', async (event, folderPath) => {
 
         if (process.platform === 'win32') {
           // Parse PowerShell JSON output
-          console.log('PowerShell output:', stdout)
           const data = JSON.parse(stdout.trim())
           total = parseInt(data.Size) || 0
           free = parseInt(data.Free) || 0
@@ -499,8 +490,6 @@ ipcMain.handle('get-disk-space', async (event, folderPath) => {
           const size = bytes / Math.pow(k, i)
           return size.toFixed(1) + ' ' + units[i]
         }
-
-        console.log('Disk space result:', { total, free, used, percent })
 
         resolve({
           total: formatBytes(total),
@@ -536,10 +525,9 @@ ipcMain.handle('get-extract-path', async (event) => {
 //   • download-history.json   — completed download/install history
 // ─────────────────────────────────────────────────────────────────────────────
 ipcMain.handle('store-read', async (_, fileName) => {
-  const { promises: fsP } = require('fs')
   const filePath = join(app.getPath('userData'), fileName)
   try {
-    const raw = await fsP.readFile(filePath, 'utf8')
+    const raw = await fs.promises.readFile(filePath, 'utf8')
     return JSON.parse(raw)
   } catch {
     return null // file doesn't exist yet or parse error → renderer uses localStorage fallback
@@ -547,14 +535,50 @@ ipcMain.handle('store-read', async (_, fileName) => {
 })
 
 ipcMain.handle('store-write', async (_, fileName, data) => {
-  const { promises: fsP } = require('fs')
   const filePath = join(app.getPath('userData'), fileName)
   try {
-    await fsP.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8')
+    await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8')
     return { ok: true }
   } catch (err) {
     console.error('[store-write] Failed to write', fileName, err)
     return { ok: false, error: err.message }
+  }
+})
+
+// IPC: Secure API proxy — keeps X-API-Secret and X-Build-ID in main process only,
+// never embedded in the renderer bundle.
+ipcMain.handle('api-fetch', async (_, { path: apiPath, options = {} }) => {
+  const { net } = await import('electron')
+
+  const API_BASE_URL = process.env.VITE_API_URL || 'https://api.hypertopia.web.id'
+  const APP_SECRET = process.env.REACT_APP_HYPERTOPIA_API_SECRET || ''
+  const BUILD_ID = process.env.BUILD_ID || 'dev-build'
+
+  const url = `${API_BASE_URL}${apiPath}`
+  const method = (options.method || 'GET').toUpperCase()
+
+  try {
+    const response = await net.fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+        'X-API-Secret': APP_SECRET,
+        'X-Build-ID': BUILD_ID
+      },
+      ...(options.body ? { body: options.body } : {})
+    })
+
+    const text = await response.text()
+    return {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      body: text
+    }
+  } catch (err) {
+    console.error('[api-fetch] Request failed:', err.message)
+    return { ok: false, status: 0, statusText: err.message, body: null }
   }
 })
 
@@ -563,14 +587,12 @@ ipcMain.handle('move-extract-folder', async (event, oldPath) => {
   try {
     // Cleanup old temp folders in old path
     if (oldPath && (await fs.pathExists(oldPath))) {
-      console.log('[Move] Cleaning up old extract path:', oldPath)
       const folders = await fs.readdir(oldPath)
       for (const folder of folders) {
         if (folder.startsWith('hypertopia_install_')) {
           const tempPath = path.join(oldPath, folder)
           try {
             await fs.remove(tempPath)
-            console.log('[Move] Removed old temp folder:', tempPath)
           } catch (err) {
             console.warn('[Move] Failed to remove temp folder:', tempPath, err)
           }
@@ -873,7 +895,6 @@ app.whenReady().then(() => {
           label: 'Force Kill ADB Server',
           click: async () => {
             const { execFile } = require('child_process')
-            const path = require('path')
             const adbPath = isMac
               ? path.join(__dirname, '../../resources/platform-tools-darwin/adb')
               : path.join(__dirname, '../../resources/platform-tools/adb.exe')
@@ -992,6 +1013,51 @@ app.whenReady().then(() => {
   createWindow()
 
   // Auto-updater events (only in production)
+  // macOS manual update check function — defined here so check-for-updates IPC can call it
+  const checkForUpdatesMac = async () => {
+    try {
+      const { net } = await import('electron')
+      const request = net.request({
+        method: 'GET',
+        url: 'https://api.github.com/repos/rigelra15/hypertopia-installer/releases/latest',
+        headers: { 'User-Agent': 'HyperTopia-Installer' }
+      })
+      request.on('response', (response) => {
+        let body = ''
+        response.on('data', (chunk) => {
+          body += chunk
+        })
+        response.on('end', () => {
+          try {
+            const release = JSON.parse(body)
+            const latestVersion = release.tag_name?.replace(/^v/, '')
+            const currentVersion = app.getVersion()
+            if (latestVersion && latestVersion !== currentVersion) {
+              if (mainWindow) {
+                mainWindow.webContents.send('update-available-mac', {
+                  version: latestVersion,
+                  releaseDate: release.published_at,
+                  releaseUrl: release.html_url,
+                  body: release.body || ''
+                })
+              }
+            } else {
+              // already on latest version
+            }
+          } catch (e) {
+            console.error('[AutoUpdater] Mac: failed to parse release info', e.message)
+          }
+        })
+      })
+      request.on('error', (err) => {
+        console.error('[AutoUpdater] Mac: version check failed', err.message)
+      })
+      request.end()
+    } catch (err) {
+      console.error('[AutoUpdater] Mac: update check error', err.message)
+    }
+  }
+
   if (app.isPackaged) {
     const isMac = process.platform === 'darwin'
 
@@ -999,107 +1065,69 @@ app.whenReady().then(() => {
       // macOS: autoUpdater requires code-signing + notarization.
       // Until the app is signed, we do a manual version check via GitHub API
       // and prompt the user to download from the releases page instead.
-      console.log('[AutoUpdater] macOS detected — using manual update check (app not code-signed)')
-
-      const checkForUpdatesMac = async () => {
-        try {
-          const { net } = await import('electron')
-          const request = net.request({
-            method: 'GET',
-            url: 'https://api.github.com/repos/rigelra15/hypertopia-installer/releases/latest',
-            headers: { 'User-Agent': 'HyperTopia-Installer' }
-          })
-          request.on('response', (response) => {
-            let body = ''
-            response.on('data', (chunk) => { body += chunk })
-            response.on('end', () => {
-              try {
-                const release = JSON.parse(body)
-                const latestVersion = release.tag_name?.replace(/^v/, '')
-                const currentVersion = app.getVersion()
-                if (latestVersion && latestVersion !== currentVersion) {
-                  console.log(`[AutoUpdater] Mac: update available ${currentVersion} → ${latestVersion}`)
-                  if (mainWindow) {
-                    mainWindow.webContents.send('update-available-mac', {
-                      version: latestVersion,
-                      releaseDate: release.published_at,
-                      releaseUrl: release.html_url,
-                      body: release.body || ''
-                    })
-                  }
-                } else {
-                  console.log('[AutoUpdater] Mac: already on latest version')
-                }
-              } catch (e) {
-                console.error('[AutoUpdater] Mac: failed to parse release info', e.message)
-              }
-            })
-          })
-          request.on('error', (err) => {
-            console.error('[AutoUpdater] Mac: version check failed', err.message)
-          })
-          request.end()
-        } catch (err) {
-          console.error('[AutoUpdater] Mac: update check error', err.message)
-        }
-      }
 
       // Check on startup and expose IPC
       checkForUpdatesMac()
       ipcMain.handle('check-for-updates-mac', checkForUpdatesMac)
-
     } else {
       // Windows/Linux: use electron-updater normally
       autoUpdater.checkForUpdatesAndNotify()
 
-    autoUpdater.on('checking-for-update', () => {
-      console.log('[AutoUpdater] Checking for updates...')
-    })
+      autoUpdater.on('checking-for-update', () => {})
 
-    autoUpdater.on('update-available', (info) => {
-      console.log('[AutoUpdater] Update available:', info.version)
-      if (mainWindow) {
-        mainWindow.webContents.send('update-available', info)
-      }
-    })
+      autoUpdater.on('update-available', (info) => {
+        if (mainWindow) {
+          mainWindow.webContents.send('update-available', info)
+        }
+      })
 
-    autoUpdater.on('update-not-available', () => {
-      console.log('[AutoUpdater] No updates available')
-      if (mainWindow) {
-        mainWindow.webContents.send('update-not-available')
-      }
-    })
+      autoUpdater.on('update-not-available', () => {
+        if (mainWindow) {
+          mainWindow.webContents.send('update-not-available')
+        }
+      })
 
-    autoUpdater.on('download-progress', (progress) => {
-      console.log('[AutoUpdater] Download progress:', progress.percent.toFixed(1) + '%')
-      if (mainWindow) {
-        mainWindow.webContents.send('update-download-progress', progress)
-      }
-    })
+      autoUpdater.on('download-progress', (progress) => {
+        if (mainWindow) {
+          mainWindow.webContents.send('update-download-progress', progress)
+        }
+      })
 
-    autoUpdater.on('update-downloaded', async (info) => {
-      console.log('[AutoUpdater] Update downloaded:', info.version)
-      if (mainWindow) {
-        mainWindow.webContents.send('update-downloaded', info)
-      }
+      autoUpdater.on('update-downloaded', async (info) => {
+        if (mainWindow) {
+          mainWindow.webContents.send('update-downloaded', info)
+        }
 
-      // Automatically restart to apply update after a short delay
-      console.log('[AutoUpdater] Forcing restart in 5 seconds to apply update...')
-      setTimeout(() => {
-        autoUpdater.quitAndInstall()
-      }, 5000)
-    })
+        // Ask user before restarting — don't force-quit mid-installation
+        if (mainWindow) {
+          const { response } = await dialog.showMessageBox(mainWindow, {
+            type: 'info',
+            buttons: ['Restart Now', 'Later'],
+            defaultId: 0,
+            cancelId: 1,
+            title: 'Update Ready',
+            message: `HyperTopia Installer v${info.version} has been downloaded.`,
+            detail: 'Restart now to apply the update, or continue and restart later.'
+          })
+          if (response === 0) {
+            autoUpdater.quitAndInstall()
+          }
+        } else {
+          // No window open — safe to install immediately
+          autoUpdater.quitAndInstall()
+        }
+      })
 
-    autoUpdater.on('error', (err) => {
-      console.error('[AutoUpdater] Error:', err.message)
-      console.error('[AutoUpdater] Full error:', err)
-      if (mainWindow) {
-        mainWindow.webContents.send('update-error', {
-          message: err.message,
-          stack: err.stack
-        })
-      }
-    })
+      autoUpdater.on('error', (err) => {
+        console.error('[AutoUpdater] Error:', err.message)
+        console.error('[AutoUpdater] Full error:', err)
+        if (mainWindow) {
+          mainWindow.webContents.send('update-error', {
+            message: err.message,
+            stack: err.stack
+          })
+        }
+      })
     } // end else (Windows/Linux)
   }
 
@@ -1107,13 +1135,12 @@ app.whenReady().then(() => {
   ipcMain.handle('check-for-updates', async () => {
     if (app.isPackaged) {
       if (process.platform === 'darwin') {
-        ipcMain.emit('check-for-updates-mac')
+        checkForUpdatesMac()
         return null
       }
       return autoUpdater.checkForUpdates()
     } else {
       // Direct dev simulation for UI testing
-      console.log('[AutoUpdater] Dev mode: Simulating check...')
       setTimeout(() => {
         if (mainWindow) {
           mainWindow.webContents.send('update-not-available')
@@ -1126,7 +1153,6 @@ app.whenReady().then(() => {
   // IPC: Start downloading update manually
   ipcMain.handle('download-update', async () => {
     if (app.isPackaged) {
-      console.log('[AutoUpdater] Starting manual download...')
       autoUpdater.downloadUpdate()
       return true
     }
@@ -1136,7 +1162,6 @@ app.whenReady().then(() => {
   // IPC: Set auto-download setting (Hardcoded to true as per request)
   ipcMain.handle('set-auto-download', () => {
     autoUpdater.autoDownload = true
-    console.log('[AutoUpdater] Auto-download forced to true')
     return true
   })
 
@@ -1279,13 +1304,11 @@ app.whenReady().then(() => {
   })
 
   // Auto Cleanup: Jalankan cleanup saat app start
-  console.log('[Cleanup] Running startup cleanup...')
   cleanupOldTempFolders()
 
   // Auto Cleanup: Jalankan cleanup setiap 1 jam
   setInterval(
     () => {
-      console.log('[Cleanup] Running scheduled cleanup...')
       cleanupOldTempFolders()
     },
     60 * 60 * 1000
@@ -1296,9 +1319,6 @@ app.whenReady().then(() => {
 // node-7z untuk ZIP, node-unrar-js untuk RAR (karena 7za tidak support RAR5)
 const Seven = require('node-7z')
 const sevenBin = require('7zip-bin')
-const path = require('path')
-const fs = require('fs-extra')
-const os = require('os')
 
 // Helper: Get 7za binary path
 function get7zPath() {
@@ -1321,9 +1341,6 @@ function get7zPath() {
     arch,
     '7za.exe'
   )
-
-  console.log('[get7zPath] Resolved path:', sevenZipPath)
-  console.log('[get7zPath] Path exists:', require('fs').existsSync(sevenZipPath))
 
   return sevenZipPath
 }
@@ -1369,7 +1386,6 @@ async function cleanupOldTempFolders(customExtractPath = null) {
             const stats = fs.statSync(fullPath)
             // Hapus folder yang lebih dari 24 jam
             if (stats.mtimeMs < oneDayAgo) {
-              console.log(`[Cleanup] Removing old temp folder: ${dir.name} from ${extractBasePath}`)
               await fs.remove(fullPath)
             }
           } catch (err) {
@@ -1401,9 +1417,6 @@ async function cleanupAllTempFolders(customExtractPath = null) {
         if (dir.isDirectory() && dir.name.startsWith('hypertopia_install_')) {
           const fullPath = path.join(extractBasePath, dir.name)
           try {
-            console.log(
-              `[Cleanup] Removing temp folder on exit: ${dir.name} from ${extractBasePath}`
-            )
             await fs.remove(fullPath)
           } catch (err) {
             console.warn(`[Cleanup] Failed to remove ${dir.name}:`, err.message)
@@ -1607,57 +1620,94 @@ async function scan7z(archivePath) {
   return new Promise((resolve, reject) => {
     const sevenPath = get7zPath()
 
-    // Debug logging
-    console.log('[scan7z] 7z binary path:', sevenPath)
-    console.log('[scan7z] 7z binary exists:', fs.existsSync(sevenPath))
-    console.log('[scan7z] Archive path:', archivePath)
-    console.log('[scan7z] Archive exists:', fs.existsSync(archivePath))
+    // Get ZIP password from build-time env
+    const zipPassword = process.env.REACT_APP_ZIP_PASSWORD || ''
 
     let result = {
       hasApk: false,
       hasObb: false,
       apkName: null,
       obbFolder: null,
+      obbSize: 0,
+      obbFiles: [],
       manifestPath: null,
       manifestData: null
     }
 
-    const listStream = Seven.list(archivePath, {
-      $bin: sevenPath,
-      $progress: false
-    })
+    // Use raw spawn with -slt (technical listing) to get file sizes
+    const args = ['l', '-slt', archivePath]
+    if (zipPassword) {
+      args.splice(1, 0, `-p${zipPassword}`)
+    }
 
-    const allFileNames = []
+    const child = spawn(sevenPath, args, { stdio: ['pipe', 'pipe', 'pipe'] })
+    let output = ''
+    let stderr = ''
 
-    listStream.on('data', (data) => {
-      const fileName = data.file
-      if (!fileName) return
+    child.stdout.on('data', (d) => { output += d.toString() })
+    child.stderr.on('data', (d) => { stderr += d.toString() })
 
-      allFileNames.push(fileName)
-      const lowerName = fileName.toLowerCase()
-
-      // Cek APK
-      if (lowerName.endsWith('.apk') && !result.hasApk) {
-        result.hasApk = true
-        result.apkName = fileName.split('/').pop().split('\\').pop()
+    child.on('close', async (code) => {
+      if (code !== 0 && code !== 1) {
+        return reject(new Error(stderr || `7z exited with code ${code}`))
       }
 
-      // Cek release.manifest
-      if (lowerName.endsWith('release.manifest') || lowerName.endsWith('release.manifest.txt')) {
-        result.manifestPath = fileName
-      }
-    })
+      // Parse technical listing: blocks separated by empty lines, each has "Path = ..." and "Size = ..."
+      const blocks = output.split('\n\n').filter(b => b.includes('Path = '))
+      const allEntries = []
 
-    listStream.on('end', async () => {
+      for (const block of blocks) {
+        const pathMatch = block.match(/^Path = (.+)$/m)
+        const sizeMatch = block.match(/^Size = (\d+)$/m)
+        if (pathMatch) {
+          const fileName = pathMatch[1].trim()
+          const size = parseInt(sizeMatch ? sizeMatch[1] : '0', 10)
+          allEntries.push({ file: fileName, size })
+
+          const lowerName = fileName.toLowerCase()
+
+          // Cek APK
+          if (lowerName.endsWith('.apk') && !result.hasApk) {
+            result.hasApk = true
+            result.apkName = fileName.split('/').pop().split('\\').pop()
+          }
+
+          // Cek release.manifest
+          if (lowerName.endsWith('release.manifest') || lowerName.endsWith('release.manifest.txt')) {
+            result.manifestPath = fileName
+          }
+        }
+      }
+
       // Detect OBB folder by matching APK package name
       if (result.apkName) {
         const packageName = result.apkName.replace(/\.apk$/i, '')
-        for (const fileName of allFileNames) {
-          const parts = fileName.replace(/\\/g, '/').split('/')
+        for (const entry of allEntries) {
+          const parts = entry.file.replace(/\\/g, '/').split('/')
           if (parts.some((p) => p === packageName)) {
             result.hasObb = true
             result.obbFolder = packageName
             break
+          }
+        }
+
+        // Collect OBB files and total size
+        if (result.hasObb) {
+          const obbPrefix = result.obbFolder + '/'
+          for (const entry of allEntries) {
+            const normalized = entry.file.replace(/\\/g, '/')
+            const folderIdx = normalized.indexOf(obbPrefix)
+            if (folderIdx !== -1 && entry.size > 0) {
+              const relativePath = normalized.substring(folderIdx + obbPrefix.length)
+              if (relativePath && !relativePath.endsWith('/')) {
+                result.obbFiles.push({
+                  name: relativePath.split('/').pop(),
+                  relativePath: relativePath,
+                  size: entry.size
+                })
+                result.obbSize += entry.size
+              }
+            }
           }
         }
       }
@@ -1665,8 +1715,11 @@ async function scan7z(archivePath) {
       // If manifest found, try to read it
       if (result.manifestPath) {
         try {
-          // Use 'e' command and '-so' to output to stdout
-          const childProcess = spawn(sevenPath, ['e', '-so', archivePath, result.manifestPath], {
+          const extractArgs = ['e', '-so', archivePath, result.manifestPath]
+          if (zipPassword) {
+            extractArgs.splice(1, 0, `-p${zipPassword}`)
+          }
+          const childProcess = spawn(sevenPath, extractArgs, {
             stdio: ['pipe', 'pipe', 'pipe']
           })
           let manifestOutput = ''
@@ -1682,8 +1735,7 @@ async function scan7z(archivePath) {
       resolve(result)
     })
 
-    listStream.on('error', (err) => {
-      console.error('7z list error:', err)
+    child.on('error', (err) => {
       reject(err)
     })
   })
@@ -1780,6 +1832,9 @@ async function extractRar(rarPath, targetDir, onProgress) {
 async function extract7z(archivePath, targetDir, onProgress) {
   fs.ensureDirSync(targetDir)
 
+  // Get ZIP password from build-time env (obfuscated in compiled binary)
+  const zipPassword = process.env.REACT_APP_ZIP_PASSWORD || ''
+
   return new Promise((resolve, reject) => {
     const sevenPath = get7zPath()
 
@@ -1788,10 +1843,15 @@ async function extract7z(archivePath, targetDir, onProgress) {
     let extractedFiles = 0
     const filesToExtract = []
 
-    const listStream = Seven.list(archivePath, {
+    const listOptions = {
       $bin: sevenPath,
       $progress: false
-    })
+    }
+    if (zipPassword) {
+      listOptions.password = zipPassword
+    }
+
+    const listStream = Seven.list(archivePath, listOptions)
 
     listStream.on('data', (data) => {
       const fileName = data.file
@@ -1810,11 +1870,16 @@ async function extract7z(archivePath, targetDir, onProgress) {
       }
 
       // Extract all files (wildcard filtering has issues with node-7z)
-      const extractStream = Seven.extractFull(archivePath, targetDir, {
+      const extractOptions = {
         $bin: sevenPath,
         $progress: true,
         recursive: true
-      })
+      }
+      if (zipPassword) {
+        extractOptions.password = zipPassword
+      }
+
+      const extractStream = Seven.extractFull(archivePath, targetDir, extractOptions)
 
       extractStream.on('progress', (progress) => {
         if (onProgress && progress.percent) {
@@ -1891,7 +1956,6 @@ function runAdbCommand(args, onOutput) {
       }
 
       // Log for debugging
-      console.log('[ADB Output]', str.trim())
     }
 
     const processStderr = (data) => {
@@ -1903,8 +1967,6 @@ function runAdbCommand(args, onOutput) {
       if (onOutput) {
         onOutput(str)
       }
-
-      console.log('[ADB Stderr]', str.trim())
     }
 
     child.stdout.on('data', processOutput)
@@ -2144,8 +2206,6 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 
       const obbFiles = getAllFilesRelative(obbPath)
 
-      console.log('[OBB Push] Files to push:', obbFiles.length)
-
       // Create remote folder (without quotes - spawn passes args individually)
       const remoteObbFolder = `/sdcard/Android/obb/${obbFolderName}`
       try {
@@ -2156,8 +2216,7 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 
       // Verify the directory was actually created
       try {
-        const lsResult = await runAdbCommand([...deviceFlag, 'shell', 'ls', '-d', remoteObbFolder])
-        console.log('[OBB Push] Directory verified:', lsResult.trim())
+        await runAdbCommand([...deviceFlag, 'shell', 'ls', '-d', remoteObbFolder])
       } catch {
         console.warn(
           '[OBB Push] Directory verification failed, attempting push of entire folder...'
@@ -2195,7 +2254,6 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 
         const progressPercent = Math.round((i / obbFiles.length) * 100)
         sendProgress('PUSHING_OBB', progressPercent, `Copying: ${fileObj.name}`)
-        console.log(`[OBB Push] Pushing file ${i + 1}/${obbFiles.length}: ${fileObj.relativePath}`)
 
         await pushObbFile(deviceFlag, fileObj.localPath, remoteFilePath, sendProgress, fileObj.name)
       }
@@ -2210,12 +2268,10 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
     throw err
   } finally {
     // Auto Cleanup: Bersihkan folder temporary setelah instalasi selesai
-    console.log(`[Cleanup] Cleaning up temp folder: ${tempDir}`)
     sendProgress('CLEANUP', 0, 'progress_cleanup')
 
     try {
       await fs.remove(tempDir)
-      console.log(`[Cleanup] Successfully removed: ${tempDir}`)
     } catch (cleanupErr) {
       console.warn(`[Cleanup] Failed to remove temp folder: ${cleanupErr.message}`)
       // Try force cleanup after delay
@@ -2231,16 +2287,12 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 // FUNGSI SCAN ZIP/RAR
 ipcMain.handle('scan-zip', async (event, filePath) => {
   // Debug logging for production troubleshooting
-  console.log('[scan-zip] Received filePath:', filePath)
-  console.log('[scan-zip] filePath type:', typeof filePath)
-  console.log('[scan-zip] 7z path:', get7zPath())
 
   // Verify file exists before attempting scan
   if (!fs.existsSync(filePath)) {
     console.error('[scan-zip] File does not exist:', filePath)
     // Try to normalize the path
     const normalizedPath = path.normalize(filePath)
-    console.log('[scan-zip] Normalized path:', normalizedPath)
     if (!fs.existsSync(normalizedPath)) {
       throw new Error(
         'ARCHIVE_NOT_FOUND: File tidak ditemukan. Pastikan file masih ada di lokasi tersebut.'
@@ -2249,8 +2301,6 @@ ipcMain.handle('scan-zip', async (event, filePath) => {
     // Use normalized path if it exists
     filePath = normalizedPath
   }
-
-  console.log('[scan-zip] File exists, proceeding with scan')
 
   const lowerPath = filePath.toLowerCase()
 
@@ -2324,6 +2374,24 @@ ipcMain.handle('select-game-folder', async () => {
   }
 
   return result.filePaths[0]
+})
+
+// IPC: Select Archive File (ZIP/RAR) via native dialog
+ipcMain.handle('select-archive-file', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    title: 'Select Game Archive',
+    buttonLabel: 'Select File',
+    filters: [{ name: 'Archives', extensions: ['zip', 'rar', '7z'] }]
+  })
+
+  if (result.canceled || !result.filePaths[0]) {
+    return null
+  }
+
+  const filePath = result.filePaths[0]
+  const stats = fs.statSync(filePath)
+  return { path: filePath, name: path.basename(filePath), size: stats.size }
 })
 
 // IPC: Scan Folder for APK/OBB (similar to scan-zip but for folders)
@@ -2445,7 +2513,6 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
       console.error('[Scan Folder] Failed to find/read manifest:', e)
     }
 
-    console.log('[Scan Folder] Result:', result)
     return result
   } catch (err) {
     console.error('[Scan Folder] Error:', err)
@@ -2554,8 +2621,6 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
 
       const obbFiles = getAllFilesRelative(obbPath)
 
-      console.log('[OBB Push Folder] Files to push:', obbFiles.length)
-
       // Create remote folder (without quotes - spawn passes args individually)
       const remoteObbFolder = `/sdcard/Android/obb/${obbFolderName}`
       try {
@@ -2566,8 +2631,7 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
 
       // Verify the directory was actually created
       try {
-        const lsResult = await runAdbCommand([...deviceFlag, 'shell', 'ls', '-d', remoteObbFolder])
-        console.log('[OBB Push Folder] Directory verified:', lsResult.trim())
+        await runAdbCommand([...deviceFlag, 'shell', 'ls', '-d', remoteObbFolder])
       } catch {
         console.warn(
           '[OBB Push Folder] Directory verification failed, attempting push of entire folder...'
@@ -2605,9 +2669,6 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
 
         const progressPercent = Math.round((i / obbFiles.length) * 100)
         sendProgress('PUSHING_OBB', progressPercent, `Copying: ${fileObj.name}`)
-        console.log(
-          `[OBB Push Folder] Pushing file ${i + 1}/${obbFiles.length}: ${fileObj.relativePath}`
-        )
 
         await pushObbFile(deviceFlag, fileObj.localPath, remoteFilePath, sendProgress, fileObj.name)
       }
@@ -2799,11 +2860,8 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
   try {
     // Reset download state first to ensure clean start
     resetDownloadState()
-    console.log('[Download] Starting new download, state reset')
 
-    const fsNative = require('fs')
     const https = require('https')
-    const fsExtra = require('fs-extra')
 
     // Get extractPath from localStorage
     const extractPath = await new Promise((resolve) => {
@@ -2819,7 +2877,7 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
 
     // Create Downloads subfolder in the extractPath
     const downloadFolder = path.join(extractPath, 'Downloads')
-    await fsExtra.ensureDir(downloadFolder)
+    await fs.ensureDir(downloadFolder)
 
     // Create full file path
     const filePath = path.join(downloadFolder, fileName)
@@ -2829,7 +2887,6 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
       // ============ DROPBOX DOWNLOAD ============
       return new Promise((resolve, reject) => {
         const directUrl = getDropboxDirectUrl(url)
-        console.log('[Download] Starting Dropbox download from:', directUrl)
 
         let downloadedBytes = 0
         let totalBytes = 0
@@ -2882,7 +2939,6 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
                 response.statusCode < 400 &&
                 response.headers.location
               ) {
-                console.log('[Download] Following redirect to:', response.headers.location)
                 followRedirects(response.headers.location, maxRedirects - 1)
                 return
               }
@@ -2893,9 +2949,8 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
               }
 
               totalBytes = parseInt(response.headers['content-length'] || '0', 10)
-              console.log('[Download] Dropbox file size:', totalBytes, 'bytes')
 
-              const dest = fsNative.createWriteStream(filePath)
+              const dest = fs.createWriteStream(filePath)
 
               // Store stream and file path for cancellation
               downloadState.activeStream = dest
@@ -2938,11 +2993,10 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
               dest.on('finish', () => {
                 dest.close(() => {
                   try {
-                    const stats = fsNative.statSync(filePath)
-                    console.log('[Download] Dropbox download complete, size:', stats.size, 'bytes')
+                    const stats = fs.statSync(filePath)
 
                     if (stats.size === 0) {
-                      fsNative.unlink(filePath, () => {})
+                      fs.unlink(filePath, () => {})
                       if (!resolved) {
                         resolved = true
                         reject(new Error('Downloaded file is empty'))
@@ -2963,7 +3017,7 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
               })
 
               dest.on('error', (err) => {
-                fsNative.unlink(filePath, () => {})
+                fs.unlink(filePath, () => {})
                 if (!resolved) {
                   resolved = true
                   reject(err)
@@ -3005,8 +3059,6 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
           return
         }
 
-        console.log('[Download] Using Google Drive API with key')
-
         // Create custom HTTP agent and options with referer header
         const customHeaders = {
           Referer: 'https://hypertopia.web.id/',
@@ -3027,8 +3079,6 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
         let lastTime = Date.now()
         let lastBytes = 0
         let speed = 0
-
-        console.log('[Download] Starting download from Google Drive, fileId:', fileId)
 
         // Send initial status (selecting file location done)
         if (event.sender && !event.sender.isDestroyed()) {
@@ -3057,11 +3107,9 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
           )
           .then((metadata) => {
             totalBytes = parseInt(metadata.data.size || '0', 10)
-            console.log('[Download] File size:', totalBytes, 'bytes')
-            console.log('[Download] File name:', metadata.data.name)
 
             // Download the file
-            const dest = fsNative.createWriteStream(filePath)
+            const dest = fs.createWriteStream(filePath)
 
             drive.files.get(
               {
@@ -3078,7 +3126,7 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
                 if (err) {
                   console.error('[Download] Error downloading file:', err)
                   dest.close()
-                  fsNative.unlink(filePath, () => {})
+                  fs.unlink(filePath, () => {})
                   if (!resolved) {
                     resolved = true
                     reject(err)
@@ -3089,7 +3137,6 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
                 // Try to get content-length from response headers if totalBytes is 0
                 if (totalBytes === 0 && response.headers && response.headers['content-length']) {
                   totalBytes = parseInt(response.headers['content-length'], 10)
-                  console.log('[Download] Got file size from content-length:', totalBytes, 'bytes')
                 }
 
                 // Store stream and filepath for cancellation
@@ -3130,13 +3177,11 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
                       })
                     }
                   })
-                  .on('end', () => {
-                    console.log('[Download] Download stream ended')
-                  })
+                  .on('end', () => {})
                   .on('error', (err) => {
                     console.error('[Download] Stream error:', err)
                     dest.close()
-                    fsNative.unlink(filePath, () => {})
+                    fs.unlink(filePath, () => {})
                     if (!resolved) {
                       resolved = true
                       reject(err)
@@ -3145,16 +3190,13 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
                   .pipe(dest)
 
                 dest.on('finish', () => {
-                  console.log('[Download] File finish event')
                   dest.close(() => {
-                    console.log('[Download] File closed')
                     // Verify file size
                     try {
-                      const stats = fsNative.statSync(filePath)
-                      console.log('[Download] Final file size:', stats.size, 'bytes')
+                      const stats = fs.statSync(filePath)
 
                       if (stats.size === 0) {
-                        fsNative.unlink(filePath, () => {})
+                        fs.unlink(filePath, () => {})
                         if (!resolved) {
                           resolved = true
                           reject(new Error('Downloaded file is empty'))
@@ -3177,7 +3219,7 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
 
                 dest.on('error', (err) => {
                   console.error('[Download] File stream error:', err)
-                  fsNative.unlink(filePath, () => {})
+                  fs.unlink(filePath, () => {})
                   if (!resolved) {
                     resolved = true
                     reject(err)
@@ -3196,7 +3238,6 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
       })
     } else {
       // ============ UNSUPPORTED URL - Open in browser ============
-      console.log('[Download] Unsupported URL type, opening in browser:', url)
       await shell.openExternal(url)
       return { success: false, error: 'Unsupported download URL - opened in browser' }
     }
@@ -3474,8 +3515,6 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
           .then((metadata) => {
             totalBytes = parseInt(metadata.data.size || '0', 10)
             const gdFileName = metadata.data.name || ''
-            console.log('[Install Archive] Google Drive file name:', gdFileName)
-            console.log('[Install Archive] Google Drive file size:', totalBytes, 'bytes')
 
             const dest = fs.createWriteStream(archivePath)
 
@@ -3528,13 +3567,6 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
                 dest.on('finish', () =>
                   dest.close(() => {
                     const stats = fs.statSync(archivePath)
-                    console.log(
-                      '[Install Archive] Download complete. File on disk:',
-                      stats.size,
-                      'bytes, expected:',
-                      totalBytes,
-                      'bytes'
-                    )
                     if (stats.size === 0) {
                       reject(new Error('Downloaded file is empty'))
                     } else if (totalBytes > 0 && Math.abs(stats.size - totalBytes) > 1024) {
@@ -3579,11 +3611,10 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
     // Validate the downloaded file and fix extension if needed
     // (Google Drive files may have different format than the extension we gave them)
     try {
-      const fsNode = require('fs')
-      const fd = fsNode.openSync(archivePath, 'r')
+      const fd = fs.openSync(archivePath, 'r')
       const headerBuf = Buffer.alloc(16)
-      fsNode.readSync(fd, headerBuf, 0, 16, 0)
-      fsNode.closeSync(fd)
+      fs.readSync(fd, headerBuf, 0, 16, 0)
+      fs.closeSync(fd)
 
       // Check magic bytes for common archive formats
       const isZipMagic = headerBuf[0] === 0x50 && headerBuf[1] === 0x4b // PK (ZIP)
@@ -3619,7 +3650,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
         )
       } else {
         const detectedFormat = isZipMagic ? 'ZIP' : is7zMagic ? '7Z' : 'RAR'
-        console.log('[Install Archive] Archive format validated:', detectedFormat)
+        void detectedFormat // used for logging context only
 
         // Fix file extension if it doesn't match the actual format
         // This happens when Google Drive file is e.g. .rar but we saved it as .zip
@@ -3628,18 +3659,13 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
 
         if (currentExt !== correctExt) {
           const newArchivePath = archivePath.replace(/\.[^.]+$/, correctExt)
-          console.log(
-            `[Install Archive] Extension mismatch! File is ${detectedFormat} but saved as ${currentExt}. Renaming to ${correctExt}`
-          )
-          fsNode.renameSync(archivePath, newArchivePath)
+          fs.renameSync(archivePath, newArchivePath)
           archivePath = newArchivePath
-          console.log('[Install Archive] Renamed to:', archivePath)
         }
       }
 
       // Also verify file size matches expected
-      const stats = fs.statSync(archivePath)
-      console.log('[Install Archive] Downloaded file size:', stats.size, 'bytes')
+      fs.statSync(archivePath) // validate file is readable
     } catch (validationErr) {
       if (validationErr.message.includes('Download gagal')) {
         throw validationErr
@@ -3730,9 +3756,6 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
       throw new Error('No APK found in archive.')
     }
 
-    console.log('[Install Archive] Found APK:', apkPath)
-    console.log('[Install Archive] Found OBB folder:', obbPath)
-
     // 4. INSTALL APK
     sendProgress('INSTALLING', 0, 'Pushing APK to device...')
 
@@ -3771,8 +3794,6 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
         .readdirSync(obbPath)
         .filter((f) => fs.statSync(path.join(obbPath, f)).isFile())
 
-      console.log('[Install Archive] OBB files to push:', obbFiles)
-
       const remoteObbFolder = `/sdcard/Android/obb/${obbFolderName}`
       try {
         await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteObbFolder])
@@ -3791,7 +3812,6 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
         const progressPercent = Math.round((i / obbFiles.length) * 100)
 
         sendProgress('PUSHING_OBB', progressPercent, `Copying: ${obbFileName}`)
-        console.log(`[Install Archive] Pushing OBB ${i + 1}/${obbFiles.length}: ${obbFileName}`)
 
         try {
           await runAdbCommand([...deviceFlag, 'push', localFilePath, remoteFilePath], (output) => {
@@ -3816,10 +3836,8 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
     sendProgress('COMPLETED', 100, 'Installation complete!')
 
     // Cleanup temp directory on success
-    console.log(`[Install Archive] Install successful, cleaning up temp folder: ${tempDir}`)
     try {
       await fs.remove(tempDir)
-      console.log(`[Install Archive] Successfully removed: ${tempDir}`)
     } catch (cleanupErr) {
       console.warn(`[Install Archive] Cleanup failed: ${cleanupErr.message}`)
     }
@@ -3831,10 +3849,8 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
 
     // On cancellation, clean up everything
     if (error.message === 'Installation cancelled') {
-      console.log(`[Install Archive] Cancelled, cleaning up temp folder: ${tempDir}`)
       try {
         await fs.remove(tempDir)
-        console.log(`[Install Archive] Successfully removed: ${tempDir}`)
       } catch (cleanupErr) {
         console.warn(`[Install Archive] Cleanup failed: ${cleanupErr.message}`)
         setTimeout(() => {
@@ -3850,13 +3866,10 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
       try {
         if (await fs.pathExists(extractDir)) {
           await fs.remove(extractDir)
-          console.log(`[Install Archive] Cleaned up extracted files: ${extractDir}`)
         }
       } catch (cleanupErr) {
         console.warn(`[Install Archive] Extract cleanup failed: ${cleanupErr.message}`)
       }
-      console.log(`[Install Archive] Downloaded archive kept at: ${tempDir}`)
-      console.log(`[Install Archive] Archive file: ${archivePath}`)
     }
 
     return { success: false, error: error.message }
@@ -3865,7 +3878,6 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
 
 // IPC: Download and Install APK to device
 ipcMain.handle('download-and-install-apk', async (event, { url, fileName, deviceSerial }) => {
-  const fs = require('fs')
   const https = require('https')
 
   // Create temp directory for download
@@ -4009,7 +4021,6 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
           )
           .then((metadata) => {
             totalBytes = parseInt(metadata.data.size || '0', 10)
-            console.log('[Install] Google Drive file size:', totalBytes, 'bytes')
 
             const dest = fs.createWriteStream(tempFilePath)
 
@@ -4131,8 +4142,6 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
 // IPC: Check which QGO files are already downloaded
 ipcMain.handle('check-downloaded-files', async (event, { fileNames }) => {
   try {
-    const fs = require('fs')
-
     // Get extractPath from localStorage
     const extractPath = await new Promise((resolve) => {
       event.sender
@@ -4177,8 +4186,6 @@ ipcMain.handle('check-downloaded-files', async (event, { fileNames }) => {
 // IPC: Delete a downloaded file
 ipcMain.handle('delete-downloaded-file', async (event, { fileName }) => {
   try {
-    const fs = require('fs')
-
     // Get extractPath from localStorage
     const extractPath = await new Promise((resolve) => {
       event.sender
@@ -4239,7 +4246,6 @@ ipcMain.handle('clear-downloads-folder', async (event) => {
       }
     }
 
-    console.log(`[Downloads] Cleared ${deletedCount} items from Downloads folder`)
     return { success: true, deletedCount, errors }
   } catch (error) {
     console.error('Failed to clear downloads folder:', error)
@@ -4249,8 +4255,6 @@ ipcMain.handle('clear-downloads-folder', async (event) => {
 
 // IPC: Install local APK file to device
 ipcMain.handle('install-local-apk', async (event, { filePath, deviceSerial }) => {
-  const fs = require('fs')
-
   const sendProgress = (step, percent, detail) => {
     if (event.sender && !event.sender.isDestroyed()) {
       event.sender.send('install-apk-progress', { step, percent, detail })
@@ -4297,10 +4301,8 @@ ipcMain.handle('install-local-apk', async (event, { filePath, deviceSerial }) =>
 // Auto Cleanup: Bersihkan semua temp folder saat app akan quit
 app.on('before-quit', async (event) => {
   event.preventDefault()
-  console.log('[Cleanup] App is quitting, cleaning up temp folders...')
   await cleanupAllTempFolders()
 
-  console.log('[Cleanup] Killing ADB server to prevent conflicts...')
   try {
     const adbPath = getAdbPath()
     // Use execFile directly here without awaiting its output, or we can await a promise
@@ -4308,8 +4310,6 @@ app.on('before-quit', async (event) => {
       execFile(adbPath, ['kill-server'], (error) => {
         if (error) {
           console.warn('[Cleanup] Failed to kill ADB server:', error.message)
-        } else {
-          console.log('[Cleanup] ADB server killed successfully.')
         }
         resolve() // Continue quitting regardless of error
       })
@@ -4318,7 +4318,6 @@ app.on('before-quit', async (event) => {
     console.warn('[Cleanup] Error during ADB kill:', err.message)
   }
 
-  console.log('[Cleanup] Cleanup complete, exiting...')
   app.exit(0)
 })
 

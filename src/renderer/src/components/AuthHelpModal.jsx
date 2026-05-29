@@ -47,7 +47,8 @@ export function AuthHelpModal({ isOpen, onClose, isAuthorized }) {
       }
       subtitle={
         isAuthorized
-          ? t('auth_help_success_desc') || 'Perangkat Quest Anda sudah terhubung dan siap digunakan.'
+          ? t('auth_help_success_desc') ||
+            'Perangkat Quest Anda sudah terhubung dan siap digunakan.'
           : t('auth_help_desc') || 'Tekan "Allow" pada headset Quest Anda'
       }
       icon={isAuthorized ? 'mdi:check-circle' : 'mdi:headset-vr'}
@@ -69,9 +70,7 @@ export function AuthHelpModal({ isOpen, onClose, isAuthorized }) {
           {isAuthorized ? (
             <div className="flex items-center justify-center gap-2 text-green-500">
               <Icon icon="mdi:check-circle" className="h-5 w-5" />
-              <span className="text-sm font-medium">
-                {t('auth_help_connected') || 'Terhubung'}
-              </span>
+              <span className="text-sm font-medium">{t('auth_help_connected') || 'Terhubung'}</span>
             </div>
           ) : (
             <>

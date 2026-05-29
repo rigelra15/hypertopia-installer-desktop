@@ -46,7 +46,9 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
 
   const handleSearch = async () => {
     if (hasAllAccess) {
-      setError('Anda sudah memiliki akses lengkap ke semua kategori VR. Penukaran tidak diperlukan.')
+      setError(
+        'Anda sudah memiliki akses lengkap ke semua kategori VR. Penukaran tidak diperlukan.'
+      )
       setStep('error')
       return
     }
@@ -103,7 +105,9 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
 
   const handleRedeem = async () => {
     if (hasAllAccess) {
-      setError('Anda sudah memiliki akses lengkap ke semua kategori VR. Penukaran tidak diperlukan.')
+      setError(
+        'Anda sudah memiliki akses lengkap ke semua kategori VR. Penukaran tidak diperlukan.'
+      )
       setStep('error')
       return
     }
@@ -321,7 +325,11 @@ export function RedeemModal({ isOpen, onClose, user, onSuccess }) {
               ) : (
                 <Icon icon="mdi:magnify" className="h-5 w-5" />
               )}
-              {loading ? 'Mencari...' : cooldownTime > 0 ? `Tunggu ${cooldownTime}s` : 'Cari Pesanan'}
+              {loading
+                ? 'Mencari...'
+                : cooldownTime > 0
+                  ? `Tunggu ${cooldownTime}s`
+                  : 'Cari Pesanan'}
             </button>
           </div>
         )}

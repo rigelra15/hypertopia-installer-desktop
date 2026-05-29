@@ -30,8 +30,7 @@ export function DownloadProvider({ children }) {
   const [downloadHistory, setDownloadHistory] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('download-history') || '[]')
-    } catch (e) {
-      console.debug('[DownloadContext] LocalStorage read failed:', e)
+    } catch {
       return []
     }
   })
@@ -43,8 +42,8 @@ export function DownloadProvider({ children }) {
         setDownloadHistory(data)
         try {
           localStorage.setItem('download-history', JSON.stringify(data))
-        } catch (e) {
-          console.debug('[DownloadContext] LocalStorage write failed:', e)
+        } catch {
+          /* ignore */
         }
       }
     })
@@ -58,8 +57,8 @@ export function DownloadProvider({ children }) {
       ].slice(0, 50)
       try {
         localStorage.setItem('download-history', JSON.stringify(next))
-      } catch (e) {
-        console.debug('[DownloadContext] LocalStorage write failed:', e)
+      } catch {
+        /* ignore */
       }
       window.api.storeWrite?.('download-history.json', next)
       return next
@@ -71,8 +70,8 @@ export function DownloadProvider({ children }) {
       const next = prev.map((e) => ({ ...e, seen: true }))
       try {
         localStorage.setItem('download-history', JSON.stringify(next))
-      } catch (e) {
-        console.debug('[DownloadContext] LocalStorage write failed:', e)
+      } catch {
+        /* ignore */
       }
       window.api.storeWrite?.('download-history.json', next)
       return next
@@ -83,8 +82,8 @@ export function DownloadProvider({ children }) {
     setDownloadHistory([])
     try {
       localStorage.removeItem('download-history')
-    } catch (e) {
-      console.debug('[DownloadContext] LocalStorage remove failed:', e)
+    } catch {
+      /* ignore */
     }
     window.api.storeWrite?.('download-history.json', [])
   }, [])
@@ -252,9 +251,6 @@ export function DownloadProvider({ children }) {
         const item = { id: Date.now() + Math.random(), url, fileName, gameTitle, version }
         syncQueue([...downloadQueueRef.current, item])
         setShowWidget(true)
-        console.log(
-          `[Download] Queued: ${gameTitle} (queue size: ${downloadQueueRef.current.length})`
-        )
         return { success: false, queued: true }
       }
       return executeDownload(url, fileName, gameTitle, version)
@@ -336,7 +332,6 @@ export function DownloadProvider({ children }) {
 
   // Cancel download
   const cancelDownload = useCallback(async () => {
-    console.log('[DownloadContext] Cancelling download...')
     try {
       if (window.api?.cancelDownload) {
         await window.api.cancelDownload()
@@ -355,7 +350,6 @@ export function DownloadProvider({ children }) {
         status: 'idle'
       })
       if (downloadQueueRef.current.length === 0) setShowWidget(false)
-      console.log('[DownloadContext] Download cancelled successfully')
       return { success: true }
     } catch (error) {
       console.error('[DownloadContext] Failed to cancel download:', error)
@@ -381,7 +375,6 @@ export function DownloadProvider({ children }) {
 
   // Cancel install (Download & Install)
   const cancelInstall = useCallback(async () => {
-    console.log('[DownloadContext] Cancelling install...')
     try {
       // Cancel both download and installation
       if (window.api?.cancelDownload) {
@@ -403,7 +396,6 @@ export function DownloadProvider({ children }) {
         totalBytes: 0,
         speed: 0
       })
-      console.log('[DownloadContext] Install cancelled successfully')
       return { success: true }
     } catch (error) {
       console.error('[DownloadContext] Failed to cancel install:', error)

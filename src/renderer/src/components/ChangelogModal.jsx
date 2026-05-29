@@ -206,9 +206,7 @@ export default function ChangelogModal({ isOpen, onClose }) {
                         {release.body.length > 300 ? '...' : ''}
                       </p>
                     ) : release.name && release.name !== release.tag_name ? (
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
-                        {release.name}
-                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">{release.name}</p>
                     ) : (
                       <p className="text-sm text-gray-500 italic">No release notes</p>
                     )}

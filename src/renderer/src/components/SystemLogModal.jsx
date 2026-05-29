@@ -1,4 +1,3 @@
-import { Icon } from '@iconify/react'
 import PropTypes from 'prop-types'
 import { Modal } from './ui/Modal'
 

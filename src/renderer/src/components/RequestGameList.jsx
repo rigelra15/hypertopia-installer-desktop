@@ -132,41 +132,41 @@ const getStatusConfig = (status) => {
   switch (status) {
     case 'Pending':
       return {
-        bg: 'bg-orange-100 dark:bg-orange-500/15',
-        text: 'text-orange-700 dark:text-orange-400',
-        dot: 'bg-orange-500',
+        bg: 'bg-orange-500',
+        text: 'text-white',
+        border: 'border-orange-600',
         pulse: true,
         label: { en: 'Pending', id: 'Menunggu' }
       }
     case 'Process':
       return {
-        bg: 'bg-blue-100 dark:bg-blue-500/15',
-        text: 'text-blue-700 dark:text-blue-400',
-        dot: 'bg-blue-500',
+        bg: 'bg-blue-500',
+        text: 'text-white',
+        border: 'border-blue-600',
         pulse: true,
         label: { en: 'In Process', id: 'Proses' }
       }
     case 'Done':
       return {
-        bg: 'bg-emerald-100 dark:bg-emerald-500/15',
-        text: 'text-emerald-700 dark:text-emerald-400',
-        dot: 'bg-emerald-500',
+        bg: 'bg-emerald-500',
+        text: 'text-white',
+        border: 'border-emerald-600',
         pulse: false,
         label: { en: 'Completed', id: 'Selesai' }
       }
     case 'Canceled':
       return {
-        bg: 'bg-red-100 dark:bg-red-500/15',
-        text: 'text-red-700 dark:text-red-400',
-        dot: 'bg-red-500',
+        bg: 'bg-red-500',
+        text: 'text-white',
+        border: 'border-red-600',
         pulse: false,
         label: { en: 'Canceled', id: 'Dibatalkan' }
       }
     default:
       return {
-        bg: 'bg-gray-100 dark:bg-white/10',
-        text: 'text-gray-700 dark:text-white/60',
-        dot: 'bg-gray-500',
+        bg: 'bg-gray-500',
+        text: 'text-white',
+        border: 'border-gray-600',
         pulse: false,
         label: { en: 'Unknown', id: 'Tidak Diketahui' }
       }
@@ -215,93 +215,84 @@ function RequestCard({ req, language, isAdmin, onEdit, onDelete, onStatusChange 
   const canModify = user && (user.email === req.requestedBy || isAdmin)
 
   return (
-    <div className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-100 dark:border-white/5 overflow-hidden flex flex-col">
-      <div className={`relative shrink-0 bg-gradient-to-r ${theme.gradient} p-4 pb-5`}>
+    <div className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-100 dark:border-white/5 overflow-visible flex flex-col">
+      {/* Status Badge - absolute top right outside card */}
+      <div className="absolute -top-2 -right-2 z-20" ref={menuRef}>
+        <button
+          onClick={(e) => {
+            if (isAdmin && onStatusChange) {
+              e.stopPropagation()
+              setMenuOpen(!menuOpen)
+            }
+          }}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusCfg.bg} border-[1.5px] border-white shadow-md transition-all ${
+            isAdmin ? 'cursor-pointer hover:opacity-90' : 'cursor-default'
+          }`}
+        >
+          <span className={`text-[10px] font-bold ${statusCfg.text}`}>
+            {statusCfg.label[language]}
+          </span>
+          {isAdmin && (
+            <Icon icon="fa6-solid:chevron-down" className="text-[8px] text-white/70 ml-0.5" />
+          )}
+        </button>
+
+        <AnimatePresence>
+          {menuOpen && isAdmin && (
+            <div
+              initial={{ opacity: 0, scale: 0.9, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -10 }}
+              className="absolute right-0 top-full mt-1.5 w-36 bg-white dark:bg-[#222] rounded-xl shadow-2xl border border-gray-100 dark:border-white/10 z-50 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-1.5 flex flex-col gap-0.5">
+                {['Pending', 'Process', 'Done', 'Canceled'].map((s) => {
+                  const sCfg = getStatusConfig(s)
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => {
+                        onStatusChange(req.id, s)
+                        setMenuOpen(false)
+                      }}
+                      className={`flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium rounded-lg transition-all ${
+                        req.status === s
+                          ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white'
+                          : 'text-gray-600 dark:text-white/60 hover:bg-gray-50 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${sCfg.bg}`} />
+                      {sCfg.label[language]}
+                      {req.status === s && (
+                        <Icon
+                          icon="material-symbols:check"
+                          className="ml-auto text-gray-400 text-xs"
+                        />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className={`relative shrink-0 bg-gradient-to-r ${theme.gradient} p-4 pb-5 rounded-t-2xl`}>
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 right-0 w-28 h-28 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-20 h-20 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
         </div>
 
         <div className="relative z-10">
-          <div className="flex justify-between items-start mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center">
-                <Icon icon={theme.icon} className="text-white text-base" />
-              </div>
-              <span className="text-white/90 text-[10px] font-bold uppercase tracking-wider">
-                {theme.label[language]}
-              </span>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center">
+              <Icon icon={theme.icon} className="text-white text-base" />
             </div>
-
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={(e) => {
-                  if (isAdmin && onStatusChange) {
-                    e.stopPropagation()
-                    setMenuOpen(!menuOpen)
-                  }
-                }}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/95 dark:bg-white/90 shadow-sm transition-all ${
-                  isAdmin ? 'cursor-pointer hover:bg-white' : 'cursor-default'
-                }`}
-              >
-                <span className="relative flex h-2 w-2">
-                  {statusCfg.pulse && (
-                    <span
-                      className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusCfg.dot} opacity-75`}
-                    />
-                  )}
-                  <span className={`relative inline-flex rounded-full h-2 w-2 ${statusCfg.dot}`} />
-                </span>
-                <span className={`text-[10px] font-bold ${statusCfg.text}`}>
-                  {statusCfg.label[language]}
-                </span>
-                {isAdmin && (
-                  <Icon icon="fa6-solid:chevron-down" className="text-[8px] text-gray-400 ml-0.5" />
-                )}
-              </button>
-
-              <AnimatePresence>
-                {menuOpen && isAdmin && (
-                  <div
-                    initial={{ opacity: 0, scale: 0.9, y: -10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                    className="absolute right-0 top-full mt-1.5 w-36 bg-white dark:bg-[#222] rounded-xl shadow-2xl border border-gray-100 dark:border-white/10 z-50 overflow-hidden"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="p-1.5 flex flex-col gap-0.5">
-                      {['Pending', 'Process', 'Done', 'Canceled'].map((s) => {
-                        const sCfg = getStatusConfig(s)
-                        return (
-                          <button
-                            key={s}
-                            onClick={() => {
-                              onStatusChange(req.id, s)
-                              setMenuOpen(false)
-                            }}
-                            className={`flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium rounded-lg transition-all ${
-                              req.status === s
-                                ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white'
-                                : 'text-gray-600 dark:text-white/60 hover:bg-gray-50 dark:hover:bg-white/5'
-                            }`}
-                          >
-                            <span className={`w-2 h-2 rounded-full ${sCfg.dot}`} />
-                            {sCfg.label[language]}
-                            {req.status === s && (
-                              <Icon
-                                icon="material-symbols:check"
-                                className="ml-auto text-gray-400 text-xs"
-                              />
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </AnimatePresence>
-            </div>
+            <span className="text-white/90 text-[10px] font-bold uppercase tracking-wider">
+              {theme.label[language]}
+            </span>
           </div>
 
           <ScrollingTitle className="text-base font-bold text-white leading-tight drop-shadow-sm">
@@ -349,15 +340,6 @@ function RequestCard({ req, language, isAdmin, onEdit, onDelete, onStatusChange 
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/20 text-white/90 text-[10px] font-semibold max-w-[140px] shrink-0">
                   <Icon icon="material-symbols:error-outline" className="text-[10px] shrink-0" />
                   <span className="truncate">{getReportText(req.report, language)}</span>
-                </span>
-              </Tooltip>
-            )}
-
-            {req.status === 'Canceled' && req.reason && (
-              <Tooltip text={req.reason}>
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/20 text-white/90 text-[10px] font-semibold max-w-[140px] shrink-0">
-                  <Icon icon="material-symbols:block" className="text-[10px] shrink-0" />
-                  <span className="truncate">{language === 'en' ? 'Canceled' : 'Dibatalkan'}</span>
                 </span>
               </Tooltip>
             )}
