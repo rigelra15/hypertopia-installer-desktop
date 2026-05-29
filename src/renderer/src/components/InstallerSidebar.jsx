@@ -10,7 +10,8 @@ import ConfirmationModal from './ConfirmationModal'
 import { SystemLogModal } from './SystemLogModal'
 import { Tooltip } from './Tooltip'
 import PropTypes from 'prop-types'
-import logoImage from '../assets/images/HyperTopiaLauncher.png'
+import logoLight from '../assets/images/HyperTopiaLogo-light.png'
+import logoDark from '../assets/images/HyperTopiaLogo-dark.png'
 import { useDownload } from '../contexts/DownloadContext'
 import DownloadActivityPanel from './DownloadActivityPanel'
 
@@ -479,7 +480,8 @@ export function InstallerSidebar({
                 onClick={() => setIsCollapsed(false)}
                 className="flex items-center justify-center w-9 h-9 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all"
               >
-                <img src={logoImage} alt="HyperTopia" className="w-7 h-7 object-contain" />
+                <img src={logoLight} alt="HyperTopia" className="w-7 h-7 object-contain dark:hidden" />
+                <img src={logoDark} alt="HyperTopia" className="w-7 h-7 object-contain hidden dark:block" />
               </button>
             </Tooltip>
 

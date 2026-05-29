@@ -140,6 +140,41 @@ try {
   run(`git push origin HEAD --force-with-lease`)
   run(`git push origin ${tagName}`)
 
+  // 6. Draft previous same-day releases in the releases repo
+  console.log('Checking for same-day releases to draft...')
+  try {
+    const RELEASES_REPO = 'rigelra15/hypertopia-installer-releases'
+    const releasesJson = execSync(
+      `gh release list --repo ${RELEASES_REPO} --limit 20 --json tagName,publishedAt,isDraft`,
+      { encoding: 'utf8' }
+    )
+    const releases = JSON.parse(releasesJson)
+    const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+
+    const sameDayPublished = releases.filter((r) => {
+      if (r.isDraft) return false
+      if (r.tagName === tagName) return false // skip the one we're about to create
+      const releaseDate = r.publishedAt ? r.publishedAt.slice(0, 10) : ''
+      return releaseDate === today
+    })
+
+    if (sameDayPublished.length > 0) {
+      console.log(`Found ${sameDayPublished.length} same-day release(s) to draft:`)
+      for (const rel of sameDayPublished) {
+        console.log(`  → Drafting ${rel.tagName}`)
+        execSync(
+          `gh release edit ${rel.tagName} --repo ${RELEASES_REPO} --draft`,
+          { encoding: 'utf8', stdio: 'inherit' }
+        )
+      }
+    } else {
+      console.log('No same-day releases to draft.')
+    }
+  } catch (err) {
+    // Non-critical — don't fail the release if drafting old ones fails
+    console.warn('Warning: Could not draft same-day releases:', err.message)
+  }
+
   console.log(`\n✅ SUCCESS! Released version ${newVersion}`)
   console.log(`\n📝 Your last commit now includes the version bump.`)
   console.log(`   The changelog will show your actual commit message, not "chore: bump version"!`)

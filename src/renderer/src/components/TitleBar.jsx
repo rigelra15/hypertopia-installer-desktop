@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Icon } from '@iconify/react'
-import logoImage from '../assets/images/HyperTopiaLauncher.png'
+import logoLight from '../assets/images/HyperTopiaLogo-light.png'
+import logoDark from '../assets/images/HyperTopiaLogo-dark.png'
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false)
@@ -46,7 +47,8 @@ export function TitleBar() {
           className="title-bar-title"
           style={isMac ? { justifyContent: 'center', width: '100%', paddingRight: '80px' } : {}}
         >
-          <img src={logoImage} alt="HyperTopia" className="title-bar-icon" />
+          <img src={logoLight} alt="HyperTopia" className="title-bar-icon dark:hidden" />
+          <img src={logoDark} alt="HyperTopia" className="title-bar-icon hidden dark:block" />
           <span>HyperTopia Installer</span>
         </div>
       </div>

@@ -41,7 +41,7 @@ portable:
   artifactName: ${name}-${version}-portable.${ext}
 mac:
   artifactName: "HyperTopia Installer-${version}-mac-${arch}.${ext}"
-  icon: resources/icon.png
+  icon: resources/icon.icns
   target:
     - target: dmg
       arch:
