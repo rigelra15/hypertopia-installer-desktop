@@ -103,6 +103,8 @@ jobs:
 
       - name: Build installers (Mac)
         if: matrix.os == 'macos-latest'
+        continue-on-error: true
+        id: build_mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REACT_APP_GOOGLE_API_KEY: ${{ secrets.REACT_APP_GOOGLE_API_KEY }}
@@ -120,4 +122,13 @@ jobs:
         if: matrix.os == 'macos-latest'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: gh release upload "${{ github.ref_name }}" dist/*.dmg dist/*.zip dist/*.yml dist/*.blockmap --repo rigelra15/hypertopia-installer-releases --clobber
+        run: |
+          # Upload whatever was built — DMG/ZIP/blockmap/yml — even if hdiutil detach failed
+          shopt -s nullglob
+          files=(dist/*.dmg dist/*.zip dist/*.yml dist/*.blockmap)
+          if [ ${#files[@]} -gt 0 ]; then
+            gh release upload "${{ github.ref_name }}" "${files[@]}" --repo rigelra15/hypertopia-installer-releases --clobber
+          else
+            echo "No Mac artifacts found to upload"
+            exit 1
+          fi
