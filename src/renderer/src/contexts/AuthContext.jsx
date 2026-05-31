@@ -68,8 +68,8 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  // Record login event to Firebase RTDB at loginHistory/{uid}/{pushId}
-  // Best-effort: failures are logged but never block the auth flow.
+  // Record login event — uses the API proxy so the server (Admin SDK) writes to RTDB.
+  // This avoids needing Firebase Auth in the Electron renderer for RTDB writes.
   const recordLogin = useCallback(async (userData, method) => {
     if (!userData?.uid) return
     try {
@@ -92,14 +92,11 @@ export function AuthProvider({ children }) {
         deviceInfo
       }
 
-      const res = await fetch(`${FIREBASE_DB_URL}/loginHistory/${userData.uid}.json`, {
+      // Use the API proxy to record login (server writes with Admin SDK)
+      await apiFetch('/api/v1/record-login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(event)
       })
-      if (!res.ok) {
-        console.warn('recordLogin response not ok:', res.status)
-      }
     } catch (err) {
       console.warn('recordLogin failed:', err)
     }
@@ -147,6 +144,7 @@ export function AuthProvider({ children }) {
           email: data.email,
           displayName: data.displayName || null,
           photoURL: data.photoURL || null,
+          idToken: data.idToken || null, // Firebase ID token for API auth
           loginAt: Date.now()
         }
         await saveUser(userData, 'browser-deep-link')

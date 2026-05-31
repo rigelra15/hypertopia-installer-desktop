@@ -103,7 +103,8 @@ function handleDeepLink(url) {
           uid,
           email: decodeURIComponent(email),
           displayName: name ? decodeURIComponent(name) : null,
-          photoURL: photo ? decodeURIComponent(photo) : null
+          photoURL: photo ? decodeURIComponent(photo) : null,
+          idToken: token // Pass the Firebase ID token for API authentication
         }
 
         // Resolve pending auth if exists
@@ -547,6 +548,7 @@ ipcMain.handle('store-write', async (_, fileName, data) => {
 
 // IPC: Secure API proxy — keeps X-API-Secret and X-Build-ID in main process only,
 // never embedded in the renderer bundle.
+// The renderer can pass an Authorization header (Bearer token) which is forwarded as-is.
 ipcMain.handle('api-fetch', async (_, { path: apiPath, options = {} }) => {
   const { net } = await import('electron')
 
@@ -557,15 +559,18 @@ ipcMain.handle('api-fetch', async (_, { path: apiPath, options = {} }) => {
   const url = `${API_BASE_URL}${apiPath}`
   const method = (options.method || 'GET').toUpperCase()
 
+  // Build headers: inject secrets + forward Authorization from renderer
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+    'X-API-Secret': APP_SECRET,
+    'X-Build-ID': BUILD_ID
+  }
+
   try {
     const response = await net.fetch(url, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
-        'X-API-Secret': APP_SECRET,
-        'X-Build-ID': BUILD_ID
-      },
+      headers,
       ...(options.body ? { body: options.body } : {})
     })
 

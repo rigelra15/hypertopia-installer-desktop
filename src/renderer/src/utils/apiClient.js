@@ -3,9 +3,11 @@
  *
  * Centralised API wrapper for hypertopia-api calls.
  *
- * Security: X-API-Secret and X-Build-ID are injected by the main process
- * via the 'api-fetch' IPC handler — they are never embedded in the renderer
- * bundle and cannot be extracted from the distributed app.
+ * Security:
+ *   - X-API-Secret and X-Build-ID are injected by the main process
+ *     via the 'api-fetch' IPC handler — never embedded in the renderer bundle.
+ *   - Authorization (Bearer token) is passed from the renderer so the server
+ *     can verify the user's identity via Firebase Auth.
  *
  * Usage:
  *   import { apiFetch, API_BASE_URL } from '../utils/apiClient'
@@ -20,19 +22,45 @@
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.hypertopia.web.id'
 
 /**
+ * Get the current user's Firebase ID token from localStorage.
+ * The token is stored during login (deep-link or device-code flow).
+ * Returns null if no token is available.
+ */
+function getUserToken() {
+  try {
+    const savedUser = localStorage.getItem('hypertopia_user')
+    if (savedUser) {
+      const parsed = JSON.parse(savedUser)
+      return parsed.idToken || null
+    }
+  } catch {
+    // ignore
+  }
+  return null
+}
+
+/**
  * Drop-in replacement for fetch() that targets hypertopia-api.
  * Routes through the Electron main process so secrets stay out of the renderer.
+ * Automatically attaches the user's Firebase ID token for authenticated requests.
  *
  * @param {string} path   - API path, e.g. '/api/v1/user-profile?email=...'
  * @param {RequestInit} [options] - Standard fetch options (method, body, headers, …)
  * @returns {Promise<{ ok: boolean, status: number, statusText: string, json: () => Promise<any>, text: () => Promise<string> }>}
  */
 export async function apiFetch(path, options = {}) {
+  // Build headers — include Authorization if user has a token
+  const headers = { ...(options.headers || {}) }
+  const token = getUserToken()
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
   // Use IPC proxy in Electron (main process holds the secret)
   if (window.api?.apiFetch) {
     const result = await window.api.apiFetch(path, {
       method: options.method || 'GET',
-      headers: options.headers || {},
+      headers,
       body: options.body || undefined
     })
 
@@ -62,7 +90,7 @@ export async function apiFetch(path, options = {}) {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(options.headers || {})
+      ...headers
     }
   })
 }

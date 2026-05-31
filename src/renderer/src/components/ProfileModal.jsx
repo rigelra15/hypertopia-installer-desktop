@@ -6,45 +6,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { Modal } from './ui/Modal'
 import { apiFetch } from '../utils/apiClient'
 
-const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
-const CLOUDINARY_CLOUD = 'doyks8v1c'
-
-// Map access types tuple → variant name (mirrors migrate_shopee_orders_to_hybrid.js)
-function variantNameFor(accessTypes) {
-  const sorted = [...(accessTypes || [])]
-    .map((s) =>
-      String(s || '')
-        .toLowerCase()
-        .trim()
-    )
-    .sort()
-  const key = sorted.join(',')
-  switch (key) {
-    case 'standalone':
-      return 'Standalone'
-    case 'pcvr':
-      return 'PCVR'
-    case 'qgo':
-      return 'Quest Games Optimizer (QGO)'
-    case 'pcvr,standalone':
-      return '[Bundle] Standalone + PCVR'
-    case 'qgo,standalone':
-      return '[Bundle] Standalone + QGO'
-    case 'pcvr,qgo':
-      return '[Bundle] PCVR + QGO'
-    case 'pcvr,qgo,standalone':
-      return '[Bundle] Standalone + PCVR + QGO'
-    default:
-      return null
-  }
-}
-
-function findVariant(variations, variantName) {
-  if (!variations || !variantName) return null
-  const list = Array.isArray(variations) ? variations : Object.values(variations)
-  return list.find((v) => (v.variantName || v.name) === variantName) || null
-}
-
 export function ProfileModal({ isOpen, onClose, user }) {
   const { t } = useLanguage()
   const { accessTypes } = useAuth()
@@ -74,142 +35,9 @@ export function ProfileModal({ isOpen, onClose, user }) {
 
       const baseProfile = data.profile
 
-      // 2. Fetch shopeeOrders directly from Firebase (bypass stale API hybrid logic)
-      //    Firebase REST doesn't support orderByChild without auth+rules indexing,
-      //    so we fetch all and filter client-side (same approach AuthContext uses).
-      let enrichedTransactions = baseProfile.transactions || []
-      try {
-        const ordersRes = await fetch(`${FIREBASE_DB_URL}/shopeeOrders.json`)
-        if (ordersRes.ok) {
-          const allOrders = (await ordersRes.json()) || {}
-          const userOrders = Object.entries(allOrders).filter(
-            ([, o]) => o && o.email === user.email
-          )
-
-          if (userOrders.length > 0) {
-            // Cache product master data
-            const productCache = {}
-            const getProduct = async (productKey) => {
-              if (!productKey) return null
-              if (productCache[productKey] !== undefined) return productCache[productKey]
-              const res = await fetch(
-                `${FIREBASE_DB_URL}/products/${encodeURIComponent(productKey)}.json`
-              )
-              const product = res.ok ? await res.json() : null
-              productCache[productKey] = product
-              return product
-            }
-
-            const buildItems = async (rawItems, fallbackOrderName) => {
-              const items = Array.isArray(rawItems) ? rawItems : []
-              if (items.length === 0) {
-                // Legacy fallback for unmigrated rows
-                return (fallbackOrderName || []).map((name) => ({
-                  productKey: null,
-                  productName: name,
-                  productImage: null,
-                  variantName: null,
-                  quantity: 1,
-                  priceAtPurchase: 0,
-                  subtotal: 0
-                }))
-              }
-
-              const resolved = []
-              for (const it of items) {
-                const product = await getProduct(it.productKey)
-                let liveName = product?.productName || it.productKey || 'Unknown Product'
-                let liveImage =
-                  product?.productPhoto ||
-                  (product?.productName
-                    ? `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/upload/${encodeURIComponent('productPhotos')}/${encodeURIComponent(product.productName)}`
-                    : null)
-                let liveVariantName = it.variantName
-
-                const variant = findVariant(product?.productVariations, it.variantName)
-                if (variant) {
-                  liveVariantName = variant.variantName || variant.name || it.variantName
-                  if (variant.variantPhoto) liveImage = variant.variantPhoto
-                  else if (variant.productPhotoUrl) liveImage = variant.productPhotoUrl
-                }
-
-                resolved.push({
-                  productKey: it.productKey,
-                  productName: liveName,
-                  productImage: liveImage,
-                  variantName: liveVariantName,
-                  accessTypes: it.accessTypes || [],
-                  quantity: it.quantity ?? 1,
-                  priceAtPurchase: it.priceAtPurchase ?? 0,
-                  subtotal: it.subtotal ?? (it.priceAtPurchase ?? 0) * (it.quantity ?? 1)
-                })
-              }
-              return resolved
-            }
-
-            const shopeeTxs = []
-            for (const [id, order] of userOrders) {
-              // Synthesize items[] from accessTypes + master variant for legacy orders
-              let rawItems = order.items
-              if (!Array.isArray(rawItems) || rawItems.length === 0) {
-                const accessTypes = Array.isArray(order.orderName) ? order.orderName : []
-                const variantName = variantNameFor(accessTypes)
-                if (order.productKey && variantName) {
-                  const product = await getProduct(order.productKey)
-                  const variant = findVariant(product?.productVariations, variantName)
-                  if (variant) {
-                    const qty = Number(order.quantity) || 1
-                    const price = Number(
-                      variant.variantPrice ?? variant.price ?? variant.productPrice ?? 0
-                    )
-                    rawItems = [
-                      {
-                        productKey: order.productKey,
-                        variantName,
-                        accessTypes: accessTypes.map((s) => String(s).toLowerCase()),
-                        quantity: qty,
-                        priceAtPurchase: price,
-                        subtotal: price * qty
-                      }
-                    ]
-                  }
-                }
-              }
-
-              const items = await buildItems(rawItems, order.orderName)
-              const totalPrice =
-                order.totalPrice != null
-                  ? order.totalPrice
-                  : items.reduce((s, i) => s + (i.subtotal || 0), 0)
-
-              shopeeTxs.push({
-                id,
-                source: 'shopee',
-                orderNumber: order.orderNumber || id,
-                product: order.category || 'Games VR',
-                accessTypes: Array.isArray(order.orderName) ? order.orderName : [],
-                quantity:
-                  Number(order.quantity) || items.reduce((s, i) => s + (i.quantity || 0), 0) || 1,
-                items,
-                totalPrice,
-                status: order.isRedeemed ? 'redeemed' : 'pending',
-                createdAt: order.date,
-                redeemedAt: order.redeemedAt || null
-              })
-            }
-
-            // Replace the stale shopee transactions from API with the enriched ones
-            const directTxs = (baseProfile.transactions || []).filter((t) => t.source !== 'shopee')
-            enrichedTransactions = [...directTxs, ...shopeeTxs].sort((a, b) => {
-              const dA = new Date(a.createdAt || 0)
-              const dB = new Date(b.createdAt || 0)
-              return dB - dA
-            })
-          }
-        }
-      } catch (fbErr) {
-        console.warn('Direct Firebase fetch failed, falling back to API data:', fbErr)
-      }
+      // The API already returns fully enriched transactions (shopee + direct),
+      // including live product data joined server-side. No need for direct RTDB fetch.
+      const enrichedTransactions = baseProfile.transactions || []
 
       setProfile({
         ...baseProfile,
@@ -609,11 +437,11 @@ function LoginHistorySection({ user, t }) {
       }
       setLoading(true)
       try {
-        const res = await fetch(
-          `${FIREBASE_DB_URL}/loginHistory/${user.uid}.json?orderBy=%22timestamp%22&limitToLast=20`
-        )
+        // Fetch login history via API proxy (server reads with Admin SDK)
+        const res = await apiFetch(`/api/v1/login-history?uid=${encodeURIComponent(user.uid)}`)
         if (!res.ok) throw new Error('failed')
-        const data = (await res.json()) || {}
+        const result = await res.json()
+        const data = result.success ? (result.events || {}) : {}
         const list = Object.entries(data).map(([id, v]) => ({
           id,
           timestamp: v?.timestamp || 0,

@@ -13,9 +13,6 @@ import UpdateGameDialog from './UpdateGameDialog'
 import ReportGameDialog from './ReportGameDialog'
 import { apiFetch } from '../utils/apiClient'
 
-// Firebase Database URL (same as website for game data)
-const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
-
 // Helper function to compare versions (from highest to lowest)
 const compareVersions = (versionA, versionB) => {
   const parseVersion = (version) => {
@@ -351,53 +348,35 @@ export default function GameDetailModal({
         }
         setLocalVersions(updatedVersions)
 
-        // Update Firebase - version specific count
-        await fetch(
-          `${FIREBASE_DB_URL}/vrGames/standalone/${gameTitle}/versions/${selectedVersion}/downloadCount.json`,
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedVersionCount)
-          }
-        )
-
-        // Update Firebase - total download count
-        const totalDownloadCount = getTotalDownloadCount() + 1
-        await fetch(`${FIREBASE_DB_URL}/vrGames/standalone/${gameTitle}/downloadCount.json`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(totalDownloadCount)
-        })
-
+        // Record download via API (server handles atomic increment + history)
         versionText = localVersions[selectedVersion]?.version || gameVersion
+        await apiFetch('/api/v1/record-download', {
+          method: 'POST',
+          body: JSON.stringify({
+            gameTitle,
+            type: 'standalone',
+            versionIndex: selectedVersion,
+            version: versionText,
+            uid: user?.uid || null,
+            partNumber: partIndex !== null ? partIndex + 1 : null
+          })
+        })
       } else {
         // Single version - just update total count
         const updatedCount = localDownloadCount + 1
         setLocalDownloadCount(updatedCount)
 
-        await fetch(`${FIREBASE_DB_URL}/vrGames/standalone/${gameTitle}/downloadCount.json`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedCount)
-        })
-
         versionText = gameVersion || 'v1.0'
-      }
-
-      // Record download history for user
-      if (user) {
-        const historyEntry = {
-          gameTitle: gameTitle,
-          version: versionText,
-          downloadDate: new Date().toISOString(),
-          source: 'installer', // Mark as downloaded from installer
-          ...(partIndex !== null && { partNumber: partIndex + 1 })
-        }
-
-        await fetch(`${FIREBASE_DB_URL}/usersData/downloadHistory/${user.uid}/standalone.json`, {
+        await apiFetch('/api/v1/record-download', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(historyEntry)
+          body: JSON.stringify({
+            gameTitle,
+            type: 'standalone',
+            versionIndex: null,
+            version: versionText,
+            uid: user?.uid || null,
+            partNumber: partIndex !== null ? partIndex + 1 : null
+          })
         })
       }
     } catch (error) {
