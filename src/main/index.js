@@ -1519,6 +1519,7 @@ function parseManifestData(content) {
 async function scanRar(rarPath) {
   return new Promise((resolve, reject) => {
     const unrarPath = getUnrarPath()
+    const zipPassword = process.env.REACT_APP_ZIP_PASSWORD || ''
 
     let result = {
       hasApk: false,
@@ -1530,7 +1531,11 @@ async function scanRar(rarPath) {
     }
 
     // Use 'lb' command for bare list output (just filenames)
-    const child = spawn(unrarPath, ['lb', rarPath], {
+    const listArgs = ['lb']
+    if (zipPassword) listArgs.push(`-p${zipPassword}`)
+    listArgs.push(rarPath)
+
+    const child = spawn(unrarPath, listArgs, {
       stdio: ['pipe', 'pipe', 'pipe']
     })
 
@@ -1596,7 +1601,11 @@ async function scanRar(rarPath) {
       if (result.manifestPath) {
         try {
           // Use 'p' command to print file to stdout
-          const manifestChild = spawn(unrarPath, ['p', '-inul', rarPath, result.manifestPath], {
+          const manifestArgs = ['p', '-inul']
+          if (zipPassword) manifestArgs.push(`-p${zipPassword}`)
+          manifestArgs.push(rarPath, result.manifestPath)
+
+          const manifestChild = spawn(unrarPath, manifestArgs, {
             stdio: ['pipe', 'pipe', 'pipe']
           })
           let manifestOutput = ''
@@ -1750,6 +1759,9 @@ async function scan7z(archivePath) {
 async function extractRar(rarPath, targetDir, onProgress) {
   fs.ensureDirSync(targetDir)
 
+  // Get ZIP/RAR password from build-time env
+  const zipPassword = process.env.REACT_APP_ZIP_PASSWORD || ''
+
   return new Promise((resolve, reject) => {
     const unrarPath = getUnrarPath()
 
@@ -1758,7 +1770,11 @@ async function extractRar(rarPath, targetDir, onProgress) {
     let extractedFiles = 0
 
     // Count relevant files first
-    const countChild = spawn(unrarPath, ['lb', rarPath], {
+    const countArgs = ['lb']
+    if (zipPassword) countArgs.push(`-p${zipPassword}`)
+    countArgs.push(rarPath)
+
+    const countChild = spawn(unrarPath, countArgs, {
       stdio: ['pipe', 'pipe', 'pipe']
     })
 
@@ -1777,7 +1793,11 @@ async function extractRar(rarPath, targetDir, onProgress) {
 
       // Now extract with progress
       // Use 'x' to extract with full paths
-      const extractChild = spawn(unrarPath, ['x', '-y', '-o+', rarPath, targetDir + path.sep], {
+      const extractArgs = ['x', '-y', '-o+']
+      if (zipPassword) extractArgs.push(`-p${zipPassword}`)
+      extractArgs.push(rarPath, targetDir + path.sep)
+
+      const extractChild = spawn(unrarPath, extractArgs, {
         stdio: ['pipe', 'pipe', 'pipe']
       })
 
