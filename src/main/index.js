@@ -13,6 +13,26 @@ app.name = 'HyperTopia Installer'
 // Google API credentials - injected at build time via define in electron.vite.config.mjs
 const GOOGLE_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY || ''
 
+// ── ZIP/RAR Password (obfuscated at build time) ──────────────────────────────
+// Password is XOR'd with a random key during build. We decode it here at runtime.
+function _deobfuscatePassword() {
+  const key = process.env.REACT_APP_ZIP_PASSWORD_KEY || ''
+  const data = process.env.REACT_APP_ZIP_PASSWORD_DATA || ''
+  if (!key || !data) return ''
+  try {
+    const keyBytes = Buffer.from(key, 'base64')
+    const dataBytes = Buffer.from(data, 'base64')
+    const result = []
+    for (let i = 0; i < dataBytes.length; i++) {
+      result.push(dataBytes[i] ^ keyBytes[i])
+    }
+    return Buffer.from(result).toString('utf8')
+  } catch {
+    return ''
+  }
+}
+const ZIP_PASSWORD = _deobfuscatePassword()
+
 // Configure auto-updater
 // autoDownload is true by default and can no longer be disabled by the user.
 autoUpdater.autoDownload = true
@@ -1519,7 +1539,7 @@ function parseManifestData(content) {
 async function scanRar(rarPath) {
   return new Promise((resolve, reject) => {
     const unrarPath = getUnrarPath()
-    const zipPassword = process.env.REACT_APP_ZIP_PASSWORD || ''
+    const zipPassword = ZIP_PASSWORD
 
     let result = {
       hasApk: false,
@@ -1635,7 +1655,7 @@ async function scan7z(archivePath) {
     const sevenPath = get7zPath()
 
     // Get ZIP password from build-time env
-    const zipPassword = process.env.REACT_APP_ZIP_PASSWORD || ''
+    const zipPassword = ZIP_PASSWORD
 
     let result = {
       hasApk: false,
@@ -1760,7 +1780,7 @@ async function extractRar(rarPath, targetDir, onProgress) {
   fs.ensureDirSync(targetDir)
 
   // Get ZIP/RAR password from build-time env
-  const zipPassword = process.env.REACT_APP_ZIP_PASSWORD || ''
+  const zipPassword = ZIP_PASSWORD
 
   return new Promise((resolve, reject) => {
     const unrarPath = getUnrarPath()
@@ -1858,7 +1878,7 @@ async function extract7z(archivePath, targetDir, onProgress) {
   fs.ensureDirSync(targetDir)
 
   // Get ZIP password from build-time env (obfuscated in compiled binary)
-  const zipPassword = process.env.REACT_APP_ZIP_PASSWORD || ''
+  const zipPassword = ZIP_PASSWORD
 
   return new Promise((resolve, reject) => {
     const sevenPath = get7zPath()

@@ -77,6 +77,27 @@ const appVersion = `v1.0.${commitCount}`
 // To revoke a compromised build, add its BUILD_ID to the server's blocklist.
 const buildPayload = `${appVersion}:${buildDate}:${commitCount}`
 const appSecret = env.REACT_APP_HYPERTOPIA_API_SECRET || ''
+// ── ZIP Password Obfuscation ──────────────────────────────────────────────────
+// XOR the password with a random key at build time so it never appears as a
+// plain string in the compiled bundle. At runtime, main process XORs it back.
+function obfuscatePassword(password) {
+  if (!password) return { key: '', data: '' }
+  const keyBytes = []
+  for (let i = 0; i < password.length; i++) {
+    keyBytes.push(Math.floor(Math.random() * 256))
+  }
+  const dataBytes = []
+  for (let i = 0; i < password.length; i++) {
+    dataBytes.push(password.charCodeAt(i) ^ keyBytes[i])
+  }
+  return {
+    key: Buffer.from(keyBytes).toString('base64'),
+    data: Buffer.from(dataBytes).toString('base64'),
+  }
+}
+
+const obfuscatedZipPassword = obfuscatePassword(env.REACT_APP_ZIP_PASSWORD || '')
+
 const buildId = appSecret
   ? createHmac('sha256', appSecret).update(buildPayload).digest('hex')
   : 'dev-build'
@@ -97,7 +118,9 @@ export default defineConfig({
       'process.env.REACT_APP_HYPERTOPIA_API_SECRET': JSON.stringify(
         env.REACT_APP_HYPERTOPIA_API_SECRET || ''
       ),
-      'process.env.REACT_APP_ZIP_PASSWORD': JSON.stringify(env.REACT_APP_ZIP_PASSWORD || ''),
+      'process.env.REACT_APP_ZIP_PASSWORD': JSON.stringify('__OBFUSCATED__'),
+      'process.env.REACT_APP_ZIP_PASSWORD_KEY': JSON.stringify(obfuscatedZipPassword.key),
+      'process.env.REACT_APP_ZIP_PASSWORD_DATA': JSON.stringify(obfuscatedZipPassword.data),
       'process.env.BUILD_ID': JSON.stringify(buildId)
     }
   },
