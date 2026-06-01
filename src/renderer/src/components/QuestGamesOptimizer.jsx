@@ -64,6 +64,10 @@ export function QuestGamesOptimizer({
     speed: 0
   })
 
+  // Confirmation modals for destructive actions
+  const [clearDataConfirm, setClearDataConfirm] = useState(false)
+  const [uninstallConfirm, setUninstallConfirm] = useState(false)
+
   // Auto-close download modal when download actually starts (status changes to 'downloading')
   useEffect(() => {
     if (showDownloadModal && downloadInfo.status === 'downloading') {
@@ -580,6 +584,19 @@ export function QuestGamesOptimizer({
         toast.success(
           `${t('install_success') || 'Installation complete!'} Quest Games Optimizer v${version}`
         )
+
+        // Auto-delete APK file after successful install to avoid clutter
+        try {
+          const fileName = version ? `QuestGamesOptimizer_v${version}.apk` : 'QuestGamesOptimizer.apk'
+          await window.api.deleteDownloadedFile(fileName)
+          setDownloadedFiles((prev) => {
+            const updated = { ...prev }
+            delete updated[version || 'unknown']
+            return updated
+          })
+        } catch (_) {
+          // Non-critical — ignore if delete fails
+        }
       } else {
         setInstalling(false)
         setInstallProgress({
@@ -703,14 +720,7 @@ export function QuestGamesOptimizer({
   const handleUninstall = async () => {
     if (!selectedDevice) return
 
-    const confirmed = window.confirm(
-      t('qgo_confirm_uninstall') || 'Are you sure you want to uninstall Quest Games Optimizer?'
-    )
-
-    if (!confirmed) return
-
     try {
-      // Try to find and uninstall QGO package
       const apps = await window.api.listApps(selectedDevice)
       const qgoApp = apps.find((app) => {
         const pkgLower = (app.package || '').toLowerCase()
@@ -744,12 +754,6 @@ export function QuestGamesOptimizer({
 
   const handleClearQgoData = async () => {
     if (!selectedDevice) return
-
-    const confirmed = window.confirm(
-      t('qgo_confirm_clear_data') ||
-        'Clear all QGO app data on device? This resets all settings and fixes the issue where game profiles don\'t show.'
-    )
-    if (!confirmed) return
 
     try {
       const apps = await window.api.listApps(selectedDevice)
@@ -1040,12 +1044,12 @@ export function QuestGamesOptimizer({
                             <>
                               {/* Reset Data button - fixes game profiles not showing after patch */}
                               <button
-                                onClick={handleClearQgoData}
+                                onClick={() => setClearDataConfirm(true)}
                                 disabled={!selectedDevice || isDownloading || installing}
                                 title={
                                   !selectedDevice
                                     ? t('connect_device_first') || 'Connect a device first'
-                                    : t('qgo_confirm_clear_data') || 'Reset QGO app data on device'
+                                    : ''
                                 }
                                 className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
                                   selectedDevice
@@ -1059,7 +1063,7 @@ export function QuestGamesOptimizer({
                                 </span>
                               </button>
                               <button
-                                onClick={handleUninstall}
+                                onClick={() => setUninstallConfirm(true)}
                                 disabled={!selectedDevice || isDownloading || installing}
                                 title={
                                   !selectedDevice
@@ -1079,24 +1083,34 @@ export function QuestGamesOptimizer({
                               </button>
                             </>
                           ) : (
-                            // Install button - install from local file
-                            <button
-                              onClick={() => selectedDevice && handleInstallLocal(item)}
-                              disabled={!selectedDevice || isDownloading || installing}
-                              title={
-                                !selectedDevice
-                                  ? t('connect_device_first') || 'Connect a device first'
-                                  : ''
-                              }
-                              className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                                selectedDevice
-                                  ? 'bg-gradient-to-r from-emerald-600 to-green-500 hover:scale-105 disabled:opacity-50'
-                                  : 'bg-gray-600 opacity-50'
-                              }`}
-                            >
-                              <Icon icon="mdi:package-down" className="h-4 w-4" />
-                              <span className="hidden sm:inline">{t('install') || 'Install'}</span>
-                            </button>
+                            // Install / Update button
+                            (() => {
+                              const isUpdate = installedQgoVersion &&
+                                compareSemver(version, installedQgoVersion) > 0
+                              return (
+                                <button
+                                  onClick={() => selectedDevice && handleInstallLocal(item)}
+                                  disabled={!selectedDevice || isDownloading || installing}
+                                  title={
+                                    !selectedDevice
+                                      ? t('connect_device_first') || 'Connect a device first'
+                                      : ''
+                                  }
+                                  className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                                    selectedDevice
+                                      ? isUpdate
+                                        ? 'bg-gradient-to-r from-blue-600 to-cyan-500 hover:scale-105 disabled:opacity-50'
+                                        : 'bg-gradient-to-r from-emerald-600 to-green-500 hover:scale-105 disabled:opacity-50'
+                                      : 'bg-gray-600 opacity-50'
+                                  }`}
+                                >
+                                  <Icon icon={isUpdate ? 'mdi:update' : 'mdi:package-down'} className="h-4 w-4" />
+                                  <span className="hidden sm:inline">
+                                    {isUpdate ? (t('qgo_update') || 'Update') : (t('install') || 'Install')}
+                                  </span>
+                                </button>
+                              )
+                            })()
                           )}
                         </>
                       ) : (
@@ -1118,12 +1132,12 @@ export function QuestGamesOptimizer({
                             <>
                               {/* Reset Data button */}
                               <button
-                                onClick={handleClearQgoData}
+                                onClick={() => setClearDataConfirm(true)}
                                 disabled={!selectedDevice || isDownloading || installing}
                                 title={
                                   !selectedDevice
                                     ? t('connect_device_first') || 'Connect a device first'
-                                    : t('qgo_confirm_clear_data') || 'Reset QGO app data on device'
+                                    : ''
                                 }
                                 className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
                                   selectedDevice
@@ -1137,7 +1151,7 @@ export function QuestGamesOptimizer({
                                 </span>
                               </button>
                               <button
-                                onClick={handleUninstall}
+                                onClick={() => setUninstallConfirm(true)}
                                 disabled={!selectedDevice || isDownloading || installing}
                                 title={
                                   !selectedDevice
@@ -1410,6 +1424,98 @@ export function QuestGamesOptimizer({
                     </span>
                   </>
                 )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Reset Data confirmation modal */}
+        {clearDataConfirm && (
+          <motion.div
+            key="clear-data-confirm-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+            onClick={() => setClearDataConfirm(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-sm rounded-2xl bg-white dark:bg-[#111] p-6 border border-gray-200 dark:border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500/10">
+                <Icon icon="mdi:broom" className="h-7 w-7 text-yellow-500" />
+              </div>
+              <h3 className="text-center text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                {t('qgo_clear_data') || 'Reset Data'}
+              </h3>
+              <p className="text-center text-sm text-gray-500 dark:text-white/50 mb-6">
+                {t('qgo_confirm_clear_data') || 'Clear all QGO app data on device? This resets all settings and fixes the issue where game profiles don\'t show.'}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setClearDataConfirm(false)}
+                  className="flex-1 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 py-2.5 text-sm font-medium text-gray-700 dark:text-white/70 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                >
+                  {t('cancel') || 'Batal'}
+                </button>
+                <button
+                  onClick={() => { setClearDataConfirm(false); handleClearQgoData() }}
+                  className="flex-1 rounded-xl bg-gradient-to-r from-yellow-600 to-amber-500 hover:brightness-110 py-2.5 text-sm font-semibold text-white transition-all"
+                >
+                  {t('qgo_clear_data') || 'Reset Data'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Uninstall confirmation modal */}
+        {uninstallConfirm && (
+          <motion.div
+            key="uninstall-confirm-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+            onClick={() => setUninstallConfirm(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-sm rounded-2xl bg-white dark:bg-[#111] p-6 border border-gray-200 dark:border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-orange-500/10">
+                <Icon icon="mdi:delete-outline" className="h-7 w-7 text-orange-500" />
+              </div>
+              <h3 className="text-center text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                {t('uninstall_app') || 'Hapus Instalasi'}
+              </h3>
+              <p className="text-center text-sm text-gray-500 dark:text-white/50 mb-6">
+                {t('qgo_confirm_uninstall') || 'Are you sure you want to uninstall Quest Games Optimizer from device?'}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setUninstallConfirm(false)}
+                  className="flex-1 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 py-2.5 text-sm font-medium text-gray-700 dark:text-white/70 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                >
+                  {t('cancel') || 'Batal'}
+                </button>
+                <button
+                  onClick={() => { setUninstallConfirm(false); handleUninstall() }}
+                  className="flex-1 rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 hover:brightness-110 py-2.5 text-sm font-semibold text-white transition-all"
+                >
+                  {t('uninstall_app') || 'Hapus Instalasi'}
+                </button>
               </div>
             </motion.div>
           </motion.div>
