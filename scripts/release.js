@@ -149,13 +149,19 @@ try {
       { encoding: 'utf8' }
     )
     const releases = JSON.parse(releasesJson)
-    const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+
+    // Use local date (WIB = UTC+7) to match what the user sees, not raw UTC
+    const localDate = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
     const sameDayPublished = releases.filter((r) => {
       if (r.isDraft) return false
-      if (r.tagName === tagName) return false // skip the one we're about to create
-      const releaseDate = r.publishedAt ? r.publishedAt.slice(0, 10) : ''
-      return releaseDate === today
+      if (r.tagName === tagName) return false // skip the one we just released
+      if (!r.publishedAt || r.publishedAt.startsWith('0001')) return false
+      // Convert publishedAt to WIB before comparing
+      const pubLocalDate = new Date(new Date(r.publishedAt).getTime() + 7 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10)
+      return pubLocalDate === localDate
     })
 
     if (sameDayPublished.length > 0) {
