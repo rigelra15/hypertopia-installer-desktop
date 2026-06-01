@@ -742,6 +742,43 @@ export function QuestGamesOptimizer({
     }
   }
 
+  const handleClearQgoData = async () => {
+    if (!selectedDevice) return
+
+    const confirmed = window.confirm(
+      t('qgo_confirm_clear_data') ||
+        'Clear all QGO app data on device? This resets all settings and fixes the issue where game profiles don\'t show.'
+    )
+    if (!confirmed) return
+
+    try {
+      const apps = await window.api.listApps(selectedDevice)
+      const qgoApp = apps.find((app) => {
+        const pkgLower = (app.package || '').toLowerCase()
+        const nameLower = (app.name || '').toLowerCase()
+        return QGO_PACKAGE_PATTERNS.some(
+          (pattern) => pkgLower.includes(pattern) || nameLower.includes(pattern)
+        )
+      })
+
+      if (!qgoApp) {
+        toast.error(t('qgo_not_found') || 'QGO not found on device')
+        return
+      }
+
+      const result = await window.api.clearAppData(selectedDevice, qgoApp.package)
+
+      if (result.success) {
+        toast.success(t('qgo_clear_data_success') || 'QGO data cleared successfully')
+      } else {
+        toast.error(`${t('qgo_clear_data_failed') || 'Failed to clear QGO data:'} ${result.message}`)
+      }
+    } catch (err) {
+      console.error('Clear QGO data error:', err)
+      toast.error(`${t('qgo_clear_data_failed') || 'Failed to clear QGO data:'} ${err.message}`)
+    }
+  }
+
   const formatBytes = (bytes) => {
     if (bytes === 0) return '0 B'
     const k = 1024
@@ -1000,25 +1037,47 @@ export function QuestGamesOptimizer({
                           {/* Install/Uninstall button */}
                           {isVersionInstalled(version) ? (
                             // Uninstall App button for installed version - only enabled if device connected
-                            <button
-                              onClick={handleUninstall}
-                              disabled={!selectedDevice || isDownloading || installing}
-                              title={
-                                !selectedDevice
-                                  ? t('connect_device_first') || 'Connect a device first'
-                                  : ''
-                              }
-                              className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                                selectedDevice
-                                  ? 'bg-gradient-to-r from-orange-500 to-amber-400 hover:scale-105 disabled:opacity-50'
-                                  : 'bg-gray-600 opacity-50'
-                              }`}
-                            >
-                              <Icon icon="mdi:delete" className="h-4 w-4" />
-                              <span className="hidden sm:inline">
-                                {t('uninstall_app') || 'Uninstall App'}
-                              </span>
-                            </button>
+                            <>
+                              {/* Reset Data button - fixes game profiles not showing after patch */}
+                              <button
+                                onClick={handleClearQgoData}
+                                disabled={!selectedDevice || isDownloading || installing}
+                                title={
+                                  !selectedDevice
+                                    ? t('connect_device_first') || 'Connect a device first'
+                                    : t('qgo_confirm_clear_data') || 'Reset QGO app data on device'
+                                }
+                                className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                                  selectedDevice
+                                    ? 'bg-gradient-to-r from-yellow-600 to-amber-500 hover:scale-105 disabled:opacity-50'
+                                    : 'bg-gray-600 opacity-50'
+                                }`}
+                              >
+                                <Icon icon="mdi:broom" className="h-4 w-4" />
+                                <span className="hidden sm:inline">
+                                  {t('qgo_clear_data') || 'Reset Data'}
+                                </span>
+                              </button>
+                              <button
+                                onClick={handleUninstall}
+                                disabled={!selectedDevice || isDownloading || installing}
+                                title={
+                                  !selectedDevice
+                                    ? t('connect_device_first') || 'Connect a device first'
+                                    : ''
+                                }
+                                className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                                  selectedDevice
+                                    ? 'bg-gradient-to-r from-orange-500 to-amber-400 hover:scale-105 disabled:opacity-50'
+                                    : 'bg-gray-600 opacity-50'
+                                }`}
+                              >
+                                <Icon icon="mdi:delete" className="h-4 w-4" />
+                                <span className="hidden sm:inline">
+                                  {t('uninstall_app') || 'Uninstall App'}
+                                </span>
+                              </button>
+                            </>
                           ) : (
                             // Install button - install from local file
                             <button
@@ -1056,25 +1115,47 @@ export function QuestGamesOptimizer({
 
                           {/* Uninstall App button - show if this version is installed but file deleted */}
                           {isVersionInstalled(version) && (
-                            <button
-                              onClick={handleUninstall}
-                              disabled={!selectedDevice || isDownloading || installing}
-                              title={
-                                !selectedDevice
-                                  ? t('connect_device_first') || 'Connect a device first'
-                                  : ''
-                              }
-                              className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                                selectedDevice
-                                  ? 'bg-gradient-to-r from-orange-500 to-amber-400 hover:scale-105 disabled:opacity-50'
-                                  : 'bg-gray-600 opacity-50'
-                              }`}
-                            >
-                              <Icon icon="mdi:delete" className="h-4 w-4" />
-                              <span className="hidden sm:inline">
-                                {t('uninstall_app') || 'Uninstall App'}
-                              </span>
-                            </button>
+                            <>
+                              {/* Reset Data button */}
+                              <button
+                                onClick={handleClearQgoData}
+                                disabled={!selectedDevice || isDownloading || installing}
+                                title={
+                                  !selectedDevice
+                                    ? t('connect_device_first') || 'Connect a device first'
+                                    : t('qgo_confirm_clear_data') || 'Reset QGO app data on device'
+                                }
+                                className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                                  selectedDevice
+                                    ? 'bg-gradient-to-r from-yellow-600 to-amber-500 hover:scale-105 disabled:opacity-50'
+                                    : 'bg-gray-600 opacity-50'
+                                }`}
+                              >
+                                <Icon icon="mdi:broom" className="h-4 w-4" />
+                                <span className="hidden sm:inline">
+                                  {t('qgo_clear_data') || 'Reset Data'}
+                                </span>
+                              </button>
+                              <button
+                                onClick={handleUninstall}
+                                disabled={!selectedDevice || isDownloading || installing}
+                                title={
+                                  !selectedDevice
+                                    ? t('connect_device_first') || 'Connect a device first'
+                                    : ''
+                                }
+                                className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                                  selectedDevice
+                                    ? 'bg-gradient-to-r from-orange-500 to-amber-400 hover:scale-105 disabled:opacity-50'
+                                    : 'bg-gray-600 opacity-50'
+                                }`}
+                              >
+                                <Icon icon="mdi:delete" className="h-4 w-4" />
+                                <span className="hidden sm:inline">
+                                  {t('uninstall_app') || 'Uninstall App'}
+                                </span>
+                              </button>
+                            </>
                           )}
                         </>
                       )}

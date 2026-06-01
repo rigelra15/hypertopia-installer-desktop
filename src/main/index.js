@@ -758,6 +758,21 @@ ipcMain.handle('uninstall-app', async (event, serial, packageName) => {
   }
 })
 
+// IPC: Clear app data (pm clear)
+ipcMain.handle('clear-app-data', async (event, serial, packageName) => {
+  try {
+    const result = await runAdbCommandAsync(['shell', 'pm', 'clear', packageName], serial)
+    if (result.includes('Success')) {
+      return { success: true, message: 'App data cleared successfully' }
+    } else {
+      return { success: false, message: result || 'Clear data failed' }
+    }
+  } catch (error) {
+    console.error('Error clearing app data:', error)
+    return { success: false, message: error.message }
+  }
+})
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.

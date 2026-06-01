@@ -40,6 +40,8 @@ const api = {
   listApps: (deviceSerial) => ipcRenderer.invoke('list-apps', deviceSerial),
   uninstallApp: (deviceSerial, packageName) =>
     ipcRenderer.invoke('uninstall-app', deviceSerial, packageName),
+  clearAppData: (deviceSerial, packageName) =>
+    ipcRenderer.invoke('clear-app-data', deviceSerial, packageName),
   // New APIs for folder selection
   selectGameFolder: () => ipcRenderer.invoke('select-game-folder'),
   selectArchiveFile: () => ipcRenderer.invoke('select-archive-file'),
