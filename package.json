@@ -1,13 +1,14 @@
 {
   "name": "hypertopia-installer",
   "productName": "HyperTopia Installer",
-  "version": "1.0.298",
+  "version": "1.0.300",
   "description": "HyperTopia Installer - Advanced VR Sideloading Tool",
   "main": "./out/main/index.js",
   "author": "HyperTopia",
   "homepage": "https://hypertopia.web.id",
   "scripts": {
     "format": "prettier --write .",
+    "icons:generate": "node scripts/generate-icons.js && prettier --write src/renderer/src/utils/iconSubset.js",
     "lint": "eslint --cache .",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
@@ -22,9 +23,6 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
-    "@iconify-json/bi": "^1.2.7",
-    "@iconify-json/line-md": "^1.2.11",
-    "@iconify-json/mdi": "^1.2.3",
     "@iconify/react": "^6.0.2",
     "7zip-bin": "^5.2.0",
     "adbkit": "^2.11.1",

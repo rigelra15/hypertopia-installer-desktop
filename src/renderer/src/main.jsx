@@ -1,5 +1,5 @@
 import './assets/main.css'
-import './utils/loadIcons' // Load icons for offline use
+import './utils/iconSubset'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

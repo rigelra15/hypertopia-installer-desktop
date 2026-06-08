@@ -9,6 +9,7 @@ const DRY_RUN = process.argv.includes('--dry-run')
 // Parse custom suffix from CLI args (e.g. "npm run release rev1" => suffix = "rev1")
 // Skip arguments that start with "--" (those are flags like --dry-run)
 const customSuffix = process.argv.slice(2).find((arg) => !arg.startsWith('--')) || ''
+const allowedGeneratedChanges = new Set(['package.json', 'src/renderer/src/utils/iconSubset.js'])
 
 function run(command) {
   console.log(`> ${command}`)
@@ -31,12 +32,20 @@ function runOutput(command) {
   }
 }
 
+// Keep offline icon subset in sync with source before release amends the commit.
+console.log('Generating offline icon subset...')
+run('npm run icons:generate')
+
 // Check for uncommitted changes
 console.log('Checking for uncommitted changes...')
 const status = runOutput('git status --porcelain')
-if (status && !status.includes('package.json')) {
+const unexpectedChanges = status
+  .split('\n')
+  .filter(Boolean)
+  .filter((line) => !allowedGeneratedChanges.has(line.slice(3)))
+if (unexpectedChanges.length > 0) {
   console.error('ERROR: You have uncommitted changes. Please commit your work first!')
-  console.error(status)
+  console.error(unexpectedChanges.join('\n'))
   process.exit(1)
 }
 
@@ -131,7 +140,7 @@ fs.writeFileSync(PACKAGE_JSON_PATH, JSON.stringify(packageJson, null, 2) + '\n')
 // 4. Amend the last commit to include version bump (no new commit message polluting changelog)
 console.log('Amending last commit with version bump...')
 try {
-  run(`git add package.json`)
+  run(`git add package.json src/renderer/src/utils/iconSubset.js`)
   run(`git commit --amend --no-edit`)
   run(`git tag ${tagName}`)
 
@@ -168,10 +177,10 @@ try {
       console.log(`Found ${sameDayPublished.length} same-day release(s) to draft:`)
       for (const rel of sameDayPublished) {
         console.log(`  → Drafting ${rel.tagName}`)
-        execSync(
-          `gh release edit ${rel.tagName} --repo ${RELEASES_REPO} --draft`,
-          { encoding: 'utf8', stdio: 'inherit' }
-        )
+        execSync(`gh release edit ${rel.tagName} --repo ${RELEASES_REPO} --draft`, {
+          encoding: 'utf8',
+          stdio: 'inherit'
+        })
       }
     } else {
       console.log('No same-day releases to draft.')
