@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { Icon } from '@iconify/react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useLanguage } from '../contexts/LanguageContext'
 import { tutorials } from '../data/tutorials'
 
@@ -35,6 +36,12 @@ function MediaThumbnail({ src, alt, onClick }) {
   )
 }
 
+MediaThumbnail.propTypes = {
+  src: PropTypes.string.isRequired,
+  alt: PropTypes.string,
+  onClick: PropTypes.func.isRequired
+}
+
 function MediaLightbox({ src, onClose }) {
   const videoRef = useRef(null)
 
@@ -43,11 +50,22 @@ function MediaLightbox({ src, onClose }) {
   }, [])
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
       onClick={onClose}
     >
-      <div className="relative max-h-full max-w-full" onClick={(e) => e.stopPropagation()}>
+      <motion.div
+        className="relative max-h-full max-w-full"
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {isVideoUrl(src) ? (
           <video
             ref={videoRef}
@@ -70,9 +88,14 @@ function MediaLightbox({ src, onClose }) {
         >
           <Icon icon="mdi:close" className="h-8 w-8" />
         </button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
+}
+
+MediaLightbox.propTypes = {
+  src: PropTypes.string.isRequired,
+  onClose: PropTypes.func.isRequired
 }
 
 export function Tutorials({ onNavigate }) {
@@ -188,7 +211,7 @@ export function Tutorials({ onNavigate }) {
                 {(selectedTutorial.tabs
                   ? selectedTutorial.tabs.find((tb) => tb.id === activeTabId)?.steps || []
                   : selectedTutorial.steps || []
-                ).map((step, index, array) => (
+                ).map((step, index, _array) => (
                   <div key={index}>
                     {/* Step Content */}
                     <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 p-4 transition-all hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/10">
@@ -251,7 +274,9 @@ export function Tutorials({ onNavigate }) {
                                     <MediaThumbnail
                                       src={subStep.image || subStep.imageUrl}
                                       alt={`Sub Step ${subIndex + 1}`}
-                                      onClick={() => setPreviewMedia(subStep.image || subStep.imageUrl)}
+                                      onClick={() =>
+                                        setPreviewMedia(subStep.image || subStep.imageUrl)
+                                      }
                                     />
                                   </div>
                                 )}
@@ -268,7 +293,11 @@ export function Tutorials({ onNavigate }) {
         </div>
 
         {/* Media Lightbox */}
-        {previewMedia && <MediaLightbox src={previewMedia} onClose={() => setPreviewMedia(null)} />}
+        <AnimatePresence>
+          {previewMedia && (
+            <MediaLightbox src={previewMedia} onClose={() => setPreviewMedia(null)} />
+          )}
+        </AnimatePresence>
       </div>
     )
   }

@@ -148,18 +148,29 @@ export function NetworkProvider({ children }) {
     }
   }, [handleOnline, handleOffline, updateConnectionType, checkApiConnectivity])
 
-  // Periodic connectivity/ping check - runs continuously like mobile game network indicators
+  // Periodic connectivity/ping check; pause while hidden to avoid idle network/CPU work.
   useEffect(() => {
     const interval = isOnline && isApiReachable ? PING_INTERVAL : RETRY_INTERVAL
 
     checkIntervalRef.current = setInterval(() => {
-      checkApiConnectivity()
+      if (document.visibilityState === 'visible') {
+        checkApiConnectivity()
+      }
     }, interval)
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkApiConnectivity()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current)
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [isOnline, isApiReachable, checkApiConnectivity])
 

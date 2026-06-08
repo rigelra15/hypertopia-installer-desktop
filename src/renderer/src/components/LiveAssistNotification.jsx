@@ -91,10 +91,25 @@ export default function LiveAssistNotification({
     // Initial fetch
     fetchPendingSessions()
 
-    // Poll every 5 seconds
-    const interval = setInterval(fetchPendingSessions, 5000)
+    // Poll while visible only; background tabs resume on visibility change.
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchPendingSessions()
+      }
+    }, 10000)
 
-    return () => clearInterval(interval)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchPendingSessions()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [isAdmin, isOnLiveAssistTab])
 
   // Filter out dismissed notifications
@@ -109,58 +124,56 @@ export default function LiveAssistNotification({
     handleDismiss(sessionId)
   }
 
-  // Don't render if not admin, no pending requests, or on Live Assist tab
-  if (!isAdmin || visibleRequests.length === 0 || isOnLiveAssistTab) {
-    return null
-  }
+  const shouldShowNotifications = isAdmin && !isOnLiveAssistTab
 
   return (
     <div className="fixed bottom-4 right-4 z-[9998] flex flex-col gap-2 max-w-sm pointer-events-none">
       <AnimatePresence>
-        {visibleRequests.slice(0, 3).map((request) => (
-          <motion.div
-            key={request.id}
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 100, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className="flex items-start gap-3 rounded-xl border p-3 shadow-lg pointer-events-auto bg-blue-50 dark:bg-[#1a3a5c] border-blue-300 dark:border-[#0081FB]/50"
-          >
-            {/* Icon */}
-            <div className="rounded-lg p-2 bg-[#0081FB]/20">
-              <Icon icon="mdi:headset" className="h-5 w-5 text-[#0081FB]" />
-            </div>
+        {shouldShowNotifications &&
+          visibleRequests.slice(0, 3).map((request) => (
+            <motion.div
+              key={request.id}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 100, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-start gap-3 rounded-xl border p-3 shadow-lg pointer-events-auto bg-blue-50 dark:bg-[#1a3a5c] border-blue-300 dark:border-[#0081FB]/50"
+            >
+              {/* Icon */}
+              <div className="rounded-lg p-2 bg-[#0081FB]/20">
+                <Icon icon="mdi:headset" className="h-5 w-5 text-[#0081FB]" />
+              </div>
 
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                {t('live_assist_request') || 'Support Request'}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-white/60 truncate">
-                {request.userName}
-              </p>
-            </div>
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  {t('live_assist_request') || 'Support Request'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-white/60 truncate">
+                  {request.userName}
+                </p>
+              </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={() => handleAnswer(request.id)}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#0081FB] text-white hover:bg-[#0070E0] transition-colors"
-              >
-                {t('live_assist_answer') || 'Answer'}
-              </button>
-              <button
-                onClick={() => handleDismiss(request.id)}
-                className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
-              >
-                <Icon icon="mdi:close" className="h-4 w-4 text-gray-400 dark:text-white/50" />
-              </button>
-            </div>
-          </motion.div>
-        ))}
+              {/* Actions */}
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => handleAnswer(request.id)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#0081FB] text-white hover:bg-[#0070E0] transition-colors"
+                >
+                  {t('live_assist_answer') || 'Answer'}
+                </button>
+                <button
+                  onClick={() => handleDismiss(request.id)}
+                  className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
+                >
+                  <Icon icon="mdi:close" className="h-4 w-4 text-gray-400 dark:text-white/50" />
+                </button>
+              </div>
+            </motion.div>
+          ))}
 
         {/* More indicator */}
-        {visibleRequests.length > 3 && (
+        {shouldShowNotifications && visibleRequests.length > 3 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

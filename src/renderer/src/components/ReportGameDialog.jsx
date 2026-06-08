@@ -104,122 +104,125 @@ export function ReportGameDialog({ isOpen, onClose, gameTitle, gameVersion, onSu
     }
   }
 
-  if (!isOpen) return null
-
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[70] flex items-center justify-center p-4"
-      >
-        <div className="fixed inset-0 bg-black/60" onClick={onClose} />
+      {isOpen && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          key="report-game-dialog"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4"
         >
-          <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-white/10">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
-                <Icon icon="mdi:alert-circle" className="text-red-500 text-lg" />
+          <div className="fixed inset-0 bg-black/60" onClick={() => onClose()} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          >
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                  <Icon icon="mdi:alert-circle" className="text-red-500 text-lg" />
+                </div>
+                <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                  {language === 'en' ? 'Report Issue' : 'Lapor Masalah'}
+                </h3>
               </div>
-              <h3 className="font-bold text-lg text-gray-900 dark:text-white">
-                {language === 'en' ? 'Report Issue' : 'Lapor Masalah'}
-              </h3>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors"
-            >
-              <Icon icon="mdi:close" className="w-5 h-5 text-gray-500 dark:text-white/60" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="p-4 space-y-4">
-            <div className="p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg border border-blue-100 dark:border-blue-500/20">
-              <p className="text-sm text-blue-700 dark:text-blue-300">
-                <Icon icon="mdi:gamepad-variant" className="inline mr-1" />
-                <span className="font-medium">{gameTitle}</span>
-              </p>
-              {gameVersion && (
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                  {language === 'en' ? 'Version:' : 'Versi:'} {gameVersion}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-white/70 mb-1.5">
-                {language === 'en' ? 'Issue Type' : 'Tipe Masalah'} *
-              </label>
-              <select
-                value={selectedIssue}
-                onChange={(e) => setSelectedIssue(e.target.value)}
-                className="w-full p-3 border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-white/5 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all"
-                required
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors"
               >
-                <option value="">
-                  {language === 'en' ? 'Select issue...' : 'Pilih masalah...'}
-                </option>
-                {reportOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {language === 'en' ? opt.labelEn : opt.labelId}
-                  </option>
-                ))}
-              </select>
+                <Icon icon="mdi:close" className="w-5 h-5 text-gray-500 dark:text-white/60" />
+              </button>
             </div>
 
-            {selectedIssue === 'others' && (
+            <form onSubmit={handleSubmit} className="p-4 space-y-4">
+              <div className="p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg border border-blue-100 dark:border-blue-500/20">
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  <Icon icon="mdi:gamepad-variant" className="inline mr-1" />
+                  <span className="font-medium">{gameTitle}</span>
+                </p>
+                {gameVersion && (
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    {language === 'en' ? 'Version:' : 'Versi:'} {gameVersion}
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-white/70 mb-1.5">
-                  {language === 'en' ? 'Describe the Issue' : 'Jelaskan Masalahnya'} *
+                  {language === 'en' ? 'Issue Type' : 'Tipe Masalah'} *
                 </label>
-                <textarea
-                  value={customReport}
-                  onChange={(e) => setCustomReport(e.target.value)}
-                  placeholder={
-                    language === 'en' ? 'Describe the issue in detail...' : 'Jelaskan masalahnya...'
-                  }
-                  rows={3}
-                  className="w-full p-3 border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-white/5 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all resize-none"
+                <select
+                  value={selectedIssue}
+                  onChange={(e) => setSelectedIssue(e.target.value)}
+                  className="w-full p-3 border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-white/5 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all"
                   required
-                />
+                >
+                  <option value="">
+                    {language === 'en' ? 'Select issue...' : 'Pilih masalah...'}
+                  </option>
+                  {reportOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {language === 'en' ? opt.labelEn : opt.labelId}
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
 
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-white/70 rounded-xl font-medium transition-all"
-              >
-                {language === 'en' ? 'Cancel' : 'Batal'}
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    {language === 'en' ? 'Submitting...' : 'Mengirim...'}
-                  </>
-                ) : (
-                  <>
-                    <Icon icon="mdi:send" className="text-lg" />
-                    {language === 'en' ? 'Submit' : 'Kirim'}
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+              {selectedIssue === 'others' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-white/70 mb-1.5">
+                    {language === 'en' ? 'Describe the Issue' : 'Jelaskan Masalahnya'} *
+                  </label>
+                  <textarea
+                    value={customReport}
+                    onChange={(e) => setCustomReport(e.target.value)}
+                    placeholder={
+                      language === 'en'
+                        ? 'Describe the issue in detail...'
+                        : 'Jelaskan masalahnya...'
+                    }
+                    rows={3}
+                    className="w-full p-3 border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-white/5 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all resize-none"
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-white/70 rounded-xl font-medium transition-all"
+                >
+                  {language === 'en' ? 'Cancel' : 'Batal'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      {language === 'en' ? 'Submitting...' : 'Mengirim...'}
+                    </>
+                  ) : (
+                    <>
+                      <Icon icon="mdi:send" className="text-lg" />
+                      {language === 'en' ? 'Submit' : 'Kirim'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>
   )
 }

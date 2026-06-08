@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react'
 import { useDownload } from '../contexts/DownloadContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import coverImages from '../utils/coverImages'
-import QGOLogo from '../assets/images/qgo-logo.png'
+import QGOLogo from '../assets/images/qgo-logo.webp'
 import { Modal } from './ui/Modal'
 
 const formatSize = (bytes) => {

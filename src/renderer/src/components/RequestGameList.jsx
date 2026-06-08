@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Icon } from '@iconify/react'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import PropTypes from 'prop-types'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -56,7 +56,7 @@ function Tooltip({ children, text }) {
       {children}
       <AnimatePresence>
         {show && (
-          <span
+          <motion.span
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
@@ -65,7 +65,7 @@ function Tooltip({ children, text }) {
           >
             {text}
             <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[5px] border-t-gray-900 dark:border-t-gray-700" />
-          </span>
+          </motion.span>
         )}
       </AnimatePresence>
     </span>
@@ -239,7 +239,7 @@ function RequestCard({ req, language, isAdmin, onEdit, onDelete, onStatusChange 
 
         <AnimatePresence>
           {menuOpen && isAdmin && (
-            <div
+            <motion.div
               initial={{ opacity: 0, scale: 0.9, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: -10 }}
@@ -274,12 +274,14 @@ function RequestCard({ req, language, isAdmin, onEdit, onDelete, onStatusChange 
                   )
                 })}
               </div>
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      <div className={`relative shrink-0 bg-gradient-to-r ${theme.gradient} p-4 pb-5 rounded-t-2xl`}>
+      <div
+        className={`relative shrink-0 bg-gradient-to-r ${theme.gradient} p-4 pb-5 rounded-t-2xl`}
+      >
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 right-0 w-28 h-28 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-20 h-20 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />

@@ -66,7 +66,7 @@ const getQuestInfo = (questKey) => {
 export default function GameDetailModal({
   isOpen,
   onClose,
-  game,
+  game: gameProp,
   selectedDevice,
   connectedDevice
 }) {
@@ -85,7 +85,13 @@ export default function GameDetailModal({
   } = useDownload()
   const toast = useToast()
   const { fetchDownloadUrl } = useGames()
+  const [renderedGame, setRenderedGame] = useState(gameProp)
+  const game = gameProp || renderedGame
   const isEligible = accessTypes.some((t) => t.toLowerCase() === 'standalone')
+
+  useEffect(() => {
+    if (gameProp) setRenderedGame(gameProp)
+  }, [gameProp])
 
   const [coverUrl, setCoverUrl] = useState(null)
   const [loadingImage, setLoadingImage] = useState(true)
@@ -101,7 +107,7 @@ export default function GameDetailModal({
   const iframeRef = useRef(null)
   const glowRef = useRef(null)
   const [videoReady, setVideoReady] = useState(false)
-  const [isMuted, setIsMuted] = useState(false)
+  const [isMuted, setIsMuted] = useState(true)
   const [isPlaying, setIsPlaying] = useState(true)
   const [volume, setVolume] = useState(50)
 
@@ -175,12 +181,13 @@ export default function GameDetailModal({
   useEffect(() => {
     if (!isOpen || !game?.videoIdYouTube) {
       setVideoReady(false)
-      setIsMuted(false)
+      setIsMuted(true)
       setIsPlaying(true)
       return
     }
     const timer = setTimeout(() => {
       setVideoReady(true)
+      postYTCommand('mute')
       postYTCommand('playVideo')
     }, 2000)
     return () => clearTimeout(timer)
@@ -206,6 +213,7 @@ export default function GameDetailModal({
     setLoadingImage(true)
     setShowVersionSelector(false)
     setShowDownloadParts(false)
+    setIsMuted(true)
     setIsInstalling(false)
     setShowInstallModal(false)
     setDownloadedFiles({})
@@ -320,14 +328,6 @@ export default function GameDetailModal({
       isSupportedV76: isSupportedV76,
       downloadCount: localDownloadCount || 0
     }
-  }
-
-  // Get total download count
-  const getTotalDownloadCount = () => {
-    if (localVersions && localVersions.length > 0) {
-      return localVersions.reduce((total, version) => total + (version?.downloadCount || 0), 0)
-    }
-    return localDownloadCount || 0
   }
 
   // Update download count to Firebase (same as website)
@@ -741,9 +741,19 @@ export default function GameDetailModal({
   const currentVersion = getCurrentVersion()
 
   return (
-    <AnimatePresence>
+    <AnimatePresence
+      onExitComplete={() => {
+        if (!isOpen && !gameProp) setRenderedGame(null)
+      }}
+    >
       {isOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <motion.div
+          className="fixed inset-0 z-50 overflow-y-auto"
+          initial={false}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        >
           <div className="flex min-h-full items-center justify-center p-4">
             {/* Backdrop */}
             <motion.div
@@ -842,7 +852,7 @@ export default function GameDetailModal({
                         <iframe
                           ref={iframeRef}
                           key={game.videoIdYouTube}
-                          src={`https://www.youtube.com/embed/${game.videoIdYouTube}?autoplay=0&mute=0&controls=0&modestbranding=1&rel=0&loop=1&playlist=${game.videoIdYouTube}&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.protocol === 'file:' ? 'https://hypertopia.web.id' : window.location.origin)}`}
+                          src={`https://www.youtube.com/embed/${game.videoIdYouTube}?autoplay=0&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${game.videoIdYouTube}&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.protocol === 'file:' ? 'https://hypertopia.web.id' : window.location.origin)}`}
                           title={gameTitle}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           className="w-full h-full border-0"
@@ -1786,7 +1796,7 @@ export default function GameDetailModal({
               )}
             </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Update Game Dialog */}

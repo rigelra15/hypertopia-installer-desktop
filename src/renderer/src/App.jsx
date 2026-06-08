@@ -1,14 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef } from 'react'
 import { Icon } from '@iconify/react'
 import { useLanguage } from './contexts/LanguageContext'
 import { useToast } from './hooks/useToast'
 import { useDownload } from './contexts/DownloadContext'
 import { InstallerSidebar } from './components/InstallerSidebar'
-import { DeviceManager } from './components/DeviceManager'
-import { StandaloneGames } from './components/StandaloneGames'
-import { Tutorials } from './components/Tutorials'
-import { LiveAssist } from './components/LiveAssist'
-import { QuestGamesOptimizer } from './components/QuestGamesOptimizer'
 import { SetupModal } from './components/SetupModal'
 import { UserMenu } from './components/UserMenu'
 import { TitleBar } from './components/TitleBar'
@@ -18,6 +13,35 @@ import GameInstallWidget from './components/GameInstallWidget'
 import NetworkStatusWidget from './components/NetworkStatusWidget'
 import { useAuth } from './contexts/AuthContext'
 import { useGames } from './contexts/GamesContext'
+
+const DeviceManager = lazy(() =>
+  import('./components/DeviceManager').then((module) => ({ default: module.DeviceManager }))
+)
+const StandaloneGames = lazy(() =>
+  import('./components/StandaloneGames').then((module) => ({ default: module.StandaloneGames }))
+)
+const Tutorials = lazy(() =>
+  import('./components/Tutorials').then((module) => ({ default: module.Tutorials }))
+)
+const LiveAssist = lazy(() =>
+  import('./components/LiveAssist').then((module) => ({ default: module.LiveAssist }))
+)
+const QuestGamesOptimizer = lazy(() =>
+  import('./components/QuestGamesOptimizer').then((module) => ({
+    default: module.QuestGamesOptimizer
+  }))
+)
+
+function TabLoadingFallback() {
+  return (
+    <div className="flex flex-1 items-center justify-center bg-gray-50 dark:bg-[#0a0a0a]">
+      <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm font-medium text-gray-500 shadow-sm dark:border-white/10 dark:bg-[#111] dark:text-white/60">
+        <Icon icon="mdi:loading" className="h-5 w-5 animate-spin text-[#0081FB]" />
+        <span>Loading...</span>
+      </div>
+    </div>
+  )
+}
 
 function App() {
   const { t } = useLanguage()
@@ -191,7 +215,11 @@ function App() {
 
     if (!hasCheckedUpdates.current) {
       hasCheckedUpdates.current = true
-      checkOnLaunch()
+      const timer = setTimeout(checkOnLaunch, 3000)
+      return () => {
+        clearTimeout(timer)
+        removeListener()
+      }
     }
 
     return () => {
@@ -330,30 +358,32 @@ function App() {
             <UserMenu onLiveAssist={() => setActiveTab('liveassist')} />
           </div>
 
-          {activeTab === 'manager' ? (
-            <DeviceManager selectedDevice={selectedDevice} initialSubTab={managerSubTab} />
-          ) : activeTab === 'games' ? (
-            <StandaloneGames
-              selectedDevice={selectedDevice}
-              onGameCountChange={setGamesCount}
-              pendingDeepLinkDownload={
-                pendingDeepLinkDownload?.type === 'standalone' ? pendingDeepLinkDownload : null
-              }
-              onDeepLinkProcessed={() => setPendingDeepLinkDownload(null)}
-            />
-          ) : activeTab === 'liveassist' ? (
-            <LiveAssist />
-          ) : activeTab === 'qgo' ? (
-            <QuestGamesOptimizer
-              selectedDevice={selectedDevice}
-              pendingDeepLinkDownload={
-                pendingDeepLinkDownload?.type === 'qgo' ? pendingDeepLinkDownload : null
-              }
-              onDeepLinkProcessed={() => setPendingDeepLinkDownload(null)}
-            />
-          ) : (
-            <Tutorials />
-          )}
+          <Suspense fallback={<TabLoadingFallback />}>
+            {activeTab === 'manager' ? (
+              <DeviceManager selectedDevice={selectedDevice} initialSubTab={managerSubTab} />
+            ) : activeTab === 'games' ? (
+              <StandaloneGames
+                selectedDevice={selectedDevice}
+                onGameCountChange={setGamesCount}
+                pendingDeepLinkDownload={
+                  pendingDeepLinkDownload?.type === 'standalone' ? pendingDeepLinkDownload : null
+                }
+                onDeepLinkProcessed={() => setPendingDeepLinkDownload(null)}
+              />
+            ) : activeTab === 'liveassist' ? (
+              <LiveAssist />
+            ) : activeTab === 'qgo' ? (
+              <QuestGamesOptimizer
+                selectedDevice={selectedDevice}
+                pendingDeepLinkDownload={
+                  pendingDeepLinkDownload?.type === 'qgo' ? pendingDeepLinkDownload : null
+                }
+                onDeepLinkProcessed={() => setPendingDeepLinkDownload(null)}
+              />
+            ) : (
+              <Tutorials />
+            )}
+          </Suspense>
         </div>
       </div>
 

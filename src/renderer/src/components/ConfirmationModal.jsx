@@ -6,10 +6,8 @@ import { Modal } from './ui/Modal'
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confirm' }) => {
   const { t } = useLanguage()
 
-  if (!isOpen) return null
-  if (mode !== 'clear-all' && !fileData) return null
-
   const { name, size, type, hasObb, obbSize } = fileData || {}
+  const hasRenderableContent = mode === 'clear-all' || !!fileData
 
   const formatSize = (bytes) => {
     if (!bytes || bytes === 0) return '0 B'
@@ -175,11 +173,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
                   : 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-500 border border-yellow-500/30'
             }`}
           >
-            {name?.toLowerCase().endsWith('.rar')
-              ? 'RAR'
-              : type === 'folder'
-                ? 'FOLDER'
-                : 'ZIP'}
+            {name?.toLowerCase().endsWith('.rar') ? 'RAR' : type === 'folder' ? 'FOLDER' : 'ZIP'}
           </span>
           <span className="text-xs px-2.5 py-0.5 rounded font-bold tracking-wider text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-600/30 border border-gray-300 dark:border-gray-500/30 sm:ml-auto">
             {formatSize(size)} TOTAL
@@ -307,7 +301,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
       footer={getFooter()}
       closeOnBackdrop={true}
     >
-      {renderContent()}
+      {hasRenderableContent ? renderContent() : null}
     </Modal>
   )
 }
@@ -323,6 +317,7 @@ ConfirmationModal.propTypes = {
     type: PropTypes.string,
     hasObb: PropTypes.bool,
     obbSize: PropTypes.number,
+    apkName: PropTypes.string,
     apkSize: PropTypes.number,
     obbFolder: PropTypes.string,
     obbEntries: PropTypes.array,

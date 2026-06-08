@@ -202,13 +202,26 @@ export function LiveAssist() {
   useEffect(() => {
     if (isAdmin && status === 'idle') {
       fetchPendingRequests()
-      pollIntervalRef.current = setInterval(fetchPendingRequests, 3000)
+      pollIntervalRef.current = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          fetchPendingRequests()
+        }
+      }, 10000)
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          fetchPendingRequests()
+        }
+      }
+
+      document.addEventListener('visibilitychange', handleVisibilityChange)
 
       return () => {
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current)
           pollIntervalRef.current = null
         }
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
       }
     }
   }, [isAdmin, status, fetchPendingRequests])

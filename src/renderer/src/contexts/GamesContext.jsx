@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
+import { createContext, useContext, useState, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { apiFetch, API_BASE_URL } from '../utils/apiClient'
 
@@ -280,16 +280,6 @@ export function GamesProvider({ children }) {
       console.warn('[GamesContext] Preload error:', err)
     }
   }, [fetchGames, fetchQgoLinks])
-
-  // Preload data when provider mounts
-  useEffect(() => {
-    // Small delay to not block initial render
-    const timer = setTimeout(() => {
-      preloadData()
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [preloadData])
 
   const value = {
     // Games

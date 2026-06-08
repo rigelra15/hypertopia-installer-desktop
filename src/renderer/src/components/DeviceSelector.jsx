@@ -95,9 +95,27 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
 
   useEffect(() => {
     fetchDevices()
-    const interval = setInterval(fetchDevices, 1500) // Auto refresh every 1.5s
-    return () => clearInterval(interval)
-  }, [fetchDevices])
+    const interval = setInterval(
+      () => {
+        if (document.visibilityState === 'visible') {
+          fetchDevices()
+        }
+      },
+      isOpen ? 2000 : 5000
+    )
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchDevices()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [fetchDevices, isOpen])
 
   const handleCloseAuthHelp = () => {
     setShowAuthHelp(false)

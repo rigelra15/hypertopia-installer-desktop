@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Icon } from '@iconify/react'
-import logoLight from '../assets/images/HyperTopiaLogo-light.png'
-import logoDark from '../assets/images/HyperTopiaLogo-dark.png'
+import logoLight from '../assets/images/HyperTopiaLogo-light.webp'
+import logoDark from '../assets/images/HyperTopiaLogo-dark.webp'
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false)

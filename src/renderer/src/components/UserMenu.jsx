@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '@iconify/react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import PropTypes from 'prop-types'
@@ -99,15 +100,24 @@ export function UserMenu({ onLiveAssist }) {
         </button>
 
         {/* Login Modal */}
-        {showLoginModal && (
-          <>
-            {/* Backdrop */}
-            <div className="fixed inset-0 z-50 bg-black/70" onClick={handleCancelLogin} />
+        <AnimatePresence>
+          {showLoginModal && (
+            <motion.div
+              key="login-modal"
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div className="absolute inset-0 bg-black/70" onClick={handleCancelLogin} />
 
-            {/* Modal */}
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div
+              <motion.div
                 className="relative w-full max-w-md bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl p-6"
+                initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Close Button */}
@@ -156,10 +166,10 @@ export function UserMenu({ onLiveAssist }) {
                 >
                   {t('cancel') || 'Cancel'}
                 </button>
-              </div>
-            </div>
-          </>
-        )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </>
     )
   }
@@ -215,122 +225,141 @@ export function UserMenu({ onLiveAssist }) {
       </button>
 
       {/* Dropdown Menu */}
-      {showDropdown && (
-        <>
-          {/* Backdrop */}
-          <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
+      <AnimatePresence>
+        {showDropdown && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="user-menu-backdrop"
+              className="fixed inset-0 z-40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12 }}
+              onClick={() => setShowDropdown(false)}
+            />
 
-          {/* Menu */}
-          <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl bg-white dark:bg-[#1a1a1a] p-2 shadow-xl">
-            {/* User Info */}
-            <div className="border-b border-gray-200 dark:border-white/10 px-3 py-3 mb-2">
-              <div className="flex items-center gap-3">
-                {user.photoURL && !imageError ? (
-                  <img
-                    src={user.photoURL}
-                    alt={user.displayName || user.email}
-                    className="h-10 w-10 rounded-full border border-gray-200 dark:border-white/20"
-                    onError={() => setImageError(true)}
-                  />
-                ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0081FB]">
-                    <Icon icon="mdi:account" className="h-5 w-5 text-white" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  {user.displayName && (
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {user.displayName}
-                    </p>
+            {/* Menu */}
+            <motion.div
+              key="user-menu"
+              className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl bg-white dark:bg-[#1a1a1a] p-2 shadow-xl"
+              initial={{ opacity: 0, scale: 0.96, y: -8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -8 }}
+              transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {/* User Info */}
+              <div className="border-b border-gray-200 dark:border-white/10 px-3 py-3 mb-2">
+                <div className="flex items-center gap-3">
+                  {user.photoURL && !imageError ? (
+                    <img
+                      src={user.photoURL}
+                      alt={user.displayName || user.email}
+                      className="h-10 w-10 rounded-full border border-gray-200 dark:border-white/20"
+                      onError={() => setImageError(true)}
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0081FB]">
+                      <Icon icon="mdi:account" className="h-5 w-5 text-white" />
+                    </div>
                   )}
-                  <p className="text-xs text-gray-500 dark:text-white/50 truncate">{user.email}</p>
+                  <div className="flex-1 min-w-0">
+                    {user.displayName && (
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {user.displayName}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 dark:text-white/50 truncate">
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center gap-1 flex-wrap">
+                  {eligibilityLoading ? (
+                    <span className="text-xs text-gray-400 dark:text-white/40 flex items-center gap-1">
+                      <Icon icon="mdi:loading" className="h-3 w-3 animate-spin" />
+                      {t('checking_eligibility') || 'Checking access...'}
+                    </span>
+                  ) : accessTypes.length > 0 ? (
+                    <>
+                      {accessTypes.map((type) => (
+                        <span
+                          key={type}
+                          className="text-xs flex items-center gap-1 bg-[#0081FB]/10 text-[#0081FB] border border-[#0081FB]/20 px-2 py-1 rounded-full uppercase font-semibold"
+                        >
+                          {type}
+                        </span>
+                      ))}
+                    </>
+                  ) : (
+                    <span className="text-xs text-gray-400 dark:text-white/40 flex items-center gap-1 bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-full">
+                      {t('no_access') || 'No Download Access'}
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="mt-2 flex items-center gap-1 flex-wrap">
-                {eligibilityLoading ? (
-                  <span className="text-xs text-gray-400 dark:text-white/40 flex items-center gap-1">
-                    <Icon icon="mdi:loading" className="h-3 w-3 animate-spin" />
-                    {t('checking_eligibility') || 'Checking access...'}
-                  </span>
-                ) : accessTypes.length > 0 ? (
-                  <>
-                    {accessTypes.map((type) => (
-                      <span
-                        key={type}
-                        className="text-xs flex items-center gap-1 bg-[#0081FB]/10 text-[#0081FB] border border-[#0081FB]/20 px-2 py-1 rounded-full uppercase font-semibold"
-                      >
-                        {type}
-                      </span>
-                    ))}
-                  </>
-                ) : (
-                  <span className="text-xs text-gray-400 dark:text-white/40 flex items-center gap-1 bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-full">
-                    {t('no_access') || 'No Download Access'}
-                  </span>
-                )}
-              </div>
-            </div>
 
-            {/* Profile Button */}
-            <button
-              onClick={() => {
-                setShowDropdown(false)
-                setShowProfileModal(true)
-              }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-white/70 transition-colors hover:bg-gray-100 dark:hover:bg-white/5"
-            >
-              <Icon icon="mdi:account-circle" className="h-4 w-4" />
-              <span>{t('profile') || 'Profile'}</span>
-            </button>
+              {/* Profile Button */}
+              <button
+                onClick={() => {
+                  setShowDropdown(false)
+                  setShowProfileModal(true)
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-white/70 transition-colors hover:bg-gray-100 dark:hover:bg-white/5"
+              >
+                <Icon icon="mdi:account-circle" className="h-4 w-4" />
+                <span>{t('profile') || 'Profile'}</span>
+              </button>
 
-            {/* Refresh Access Button */}
-            <button
-              onClick={() => checkEligibility(user.email)}
-              disabled={eligibilityLoading}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-white/70 transition-colors hover:bg-gray-100 dark:hover:bg-white/5 disabled:opacity-50"
-            >
-              <Icon
-                icon={eligibilityLoading ? 'mdi:loading' : 'mdi:refresh'}
-                className={`h-4 w-4 ${eligibilityLoading ? 'animate-spin' : ''}`}
-              />
-              <span>{t('refresh_access') || 'Refresh Access'}</span>
-            </button>
+              {/* Refresh Access Button */}
+              <button
+                onClick={() => checkEligibility(user.email)}
+                disabled={eligibilityLoading}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-white/70 transition-colors hover:bg-gray-100 dark:hover:bg-white/5 disabled:opacity-50"
+              >
+                <Icon
+                  icon={eligibilityLoading ? 'mdi:loading' : 'mdi:refresh'}
+                  className={`h-4 w-4 ${eligibilityLoading ? 'animate-spin' : ''}`}
+                />
+                <span>{t('refresh_access') || 'Refresh Access'}</span>
+              </button>
 
-            {/* Redeem Button */}
-            <button
-              onClick={() => {
-                setShowDropdown(false)
-                setShowRedeemModal(true)
-              }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#0081FB] transition-colors hover:bg-blue-50 dark:hover:bg-[#0081FB]/10"
-            >
-              <Icon icon="mdi:ticket-confirmation" className="h-4 w-4" />
-              <span>{t('redeem') || 'Redeem Akses'}</span>
-            </button>
+              {/* Redeem Button */}
+              <button
+                onClick={() => {
+                  setShowDropdown(false)
+                  setShowRedeemModal(true)
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#0081FB] transition-colors hover:bg-blue-50 dark:hover:bg-[#0081FB]/10"
+              >
+                <Icon icon="mdi:ticket-confirmation" className="h-4 w-4" />
+                <span>{t('redeem') || 'Redeem Akses'}</span>
+              </button>
 
-            {/* Live Assist Button */}
-            <button
-              onClick={() => {
-                setShowDropdown(false)
-                onLiveAssist?.()
-              }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-white/70 transition-colors hover:bg-gray-100 dark:hover:bg-white/5"
-            >
-              <Icon icon="mdi:headset" className="h-4 w-4" />
-              <span>{t('tab_live_assist') || 'Live Assist'}</span>
-            </button>
+              {/* Live Assist Button */}
+              <button
+                onClick={() => {
+                  setShowDropdown(false)
+                  onLiveAssist?.()
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-white/70 transition-colors hover:bg-gray-100 dark:hover:bg-white/5"
+              >
+                <Icon icon="mdi:headset" className="h-4 w-4" />
+                <span>{t('tab_live_assist') || 'Live Assist'}</span>
+              </button>
 
-            {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
-            >
-              <Icon icon="mdi:logout" className="h-4 w-4" />
-              <span>{t('logout_btn') || 'Sign out'}</span>
-            </button>
-          </div>
-        </>
-      )}
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
+              >
+                <Icon icon="mdi:logout" className="h-4 w-4" />
+                <span>{t('logout_btn') || 'Sign out'}</span>
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Profile Modal */}
       <ProfileModal

@@ -23,11 +23,6 @@ export default function NetworkStatusWidget() {
   // Check if download widget is showing to adjust position
   const { showWidget } = useDownload()
 
-  // Determine which notification to show
-  const showNotification = showOfflineNotification || showBackOnlineNotification
-
-  if (!showNotification) return null
-
   // Adjust bottom position if download widget is visible
   const bottomPosition = showWidget ? 'bottom-[180px]' : 'bottom-4'
 

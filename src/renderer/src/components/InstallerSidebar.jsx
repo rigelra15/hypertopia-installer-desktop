@@ -1,19 +1,24 @@
-import { useState, useRef, useEffect } from 'react'
+import { lazy, Suspense, useState, useRef, useEffect } from 'react'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import { DeviceSelector } from './DeviceSelector'
-import { ErrorModal } from './ErrorModal'
-import { SettingsModal } from './SettingsModal'
 import UpdateNotification from './UpdateNotification'
-import BrowseMethodModal from './BrowseMethodModal'
-import ConfirmationModal from './ConfirmationModal'
-import { SystemLogModal } from './SystemLogModal'
 import { Tooltip } from './Tooltip'
 import PropTypes from 'prop-types'
-import logoLight from '../assets/images/HyperTopiaLogo-light.png'
-import logoDark from '../assets/images/HyperTopiaLogo-dark.png'
+import logoLight from '../assets/images/HyperTopiaLogo-light.webp'
+import logoDark from '../assets/images/HyperTopiaLogo-dark.webp'
 import { useDownload } from '../contexts/DownloadContext'
-import DownloadActivityPanel from './DownloadActivityPanel'
+
+const ErrorModal = lazy(() => import('./ErrorModal').then((mod) => ({ default: mod.ErrorModal })))
+const SettingsModal = lazy(() =>
+  import('./SettingsModal').then((mod) => ({ default: mod.SettingsModal }))
+)
+const BrowseMethodModal = lazy(() => import('./BrowseMethodModal'))
+const ConfirmationModal = lazy(() => import('./ConfirmationModal'))
+const SystemLogModal = lazy(() =>
+  import('./SystemLogModal').then((mod) => ({ default: mod.SystemLogModal }))
+)
+const DownloadActivityPanel = lazy(() => import('./DownloadActivityPanel'))
 
 // Shared battery helpers (same logic as DeviceSelector)
 const getBatteryIcon = (batteryStr) => {
@@ -88,9 +93,39 @@ export function InstallerSidebar({
   const [confirmModalMode, setConfirmModalMode] = useState('confirm')
   const [isLogModalOpen, setIsLogModalOpen] = useState(false)
   const [showFileDetail, setShowFileDetail] = useState(false)
+  const [hasMountedErrorModal, setHasMountedErrorModal] = useState(false)
+  const [hasMountedBrowseModal, setHasMountedBrowseModal] = useState(false)
+  const [hasMountedConfirmationModal, setHasMountedConfirmationModal] = useState(false)
+  const [hasMountedDownloadPanel, setHasMountedDownloadPanel] = useState(false)
+  const [hasMountedSettingsModal, setHasMountedSettingsModal] = useState(false)
+  const [hasMountedLogModal, setHasMountedLogModal] = useState(false)
   const [compactDeviceModel, setCompactDeviceModel] = useState(null)
   const [compactDeviceBattery, setCompactDeviceBattery] = useState(null)
   const fileInputRef = useRef(null)
+
+  useEffect(() => {
+    if (errorDetails) setHasMountedErrorModal(true)
+  }, [errorDetails])
+
+  useEffect(() => {
+    if (showBrowseModal) setHasMountedBrowseModal(true)
+  }, [showBrowseModal])
+
+  useEffect(() => {
+    if (confirmModalOpen || showFileDetail) setHasMountedConfirmationModal(true)
+  }, [confirmModalOpen, showFileDetail])
+
+  useEffect(() => {
+    if (isDownloadPanelOpen) setHasMountedDownloadPanel(true)
+  }, [isDownloadPanelOpen])
+
+  useEffect(() => {
+    if (isSettingsOpen) setHasMountedSettingsModal(true)
+  }, [isSettingsOpen])
+
+  useEffect(() => {
+    if (isLogModalOpen) setHasMountedLogModal(true)
+  }, [isLogModalOpen])
 
   // Persist and notify parent when collapsed state changes
   useEffect(() => {
@@ -132,10 +167,23 @@ export function InstallerSidebar({
       }
     }
     refresh()
-    const interval = setInterval(refresh, 3000)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refresh()
+      }
+    }, 10000)
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refresh()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
       cancelled = true
       clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [selectedDevice])
 
@@ -157,7 +205,7 @@ export function InstallerSidebar({
 
   const handleCloseSettings = (newPath) => {
     setIsSettingsOpen(false)
-    if (newPath && onExtractPathChange) {
+    if (typeof newPath === 'string' && newPath && onExtractPathChange) {
       onExtractPathChange(newPath)
     }
   }
@@ -731,28 +779,32 @@ export function InstallerSidebar({
       ) : (
         // Expanded View - Original content
         <>
-          <ConfirmationModal
-            isOpen={confirmModalOpen}
-            onClose={handleCancelModal}
-            onConfirm={handleConfirmModal}
-            mode={confirmModalMode}
-            fileData={{
-              name: sourceType === 'folder' ? status?.apkName || file?.name : file?.name,
-              size:
-                sourceType === 'folder'
-                  ? (status?.apkSize || 0) + (status?.obbSize || 0)
-                  : file?.size || 0,
-              type: sourceType,
-              hasObb: status?.hasObb,
-              obbFolder: status?.obbFolder,
-              apkName: status?.apkName || null,
-              apkSize: status?.apkSize || 0,
-              obbSize: status?.obbSize || 0,
-              obbEntries: [],
-              obbFiles: status?.obbFiles || [],
-              manifestData: status?.manifestData
-            }}
-          />
+          {hasMountedConfirmationModal && (
+            <Suspense fallback={null}>
+              <ConfirmationModal
+                isOpen={confirmModalOpen}
+                onClose={handleCancelModal}
+                onConfirm={handleConfirmModal}
+                mode={confirmModalMode}
+                fileData={{
+                  name: sourceType === 'folder' ? status?.apkName || file?.name : file?.name,
+                  size:
+                    sourceType === 'folder'
+                      ? (status?.apkSize || 0) + (status?.obbSize || 0)
+                      : file?.size || 0,
+                  type: sourceType,
+                  hasObb: status?.hasObb,
+                  obbFolder: status?.obbFolder,
+                  apkName: status?.apkName || null,
+                  apkSize: status?.apkSize || 0,
+                  obbSize: status?.obbSize || 0,
+                  obbEntries: [],
+                  obbFiles: status?.obbFiles || [],
+                  manifestData: status?.manifestData
+                }}
+              />
+            </Suspense>
+          )}
 
           {/* Header */}
           <div className="flex-none p-6 pb-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-4">
@@ -1181,60 +1233,74 @@ export function InstallerSidebar({
       )}
 
       {/* Always-mounted modals – work in both collapsed and expanded states */}
-      <ErrorModal
-        isOpen={!!errorDetails}
-        onClose={() => setErrorDetails(null)}
-        error={errorDetails}
-      />
-      <BrowseMethodModal
-        isOpen={showBrowseModal}
-        onClose={() => setShowBrowseModal(false)}
-        onSelectArchive={handleSelectArchive}
-        onSelectFolder={handleSelectFolder}
-      />
-      <ConfirmationModal
-        isOpen={showFileDetail}
-        onClose={() => setShowFileDetail(false)}
-        onConfirm={() => setShowFileDetail(false)}
-        mode="view"
-        fileData={{
-          name: sourceType === 'folder' ? status?.apkName || file?.name : file?.name,
-          size:
-            sourceType === 'folder'
-              ? (status?.apkSize || 0) + (status?.obbSize || 0)
-              : file?.size || 0,
-          type: sourceType,
-          hasObb: status?.hasObb,
-          obbFolder: status?.obbFolder,
-          apkName: status?.apkName || null,
-          apkSize: status?.apkSize || 0,
-          obbSize: status?.obbSize || 0,
-          obbEntries: [],
-          obbFiles: status?.obbFiles || [],
-          manifestData: status?.manifestData
-        }}
-      />
-      <DownloadActivityPanel
-        isOpen={isDownloadPanelOpen}
-        onClose={() => setIsDownloadPanelOpen(false)}
-        onNavigateToManager={() => onNavigateToTab?.('manager:downloads')}
-      />
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={handleCloseSettings}
-        currentPath={extractPath}
-        appVersion={appVersion}
-        updateAvailable={updateAvailable}
-        updateInfo={updateInfo}
-        onUpdateNow={() => {
-          window.api.downloadUpdate()
-        }}
-      />
-      <SystemLogModal
-        isOpen={isLogModalOpen}
-        onClose={() => setIsLogModalOpen(false)}
-        logHistory={logHistory}
-      />
+      <Suspense fallback={null}>
+        {hasMountedErrorModal && (
+          <ErrorModal
+            isOpen={!!errorDetails}
+            onClose={() => setErrorDetails(null)}
+            error={errorDetails}
+          />
+        )}
+        {hasMountedBrowseModal && (
+          <BrowseMethodModal
+            isOpen={showBrowseModal}
+            onClose={() => setShowBrowseModal(false)}
+            onSelectArchive={handleSelectArchive}
+            onSelectFolder={handleSelectFolder}
+          />
+        )}
+        {hasMountedConfirmationModal && (
+          <ConfirmationModal
+            isOpen={showFileDetail}
+            onClose={() => setShowFileDetail(false)}
+            onConfirm={() => setShowFileDetail(false)}
+            mode="view"
+            fileData={{
+              name: sourceType === 'folder' ? status?.apkName || file?.name : file?.name,
+              size:
+                sourceType === 'folder'
+                  ? (status?.apkSize || 0) + (status?.obbSize || 0)
+                  : file?.size || 0,
+              type: sourceType,
+              hasObb: status?.hasObb,
+              obbFolder: status?.obbFolder,
+              apkName: status?.apkName || null,
+              apkSize: status?.apkSize || 0,
+              obbSize: status?.obbSize || 0,
+              obbEntries: [],
+              obbFiles: status?.obbFiles || [],
+              manifestData: status?.manifestData
+            }}
+          />
+        )}
+        {hasMountedDownloadPanel && (
+          <DownloadActivityPanel
+            isOpen={isDownloadPanelOpen}
+            onClose={() => setIsDownloadPanelOpen(false)}
+            onNavigateToManager={() => onNavigateToTab?.('manager:downloads')}
+          />
+        )}
+        {hasMountedSettingsModal && (
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={handleCloseSettings}
+            currentPath={extractPath}
+            appVersion={appVersion}
+            updateAvailable={updateAvailable}
+            updateInfo={updateInfo}
+            onUpdateNow={() => {
+              window.api.downloadUpdate()
+            }}
+          />
+        )}
+        {hasMountedLogModal && (
+          <SystemLogModal
+            isOpen={isLogModalOpen}
+            onClose={() => setIsLogModalOpen(false)}
+            logHistory={logHistory}
+          />
+        )}
+      </Suspense>
     </div>
   )
 }

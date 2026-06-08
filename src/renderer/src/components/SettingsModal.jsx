@@ -138,7 +138,7 @@ export function SettingsModal({
     <>
       <Modal
         isOpen={isOpen}
-        onClose={(newPath) => onClose?.(newPath)}
+        onClose={() => onClose?.()}
         title={t('settings_title') || 'Settings'}
         subtitle={t('settings_desc') || 'Configure your preferences'}
         icon="line-md:cog-filled"

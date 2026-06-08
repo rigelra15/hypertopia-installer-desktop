@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { lazy, Suspense, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
-import UpdateModal from './UpdateModal'
-import DownloadProgressWidget from './DownloadProgressWidget'
 import PropTypes from 'prop-types'
+
+const UpdateModal = lazy(() => import('./UpdateModal'))
+const DownloadProgressWidget = lazy(() => import('./DownloadProgressWidget'))
 
 /**
  * UpdateNotification Component
@@ -20,6 +21,8 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
   const [totalBytes, setTotalBytes] = useState(0)
   const [showModal, setShowModal] = useState(false)
   const [showWidget, setShowWidget] = useState(false) // NEW: floating widget visibility
+  const [hasMountedModal, setHasMountedModal] = useState(false)
+  const [hasMountedWidget, setHasMountedWidget] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [currentVersion, setCurrentVersion] = useState('')
   const [macUpdateInfo, setMacUpdateInfo] = useState(null) // Mac manual update info
@@ -46,8 +49,10 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
       onUpdateAvailable?.(true, info)
 
       // Mandatory update: Show modal and start download immediately
+      setHasMountedModal(true)
       setShowModal(true)
       window.api.downloadUpdate()
+      setHasMountedWidget(true)
       setShowWidget(true)
     })
 
@@ -70,6 +75,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
       setUpdateState('ready')
       setDownloadProgress(100)
       // Show modal when ready to install (user needs to click restart)
+      setHasMountedModal(true)
       setShowModal(true)
       // Keep widget visible too
     })
@@ -87,6 +93,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
     setUpdateState('downloading')
     // Close modal and show floating widget instead
     setShowModal(false)
+    setHasMountedWidget(true)
     setShowWidget(true)
   }
 
@@ -150,32 +157,40 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
       </AnimatePresence>
 
       {/* Update Modal */}
-      <UpdateModal
-        isOpen={showModal}
-        onClose={handleLater}
-        updateInfo={updateInfo}
-        currentVersion={currentVersion}
-        onDownload={handleDownload}
-        isDownloading={updateState === 'downloading'}
-        downloadProgress={downloadProgress}
-        downloadSpeed={downloadSpeed}
-        downloadedBytes={downloadedBytes}
-        totalBytes={totalBytes}
-        onInstall={handleInstall}
-        isReady={updateState === 'ready'}
-      />
+      {hasMountedModal && (
+        <Suspense fallback={null}>
+          <UpdateModal
+            isOpen={showModal}
+            onClose={handleLater}
+            updateInfo={updateInfo}
+            currentVersion={currentVersion}
+            onDownload={handleDownload}
+            isDownloading={updateState === 'downloading'}
+            downloadProgress={downloadProgress}
+            downloadSpeed={downloadSpeed}
+            downloadedBytes={downloadedBytes}
+            totalBytes={totalBytes}
+            onInstall={handleInstall}
+            isReady={updateState === 'ready'}
+          />
+        </Suspense>
+      )}
 
       {/* Floating Download Progress Widget */}
-      <DownloadProgressWidget
-        isVisible={showWidget && (updateState === 'downloading' || updateState === 'ready')}
-        updateInfo={updateInfo}
-        downloadProgress={downloadProgress}
-        downloadSpeed={downloadSpeed}
-        downloadedBytes={downloadedBytes}
-        totalBytes={totalBytes}
-        isReady={updateState === 'ready'}
-        onInstall={handleInstall}
-      />
+      {hasMountedWidget && (
+        <Suspense fallback={null}>
+          <DownloadProgressWidget
+            isVisible={showWidget && (updateState === 'downloading' || updateState === 'ready')}
+            updateInfo={updateInfo}
+            downloadProgress={downloadProgress}
+            downloadSpeed={downloadSpeed}
+            downloadedBytes={downloadedBytes}
+            totalBytes={totalBytes}
+            isReady={updateState === 'ready'}
+            onInstall={handleInstall}
+          />
+        </Suspense>
+      )}
 
       {/* Inline Notification */}
       <AnimatePresence>

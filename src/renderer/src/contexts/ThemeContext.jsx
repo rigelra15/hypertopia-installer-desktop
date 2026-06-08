@@ -18,7 +18,7 @@ export function ThemeProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    let intervalId = null
+    let timeoutId = null
 
     const applyTheme = (newTheme) => {
       if (newTheme === 'system') {
@@ -47,11 +47,29 @@ export function ThemeProvider({ children }) {
       mediaQuery.addEventListener('change', handler)
       return () => mediaQuery.removeEventListener('change', handler)
     } else if (theme === 'auto') {
-      // Check every minute if we need to switch (e.g., passing 18:00 or 06:00)
-      intervalId = setInterval(() => {
-        applyTheme('auto')
-      }, 60000)
-      return () => clearInterval(intervalId)
+      const scheduleNextSwitch = () => {
+        const now = new Date()
+        const nextSwitch = new Date(now)
+        if (now.getHours() < 6) {
+          nextSwitch.setHours(6, 0, 0, 0)
+        } else if (now.getHours() < 18) {
+          nextSwitch.setHours(18, 0, 0, 0)
+        } else {
+          nextSwitch.setDate(nextSwitch.getDate() + 1)
+          nextSwitch.setHours(6, 0, 0, 0)
+        }
+
+        timeoutId = setTimeout(
+          () => {
+            applyTheme('auto')
+            scheduleNextSwitch()
+          },
+          Math.max(1000, nextSwitch - now)
+        )
+      }
+
+      scheduleNextSwitch()
+      return () => clearTimeout(timeoutId)
     }
   }, [theme])
 
