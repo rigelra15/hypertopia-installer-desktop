@@ -297,7 +297,7 @@ function App() {
                   <span className="hidden sm:inline">{tab.label}</span>
                   {tab.count != null && tab.count > 0 && (
                     <span
-                      className={`inline-flex items-center justify-center h-5 min-w-[1.25rem] rounded-full px-1.5 text-[10px] font-bold tabular-nums ${
+                      className={`inline-flex items-center justify-center h-5 min-w-5 rounded-full px-1.5 text-[10px] font-bold tabular-nums ${
                         activeTab === tab.id
                           ? 'bg-[#0081FB] text-white'
                           : 'bg-gray-200 dark:bg-white/15 text-gray-600 dark:text-white/70'

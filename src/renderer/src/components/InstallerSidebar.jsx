@@ -480,8 +480,16 @@ export function InstallerSidebar({
                 onClick={() => setIsCollapsed(false)}
                 className="flex items-center justify-center w-9 h-9 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all"
               >
-                <img src={logoLight} alt="HyperTopia" className="w-7 h-7 object-contain dark:hidden" />
-                <img src={logoDark} alt="HyperTopia" className="w-7 h-7 object-contain hidden dark:block" />
+                <img
+                  src={logoLight}
+                  alt="HyperTopia"
+                  className="w-7 h-7 object-contain dark:hidden"
+                />
+                <img
+                  src={logoDark}
+                  alt="HyperTopia"
+                  className="w-7 h-7 object-contain hidden dark:block"
+                />
               </button>
             </Tooltip>
 
@@ -753,7 +761,7 @@ export function InstallerSidebar({
                 <span className="text-[#0081FB]">HyperTopia</span> Installer
               </h1>
               <p className="mt-1 text-xs font-light text-gray-600 dark:text-white/50">
-                v{appVersion.version} <span className="opacity-60">({appVersion.build})</span>
+                v{appVersion.version}
               </p>
               {extractPath && (
                 <div className="mt-2 flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-white/30">
@@ -985,8 +993,7 @@ export function InstallerSidebar({
                     className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white"
                   >
                     <Icon icon="mdi:swap-horizontal" className="text-sm" />
-                    {t('change_method') ||
-                      (language === 'id' ? 'Ganti Metode' : 'Change Method')}
+                    {t('change_method') || (language === 'id' ? 'Ganti Metode' : 'Change Method')}
                   </button>
                   <button
                     onClick={openDetailsModal}

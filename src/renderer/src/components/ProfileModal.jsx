@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -13,11 +13,14 @@ export function ProfileModal({ isOpen, onClose, user }) {
   const [error, setError] = useState(null)
   const [profile, setProfile] = useState(null)
   const [imageError, setImageError] = useState(false)
+  const fetchCancelledRef = useRef(false)
 
   const fetchProfile = useCallback(async () => {
     try {
+      if (fetchCancelledRef.current) return
       setLoading(true)
       setError(null)
+      if (fetchCancelledRef.current) return
 
       // 1. Fetch profile metadata from API (accessTypes, registrationDate, etc.)
       const response = await apiFetch(
@@ -39,30 +42,40 @@ export function ProfileModal({ isOpen, onClose, user }) {
       // including live product data joined server-side. No need for direct RTDB fetch.
       const enrichedTransactions = baseProfile.transactions || []
 
+      if (fetchCancelledRef.current) return
       setProfile({
         ...baseProfile,
         transactions: enrichedTransactions,
         transactionCount: enrichedTransactions.length
       })
     } catch (err) {
+      if (fetchCancelledRef.current) return
       console.error('Error fetching profile:', err)
       setError(err.message)
     } finally {
-      setLoading(false)
+      if (!fetchCancelledRef.current) {
+        setLoading(false)
+      }
     }
   }, [user?.email])
 
   useEffect(() => {
+    fetchCancelledRef.current = false
+
     if (isOpen && user?.email) {
       fetchProfile()
+    }
+
+    return () => {
+      fetchCancelledRef.current = true
     }
   }, [isOpen, user?.email, fetchProfile])
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Belum terdaftar'
+    if (!dateString) return t('profile_not_registered') || 'Belum terdaftar'
     try {
       const date = new Date(dateString)
-      if (isNaN(date.getTime())) return 'Belum terdaftar'
+      if (isNaN(date.getTime())) return t('profile_not_registered') || 'Belum terdaftar'
       return date.toLocaleDateString('id-ID', {
         year: 'numeric',
         month: 'long',
@@ -168,32 +181,6 @@ export function ProfileModal({ isOpen, onClose, user }) {
 
             {/* Info Grid */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Registration Date */}
-              <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Icon icon="mdi:calendar" className="h-4 w-4 text-gray-400 dark:text-white/40" />
-                  <span className="text-xs text-gray-400 dark:text-white/40">
-                    {t('profile_registered') || 'Registered'}
-                  </span>
-                </div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {formatDate(profile.registrationDate)}
-                </p>
-              </div>
-
-              {/* Transaction Count */}
-              <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Icon icon="mdi:receipt" className="h-4 w-4 text-gray-400 dark:text-white/40" />
-                  <span className="text-xs text-gray-400 dark:text-white/40">
-                    {t('profile_transactions') || 'Transactions'}
-                  </span>
-                </div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {profile.transactionCount || 0}
-                </p>
-              </div>
-
               {/* Order Number */}
               {profile.orderNumber && (
                 <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
@@ -397,6 +384,7 @@ ProfileModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   user: PropTypes.shape({
+    uid: PropTypes.string,
     email: PropTypes.string,
     displayName: PropTypes.string,
     photoURL: PropTypes.string
@@ -441,7 +429,7 @@ function LoginHistorySection({ user, t }) {
         const res = await apiFetch(`/api/v1/login-history?uid=${encodeURIComponent(user.uid)}`)
         if (!res.ok) throw new Error('failed')
         const result = await res.json()
-        const data = result.success ? (result.events || {}) : {}
+        const data = result.success ? result.events || {} : {}
         const list = Object.entries(data).map(([id, v]) => ({
           id,
           timestamp: v?.timestamp || 0,
@@ -548,8 +536,8 @@ function LoginHistorySection({ user, t }) {
           </p>
         </div>
       ) : (
-        <div className="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-1">
-          {events.map((ev, idx) => {
+        <div className="space-y-2">
+          {events.slice(0, 3).map((ev, idx) => {
             const p = platformInfo(ev.platform)
             const dev = deviceLabel(ev)
             return (

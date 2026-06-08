@@ -48,6 +48,9 @@ export const tutorials = [
           },
           {
             textKey: 'tutorial_install_game_step6'
+          },
+          {
+            textKey: 'tutorial_install_game_step7'
           }
         ]
       },
@@ -62,7 +65,8 @@ export const tutorials = [
           { textKey: 'tutorial_install_game_folder_step5', image: sidebarBrowseFileImg },
           { textKey: 'tutorial_install_game_folder_step6', image: chooseMethodFolderImg },
           { textKey: 'tutorial_install_game_folder_step7', image: selectGameFolderImg },
-          { textKey: 'tutorial_install_game_folder_step8', image: detectedImg }
+          { textKey: 'tutorial_install_game_folder_step8', image: detectedImg },
+          { textKey: 'tutorial_install_game_folder_step9' }
         ]
       }
     ]

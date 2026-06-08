@@ -1,58 +1,85 @@
-import { useState, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
-import { tutorials as fallbackTutorials } from '../data/tutorials'
-import { API_BASE_URL } from '../utils/apiClient'
+import { tutorials } from '../data/tutorials'
 
-export function Tutorials({ onNavigate }) {
-  const { t, language } = useLanguage()
-  const [selectedTutorial, setSelectedTutorial] = useState(null)
-  const [previewImage, setPreviewImage] = useState(null)
-  const [activeTabId, setActiveTabId] = useState(null)
-  const [tutorials, setTutorials] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [useFallback, setUseFallback] = useState(false)
+const isVideoUrl = (url) => /\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(url)
 
-  // Fetch tutorials from API
+function MediaThumbnail({ src, alt, onClick }) {
+  if (isVideoUrl(src)) {
+    return (
+      <div className="relative" onClick={onClick}>
+        <video
+          src={src}
+          className="w-full max-w-xs rounded-lg object-cover cursor-pointer"
+          muted
+          playsInline
+          preload="metadata"
+        />
+        <div className="absolute inset-0 flex items-center justify-center cursor-pointer">
+          <div className="rounded-full bg-black/60 p-3 backdrop-blur-sm">
+            <Icon icon="mdi:play" className="h-6 w-6 text-white" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="w-full max-w-xs object-cover transition-transform duration-300 group-hover/image:scale-[1.01] cursor-zoom-in"
+      onClick={onClick}
+    />
+  )
+}
+
+function MediaLightbox({ src, onClose }) {
+  const videoRef = useRef(null)
+
   useEffect(() => {
-    const fetchTutorials = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/tutorials?platform=desktop`)
-        if (!res.ok) throw new Error('API error')
-        const json = await res.json()
-        if (json.success && json.data?.length > 0) {
-          setTutorials(json.data)
-          setUseFallback(false)
-        } else {
-          setTutorials(fallbackTutorials)
-          setUseFallback(true)
-        }
-      } catch {
-        setTutorials(fallbackTutorials)
-        setUseFallback(true)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchTutorials()
+    if (videoRef.current) videoRef.current.play()
   }, [])
 
-  // Helper: get localized text from API tutorial data or fallback key
-  const getText = (field) => {
-    if (!field) return ''
-    if (typeof field === 'object' && (field.id || field.en)) {
-      return field[language] || field.id || field.en || ''
-    }
-    // Fallback: it's a translation key
-    return t(field) || field
-  }
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div className="relative max-h-full max-w-full" onClick={(e) => e.stopPropagation()}>
+        {isVideoUrl(src) ? (
+          <video
+            ref={videoRef}
+            src={src}
+            className="max-h-[90vh] max-w-full rounded-lg"
+            controls
+            autoPlay
+            playsInline
+          />
+        ) : (
+          <img
+            src={src}
+            alt="Preview"
+            className="max-h-[90vh] max-w-full rounded-lg object-contain"
+          />
+        )}
+        <button
+          className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors"
+          onClick={onClose}
+        >
+          <Icon icon="mdi:close" className="h-8 w-8" />
+        </button>
+      </div>
+    </div>
+  )
+}
 
-  // Normalize tutorial data to a common shape regardless of source
-  const normalizeTutorial = (tutorial) => {
-    if (useFallback) return tutorial // Already in old format
-    return tutorial // API format used directly
-  }
+export function Tutorials({ onNavigate }) {
+  const { t } = useLanguage()
+  const [selectedTutorial, setSelectedTutorial] = useState(null)
+  const [previewMedia, setPreviewMedia] = useState(null)
+  const [activeTabId, setActiveTabId] = useState(null)
 
   if (selectedTutorial) {
     return (
@@ -72,7 +99,7 @@ export function Tutorials({ onNavigate }) {
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-white/50">
             <span>{t('tab_tutorials')}</span>
             <Icon icon="mdi:chevron-right" className="h-4 w-4" />
-            <span className="text-gray-900 dark:text-white">{useFallback ? t(selectedTutorial.titleKey) : getText(selectedTutorial.title)}</span>
+            <span className="text-gray-900 dark:text-white">{t(selectedTutorial.titleKey)}</span>
           </div>
         </div>
 
@@ -85,10 +112,10 @@ export function Tutorials({ onNavigate }) {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {useFallback ? t(selectedTutorial.titleKey) : getText(selectedTutorial.title)}
+                  {t(selectedTutorial.titleKey)}
                 </h2>
                 <p className="mt-2 text-gray-600 dark:text-white/60">
-                  {useFallback ? t(selectedTutorial.descriptionKey) : getText(selectedTutorial.description)}
+                  {t(selectedTutorial.descriptionKey)}
                 </p>
               </div>
             </div>
@@ -96,7 +123,7 @@ export function Tutorials({ onNavigate }) {
             <div className="space-y-8">
               <div className="space-y-6">
                 {/* Warning Section */}
-                {(useFallback ? selectedTutorial.warningKey : selectedTutorial.warning) && (
+                {selectedTutorial.warningKey && (
                   <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-5">
                     <div className="flex gap-3">
                       <Icon
@@ -108,7 +135,7 @@ export function Tutorials({ onNavigate }) {
                           {t('warning')}
                         </h4>
                         <p className="text-sm leading-relaxed text-red-500/90">
-                          {useFallback ? t(selectedTutorial.warningKey) : getText(selectedTutorial.warning)}
+                          {t(selectedTutorial.warningKey)}
                         </p>
                       </div>
                     </div>
@@ -116,7 +143,7 @@ export function Tutorials({ onNavigate }) {
                 )}
 
                 {/* Note Section */}
-                {(useFallback ? selectedTutorial.noteKey : selectedTutorial.note) && (
+                {selectedTutorial.noteKey && (
                   <div className="rounded-xl border border-amber-600/30 bg-amber-50 dark:bg-amber-900/20 p-5">
                     <div className="flex gap-3">
                       <Icon
@@ -128,7 +155,7 @@ export function Tutorials({ onNavigate }) {
                           {t('note')}
                         </h4>
                         <p className="text-sm leading-relaxed text-amber-800 dark:text-amber-200">
-                          {useFallback ? t(selectedTutorial.noteKey) : getText(selectedTutorial.note)}
+                          {t(selectedTutorial.noteKey)}
                         </p>
                       </div>
                     </div>
@@ -152,7 +179,7 @@ export function Tutorials({ onNavigate }) {
                             : 'text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/5'
                         }`}
                       >
-                        {useFallback ? t(tab.titleKey) : getText(tab.title)}
+                        {t(tab.titleKey)}
                       </button>
                     ))}
                   </div>
@@ -173,7 +200,7 @@ export function Tutorials({ onNavigate }) {
 
                         <div className="flex-1 pt-0.5">
                           <p className="text-sm leading-relaxed text-gray-700 dark:text-white/90">
-                            {useFallback ? t(step.textKey) : getText(step.text)}
+                            {t(step.textKey)}
                           </p>
 
                           {step.link && (
@@ -182,19 +209,16 @@ export function Tutorials({ onNavigate }) {
                               className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#0081FB]/10 px-3 py-1 text-xs font-medium text-[#0081FB] hover:bg-[#0081FB]/20 transition-colors"
                             >
                               <Icon icon="mdi:link-variant" className="h-3.5 w-3.5" />
-                              {useFallback ? t(step.link.labelKey) : getText(step.link.label)}
+                              {t(step.link.labelKey)}
                             </button>
                           )}
 
                           {(step.image || step.imageUrl) && (
-                            <div
-                              className="mt-4 overflow-hidden rounded-lg border border-gray-200 dark:border-white/10 cursor-zoom-in group/image w-fit"
-                              onClick={() => setPreviewImage(step.image || step.imageUrl)}
-                            >
-                              <img
+                            <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 dark:border-white/10 group/image w-fit">
+                              <MediaThumbnail
                                 src={step.image || step.imageUrl}
                                 alt={`Step ${index + 1}`}
-                                className="w-full max-w-xs object-cover transition-transform duration-300 group-hover/image:scale-[1.01]"
+                                onClick={() => setPreviewMedia(step.image || step.imageUrl)}
                               />
                             </div>
                           )}
@@ -206,9 +230,9 @@ export function Tutorials({ onNavigate }) {
                                 key={subIndex}
                                 className="mt-6 pt-6 border-t border-gray-200 dark:border-white/10"
                               >
-                                {(subStep.textKey || subStep.text) && (
+                                {subStep.textKey && (
                                   <p className="text-sm leading-relaxed text-gray-700 dark:text-white/90">
-                                    {useFallback ? t(subStep.textKey) : getText(subStep.text)}
+                                    {t(subStep.textKey)}
                                   </p>
                                 )}
 
@@ -218,19 +242,16 @@ export function Tutorials({ onNavigate }) {
                                     className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#0081FB]/10 px-3 py-1 text-xs font-medium text-[#0081FB] hover:bg-[#0081FB]/20 transition-colors"
                                   >
                                     <Icon icon="mdi:link-variant" className="h-3.5 w-3.5" />
-                                    {useFallback ? t(subStep.link.labelKey) : getText(subStep.link.label)}
+                                    {t(subStep.link.labelKey)}
                                   </button>
                                 )}
 
                                 {(subStep.image || subStep.imageUrl) && (
-                                  <div
-                                    className="mt-4 overflow-hidden rounded-lg border border-gray-200 dark:border-white/10 cursor-zoom-in group/image w-fit"
-                                    onClick={() => setPreviewImage(subStep.image || subStep.imageUrl)}
-                                  >
-                                    <img
+                                  <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 dark:border-white/10 group/image w-fit">
+                                    <MediaThumbnail
                                       src={subStep.image || subStep.imageUrl}
                                       alt={`Sub Step ${subIndex + 1}`}
-                                      className="w-full max-w-xs object-cover transition-transform duration-300 group-hover/image:scale-[1.01]"
+                                      onClick={() => setPreviewMedia(subStep.image || subStep.imageUrl)}
                                     />
                                   </div>
                                 )}
@@ -246,27 +267,8 @@ export function Tutorials({ onNavigate }) {
           </div>
         </div>
 
-        {/* Image Lightbox */}
-        {previewImage && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"
-            onClick={() => setPreviewImage(null)}
-          >
-            <div className="relative max-h-full max-w-full">
-              <img
-                src={previewImage}
-                alt="Preview"
-                className="max-h-[90vh] max-w-full rounded-lg object-contain"
-              />
-              <button
-                className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors"
-                onClick={() => setPreviewImage(null)}
-              >
-                <Icon icon="mdi:close" className="h-8 w-8" />
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Media Lightbox */}
+        {previewMedia && <MediaLightbox src={previewMedia} onClose={() => setPreviewMedia(null)} />}
       </div>
     )
   }
@@ -306,11 +308,6 @@ export function Tutorials({ onNavigate }) {
 
       {/* List Content */}
       <div className="flex-1 overflow-y-auto p-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-40">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0081FB]"></div>
-          </div>
-        ) : (
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {tutorials.map((tutorial) => {
             // Count total steps
@@ -345,12 +342,12 @@ export function Tutorials({ onNavigate }) {
 
                   {/* Title */}
                   <h3 className="font-semibold text-[13px] text-gray-900 dark:text-white mb-1.5 line-clamp-2">
-                    {useFallback ? t(tutorial.titleKey) : getText(tutorial.title)}
+                    {t(tutorial.titleKey)}
                   </h3>
 
                   {/* Description */}
                   <p className="text-[11px] text-gray-500 dark:text-white/50 line-clamp-2 flex-1 leading-relaxed">
-                    {useFallback ? t(tutorial.descriptionKey) : getText(tutorial.description)}
+                    {t(tutorial.descriptionKey)}
                   </p>
 
                   {/* Read More CTA */}
@@ -366,7 +363,6 @@ export function Tutorials({ onNavigate }) {
             )
           })}
         </div>
-        )}
       </div>
     </div>
   )
