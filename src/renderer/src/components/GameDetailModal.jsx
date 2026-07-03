@@ -46,6 +46,21 @@ const formatDownloadCount = (count) => {
   return count.toString()
 }
 
+const normalizeAccessKey = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+
+const gameAccessRecordMatches = (record, candidates) => {
+  if (!record || typeof record !== 'object') return false
+  const candidateSet = new Set(candidates.map(normalizeAccessKey).filter(Boolean))
+  if (candidateSet.size === 0) return false
+
+  return [record.id, record.gameId, record.gameTitle]
+    .map(normalizeAccessKey)
+    .some((value) => value && candidateSet.has(value))
+}
+
 // Helper function to get Quest model info
 const getQuestInfo = (questKey) => {
   const questMap = {
@@ -71,7 +86,7 @@ export default function GameDetailModal({
   connectedDevice
 }) {
   const { t } = useLanguage()
-  const { user, accessTypes } = useAuth()
+  const { user, accessTypes, gameAccess } = useAuth()
   const {
     isDownloading,
     downloadInfo,
@@ -87,7 +102,6 @@ export default function GameDetailModal({
   const { fetchDownloadUrl } = useGames()
   const [renderedGame, setRenderedGame] = useState(gameProp)
   const game = gameProp || renderedGame
-  const isEligible = accessTypes.some((t) => t.toLowerCase() === 'standalone')
 
   useEffect(() => {
     if (gameProp) setRenderedGame(gameProp)
@@ -132,6 +146,11 @@ export default function GameDetailModal({
   // Safely extract game properties with fallbacks (must be before state that uses them)
   const gameTitle = game?.gameTitle || game?.name || game?.id?.replace(/!/g, '') || 'Unknown Game'
   const gameStatus = game?.gameStatus || ''
+  const isEligible = accessTypes.some((type) => normalizeAccessKey(type) === 'standalone')
+  const hasStandaloneGameAccess = (gameAccess?.standalone || []).some((record) =>
+    gameAccessRecordMatches(record, [game?.id, game?.gameTitle, game?.name, gameTitle])
+  )
+  const canAccessDownload = isEligible || hasStandaloneGameAccess
   const isSupportedV76 = game?.isSupportedV76 || false
   const versions = useMemo(
     () => (Array.isArray(game?.versions) ? game.versions.filter((v) => v !== null) : []),
@@ -1057,7 +1076,7 @@ export default function GameDetailModal({
               {/* Content Body */}
               <div className="p-6">
                 {/* Main actions area */}
-                {user && isEligible ? (
+                {user && canAccessDownload ? (
                   <div className="space-y-4">
                     {/* Version selector */}
                     {(versions.length > 0 || gameVersion) && (
@@ -1331,7 +1350,7 @@ export default function GameDetailModal({
                 )}
 
                 {/* Update & Report Buttons */}
-                {user && isEligible && gameStatus !== 'coming_soon' && (
+                {user && canAccessDownload && gameStatus !== 'coming_soon' && (
                   <div className="flex gap-2 mt-3">
                     <button
                       onClick={() => setShowUpdateDialog(true)}
@@ -1514,7 +1533,7 @@ export default function GameDetailModal({
                                   </button>
                                 ) : (
                                   <button
-                                    onClick={() => openDownloadLink(link, idx)}
+                                    onClick={() => openDownloadLink(idx)}
                                     disabled={isDownloading}
                                     className="p-2 rounded-lg bg-[#0081FB]/20 hover:bg-[#0081FB]/30 text-[#0081FB] transition-colors disabled:opacity-50"
                                     title={t('download') || 'Download'}

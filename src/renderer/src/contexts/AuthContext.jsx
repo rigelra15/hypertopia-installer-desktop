@@ -8,6 +8,27 @@ const AuthContext = createContext()
 // Firebase Database URL (used only for device-code login flow, NOT eligibility)
 const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
 
+const emptyGameAccess = () => ({ standalone: [], pcvr: [] })
+
+function normalizeGameAccess(gameAccess) {
+  const normalized = emptyGameAccess()
+  if (!gameAccess || typeof gameAccess !== 'object') return normalized
+
+  Object.keys(normalized).forEach((type) => {
+    const records = gameAccess[type]
+    if (Array.isArray(records)) {
+      normalized[type] = records.filter(Boolean)
+    } else if (records && typeof records === 'object') {
+      normalized[type] = Object.entries(records).map(([id, record]) => ({
+        id,
+        ...(record && typeof record === 'object' ? record : {})
+      }))
+    }
+  })
+
+  return normalized
+}
+
 // Generate random 5-character alphanumeric code (uppercase only for easier reading)
 function generateDeviceCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // Removed confusing chars: I, O, 0, 1
@@ -21,6 +42,8 @@ function generateDeviceCode() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [accessTypes, setAccessTypes] = useState([]) // Array of: 'standalone', 'pcvr', 'qgo'
+  const [gameAccess, setGameAccess] = useState(emptyGameAccess)
+  const [trialAccessTypes, setTrialAccessTypes] = useState([])
   const [loading, setLoading] = useState(true)
   const [eligibilityLoading, setEligibilityLoading] = useState(false)
 
@@ -34,34 +57,54 @@ export function AuthProvider({ children }) {
   const checkEligibility = useCallback(async (email) => {
     if (!email) {
       setAccessTypes([])
+      setGameAccess(emptyGameAccess())
+      setTrialAccessTypes([])
       return []
     }
 
     setEligibilityLoading(true)
 
     try {
-      const res = await apiFetch(`/api/v1/user-profile?email=${encodeURIComponent(email)}`)
+      const res = await apiFetch(`/api/v1/access-status?email=${encodeURIComponent(email)}`)
 
       if (!res.ok) {
         console.warn('[Auth] Eligibility check failed:', res.status)
         setAccessTypes([])
+        setGameAccess(emptyGameAccess())
+        setTrialAccessTypes([])
         return []
       }
 
       const data = await res.json()
-      if (!data.success || !data.profile) {
+      if (!data.success) {
         setAccessTypes([])
+        setGameAccess(emptyGameAccess())
+        setTrialAccessTypes([])
         return []
       }
 
-      // API returns accessTypes array directly on the profile object
-      const access = Array.isArray(data.profile.accessTypes) ? data.profile.accessTypes : []
+      // API returns full category access and per-game trial access separately.
+      const access = Array.isArray(data.accessTypes)
+        ? data.accessTypes
+        : Object.entries(data.access || {})
+            .filter(([, info]) => info?.status === 'active')
+            .map(([type]) => type)
+      const nextGameAccess = normalizeGameAccess(data.gameAccess)
+      const nextTrialAccessTypes = Array.isArray(data.trialAccessTypes)
+        ? data.trialAccessTypes
+        : Object.entries(nextGameAccess)
+            .filter(([, records]) => Array.isArray(records) && records.length > 0)
+            .map(([type]) => type)
 
       setAccessTypes(access)
+      setGameAccess(nextGameAccess)
+      setTrialAccessTypes(nextTrialAccessTypes)
       return access
     } catch (error) {
       console.error('[Auth] Error checking eligibility:', error)
       setAccessTypes([])
+      setGameAccess(emptyGameAccess())
+      setTrialAccessTypes([])
       return []
     } finally {
       setEligibilityLoading(false)
@@ -294,6 +337,8 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('hypertopia_user')
     setUser(null)
     setAccessTypes([])
+    setGameAccess(emptyGameAccess())
+    setTrialAccessTypes([])
     setDeviceCode(null)
     setDeviceCodeLoading(false)
     setDeviceCodeError(null)
@@ -302,6 +347,8 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     accessTypes,
+    gameAccess,
+    trialAccessTypes,
     loading,
     eligibilityLoading,
     deviceCode,

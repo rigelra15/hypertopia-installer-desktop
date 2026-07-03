@@ -1693,8 +1693,12 @@ async function scan7z(archivePath) {
     let output = ''
     let stderr = ''
 
-    child.stdout.on('data', (d) => { output += d.toString() })
-    child.stderr.on('data', (d) => { stderr += d.toString() })
+    child.stdout.on('data', (d) => {
+      output += d.toString()
+    })
+    child.stderr.on('data', (d) => {
+      stderr += d.toString()
+    })
 
     child.on('close', async (code) => {
       if (code !== 0 && code !== 1) {
@@ -1702,7 +1706,7 @@ async function scan7z(archivePath) {
       }
 
       // Parse technical listing: blocks separated by empty lines, each has "Path = ..." and "Size = ..."
-      const blocks = output.split('\n\n').filter(b => b.includes('Path = '))
+      const blocks = output.split('\n\n').filter((b) => b.includes('Path = '))
       const allEntries = []
 
       for (const block of blocks) {
@@ -1722,7 +1726,10 @@ async function scan7z(archivePath) {
           }
 
           // Cek release.manifest
-          if (lowerName.endsWith('release.manifest') || lowerName.endsWith('release.manifest.txt')) {
+          if (
+            lowerName.endsWith('release.manifest') ||
+            lowerName.endsWith('release.manifest.txt')
+          ) {
             result.manifestPath = fileName
           }
         }
@@ -2046,7 +2053,7 @@ function runAdbCommand(args, onOutput) {
       } else {
         // Include actual ADB output in error message for debugging
         const errorDetail = stderrBuffer.trim() || outputBuffer.trim() || 'Unknown error'
-        const lastLines = errorDetail.split('\n').slice(-5).join('\n') // Last 5 lines
+        const lastLines = errorDetail.split('\n').slice(-12).join('\n') // Last lines for install stack traces
         reject(new Error(`ADB failed (code ${code}): ${lastLines}`))
       }
     })
@@ -2056,6 +2063,99 @@ function runAdbCommand(args, onOutput) {
       reject(new Error(`ADB spawn error: ${err.message}`))
     })
   })
+}
+
+function validateLocalApkFile(apkPath) {
+  if (!fs.existsSync(apkPath)) {
+    throw new Error('APK file not found')
+  }
+
+  const stats = fs.statSync(apkPath)
+  if (!stats.isFile()) {
+    throw new Error('Path yang dipilih bukan file APK.')
+  }
+
+  if (stats.size === 0) {
+    throw new Error('File APK kosong. Coba download atau extract ulang file game.')
+  }
+
+  const fd = fs.openSync(apkPath, 'r')
+  try {
+    const header = Buffer.alloc(4)
+    fs.readSync(fd, header, 0, header.length, 0)
+    const isZipApk = header[0] === 0x50 && header[1] === 0x4b
+
+    if (!isZipApk) {
+      const headerText = header.toString('utf8').trim().toLowerCase()
+      if (headerText.startsWith('<')) {
+        throw new Error(
+          'File yang terdownload bukan APK, kemungkinan halaman HTML/login/konfirmasi. Gunakan link download langsung atau download ulang.'
+        )
+      }
+
+      throw new Error(
+        'APK tidak valid atau corrupt (header file bukan APK/ZIP). Coba download ulang atau extract ulang file game.'
+      )
+    }
+  } finally {
+    fs.closeSync(fd)
+  }
+
+  return stats
+}
+
+function getReadableInstallError(error) {
+  const msg = error?.message || String(error)
+
+  if (msg === 'Installation cancelled') {
+    return error
+  }
+
+  if (msg.includes('parseApkLite') || msg.includes('ApkAssets.loadFromFd')) {
+    return new Error(
+      'Android gagal membaca APK saat proses install. Biasanya file APK corrupt/tidak lengkap atau hasil transfer ADB bermasalah. ' +
+        'Coba download/extract ulang, pakai kabel USB yang stabil, pastikan headset tidak sleep, lalu install lagi. ' +
+        `Detail ADB: ${msg}`
+    )
+  }
+
+  if (msg.includes('INSTALL_PARSE_FAILED') || msg.includes('Failed to parse')) {
+    return new Error(
+      'APK tidak bisa diparse oleh Android. File kemungkinan corrupt, tidak lengkap, atau bukan APK yang valid. ' +
+        `Detail ADB: ${msg}`
+    )
+  }
+
+  return error
+}
+
+function isNoIncrementalUnsupported(error) {
+  const msg = error?.message || String(error)
+  return (
+    msg.includes('--no-incremental') &&
+    /unknown|unrecognized|illegal option|invalid option/i.test(msg)
+  )
+}
+
+async function installApkWithAdb(deviceFlag, apkPath, onOutput) {
+  validateLocalApkFile(apkPath)
+
+  try {
+    return await runAdbCommand(
+      [...deviceFlag, 'install', '-r', '--no-incremental', apkPath],
+      onOutput
+    )
+  } catch (error) {
+    if (isNoIncrementalUnsupported(error)) {
+      try {
+        return await runAdbCommand([...deviceFlag, 'install', '-r', apkPath], onOutput)
+      } catch (fallbackError) {
+        throw getReadableInstallError(fallbackError)
+      }
+    }
+
+    throw getReadableInstallError(error)
+  }
 }
 
 async function pushObbFile(deviceFlag, localFilePath, remoteDestPath, sendProgress, label) {
@@ -2218,20 +2318,9 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
     if (!apkPath) throw new Error('No APK found to install.')
 
     // 2. INSTALL APK
-    sendProgress('INSTALLING_APK', 0, 'progress_pushing_apk')
-
-    const remoteApk = `/data/local/tmp/base.apk`
-    await runAdbCommand([...deviceFlag, 'push', apkPath, remoteApk], (output) => {
-      const match = output.match(/\[\s*(\d+)%\]/)
-      if (match) {
-        sendProgress('INSTALLING_APK', parseInt(match[1]), 'progress_pushing_apk')
-      }
-    })
-
+    sendProgress('INSTALLING_APK', 0, 'progress_installing_package')
+    await installApkWithAdb(deviceFlag, apkPath)
     sendProgress('INSTALLING_APK', 100, 'progress_installing_package')
-    await runAdbCommand([...deviceFlag, 'shell', 'pm', 'install', '-r', remoteApk])
-
-    runAdbCommand([...deviceFlag, 'shell', 'rm', remoteApk]).catch(console.warn)
 
     // 3. PUSH OBB
     if (type === 'full' && obbPath) {
@@ -2635,20 +2724,9 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
     const obbPath = findObbByPackageName(folderPath, packageName)
 
     // Install APK
-    sendProgress('INSTALLING_APK', 0, 'progress_pushing_apk')
-
-    const remoteApk = `/data/local/tmp/base.apk`
-    await runAdbCommand([...deviceFlag, 'push', apkPath, remoteApk], (output) => {
-      const match = output.match(/\[\s*(\d+)%\]/)
-      if (match) {
-        sendProgress('INSTALLING_APK', parseInt(match[1]), 'progress_pushing_apk')
-      }
-    })
-
+    sendProgress('INSTALLING_APK', 0, 'progress_installing_package')
+    await installApkWithAdb(deviceFlag, apkPath)
     sendProgress('INSTALLING_APK', 100, 'progress_installing_package')
-    await runAdbCommand([...deviceFlag, 'shell', 'pm', 'install', '-r', remoteApk])
-
-    runAdbCommand([...deviceFlag, 'shell', 'rm', remoteApk]).catch(console.warn)
 
     // Push OBB if full install
     if (type === 'full' && obbPath) {
@@ -2739,8 +2817,16 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
     sendProgress('COMPLETED', 100, 'progress_finished')
   } catch (err) {
     console.error(err)
-    sendProgress('ERROR', 0, err.message)
-    throw err
+    // ponytail: device-side parse stack is misleading for host-side 255 failures
+    let msg = err.message
+    if (msg.includes('parseApkLite') || msg.includes('ApkAssets.loadFromFd')) {
+      msg =
+        'The APK could not be installed because the file on the headset appears corrupted or incomplete. ' +
+        'This usually means the transfer to the headset was interrupted (USB cable, Wi-Fi drop, or headset sleep). ' +
+        'Please reconnect the headset over USB and try again.'
+    }
+    sendProgress('ERROR', 0, msg)
+    throw new Error(msg)
   }
 })
 
@@ -3817,26 +3903,9 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
     }
 
     // 4. INSTALL APK
-    sendProgress('INSTALLING', 0, 'Pushing APK to device...')
-
-    const remoteApk = `/data/local/tmp/base.apk`
-    await runAdbCommand([...deviceFlag, 'push', apkPath, remoteApk], (output) => {
-      if (installationState.isCancelled) return
-      const match = output.match(/\[\s*(\d+)%\]/)
-      if (match) {
-        sendProgress('INSTALLING', parseInt(match[1]) * 0.5, 'Pushing APK to device...')
-      }
-    })
-
-    if (installationState.isCancelled) {
-      throw new Error('Installation cancelled')
-    }
-
+    sendProgress('INSTALLING', 0, 'Installing package...')
+    await installApkWithAdb(deviceFlag, apkPath)
     sendProgress('INSTALLING', 50, 'Installing package...')
-    await runAdbCommand([...deviceFlag, 'shell', 'pm', 'install', '-r', remoteApk])
-
-    // Cleanup remote APK
-    runAdbCommand([...deviceFlag, 'shell', 'rm', remoteApk]).catch(console.warn)
 
     // 5. PUSH OBB (if exists)
     if (obbPath) {
@@ -4153,26 +4222,11 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
     }
 
     // Now install the APK
-    sendProgress('INSTALLING', 0, 'Pushing APK to device...')
+    sendProgress('INSTALLING', 0, 'Installing package...')
 
     const deviceFlag = deviceSerial ? ['-s', deviceSerial] : []
-    const remoteApk = `/data/local/tmp/downloaded_app.apk`
-
-    // Push APK to device
-    await runAdbCommand([...deviceFlag, 'push', tempFilePath, remoteApk], (output) => {
-      const match = output.match(/\[\s*(\d+)%\]/)
-      if (match) {
-        sendProgress('INSTALLING', parseInt(match[1]) * 0.5, 'Pushing APK to device...')
-      }
-    })
-
-    sendProgress('INSTALLING', 50, 'Installing package...')
-
-    // Install APK
-    await runAdbCommand([...deviceFlag, 'shell', 'pm', 'install', '-r', remoteApk])
-
-    // Cleanup remote APK
-    runAdbCommand([...deviceFlag, 'shell', 'rm', remoteApk]).catch(console.warn)
+    sendProgress('INSTALLING', 70, 'Installing package...')
+    await installApkWithAdb(deviceFlag, tempFilePath)
 
     // Cleanup temp directory
     try {
@@ -4330,23 +4384,8 @@ ipcMain.handle('install-local-apk', async (event, { filePath, deviceSerial }) =>
     sendProgress('INSTALLING', 0, 'Starting installation...')
 
     const deviceFlag = deviceSerial ? ['-s', deviceSerial] : []
-    const remoteApk = `/data/local/tmp/local_app.apk`
-
-    // Push APK to device
-    await runAdbCommand([...deviceFlag, 'push', filePath, remoteApk], (output) => {
-      const match = output.match(/\[\s*(\d+)%\]/)
-      if (match) {
-        sendProgress('INSTALLING', parseInt(match[1]) * 0.7, 'Pushing APK to device...')
-      }
-    })
-
     sendProgress('INSTALLING', 70, 'Installing package...')
-
-    // Install APK
-    await runAdbCommand([...deviceFlag, 'shell', 'pm', 'install', '-r', remoteApk])
-
-    // Cleanup remote APK
-    runAdbCommand([...deviceFlag, 'shell', 'rm', remoteApk]).catch(console.warn)
+    await installApkWithAdb(deviceFlag, filePath)
 
     sendProgress('COMPLETED', 100, 'Installation complete!')
 
