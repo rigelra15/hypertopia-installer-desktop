@@ -2435,21 +2435,14 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 
 // FUNGSI SCAN ZIP/RAR
 ipcMain.handle('scan-zip', async (event, filePath) => {
-  // Debug logging for production troubleshooting
-
-  // Verify file exists before attempting scan
-  if (!fs.existsSync(filePath)) {
+  const resolvedPath = resolveExistingPath(filePath)
+  if (!resolvedPath) {
     console.error('[scan-zip] File does not exist:', filePath)
-    // Try to normalize the path
-    const normalizedPath = path.normalize(filePath)
-    if (!fs.existsSync(normalizedPath)) {
-      throw new Error(
-        'ARCHIVE_NOT_FOUND: File tidak ditemukan. Pastikan file masih ada di lokasi tersebut.'
-      )
-    }
-    // Use normalized path if it exists
-    filePath = normalizedPath
+    throw new Error(
+      'ARCHIVE_NOT_FOUND: File tidak ditemukan. Kalau pakai macOS, coba klik "Pilih Archive" lalu pilih file manual.'
+    )
   }
+  filePath = resolvedPath
 
   const lowerPath = filePath.toLowerCase()
 
@@ -2987,6 +2980,52 @@ const getDropboxDirectUrl = (url) => {
   return directUrl
 }
 
+const resolveExistingPath = (inputPath) => {
+  if (!inputPath || typeof inputPath !== 'string') return null
+
+  const rawPath = inputPath.startsWith('file://') ? new URL(inputPath).pathname : inputPath
+  const candidates = [rawPath, decodeURIComponent(rawPath), path.normalize(rawPath)]
+    .flatMap((p) => [p, p.normalize('NFC'), p.normalize('NFD')])
+    .filter(Boolean)
+
+  return candidates.find((p) => fs.existsSync(p)) || null
+}
+
+const isGoogleDriveQuotaError = (err) => {
+  const data = err?.response?.data || err?.errors || err
+  const text = JSON.stringify(data) + ' ' + (err?.message || '')
+  return text.includes('downloadQuotaExceeded') || text.includes('download quota')
+}
+
+const googleDriveQuotaMessage =
+  'Google Drive quota file ini sudah habis. Aplikasi sudah minta server membuat mirror link baru. Coba download ulang beberapa menit lagi.'
+
+const requestDriveLinkRefresh = async (url) => {
+  const response = await fetch(
+    `${process.env.VITE_API_URL || 'https://api.hypertopia.web.id'}/api/v1/drive/refresh-link`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Secret': process.env.REACT_APP_HYPERTOPIA_API_SECRET || '',
+        'X-Build-ID': process.env.BUILD_ID || 'dev-build'
+      },
+      body: JSON.stringify({ url })
+    }
+  )
+  return response.json()
+}
+
+const wrapGoogleDriveError = (err, url) => {
+  if (!isGoogleDriveQuotaError(err)) return err
+  if (url) {
+    requestDriveLinkRefresh(url).catch((refreshErr) => {
+      console.warn('[Google Drive] Failed to request mirror link:', refreshErr.message)
+    })
+  }
+  return new Error(googleDriveQuotaMessage)
+}
+
 // Helper: Extract file ID from Google Drive URL
 const extractGoogleDriveFileId = (url) => {
   // Format 1: /file/d/FILE_ID/view
@@ -3275,7 +3314,7 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
                   fs.unlink(filePath, () => {})
                   if (!resolved) {
                     resolved = true
-                    reject(err)
+                    reject(wrapGoogleDriveError(err, url))
                   }
                   return
                 }
@@ -3378,7 +3417,7 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
             console.error('[Download] Error getting file metadata:', err)
             if (!resolved) {
               resolved = true
-              reject(err)
+              reject(wrapGoogleDriveError(err, url))
             }
           })
       })
@@ -3673,7 +3712,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
                   console.error('[Install Archive] Google Drive download error:', err)
                   dest.close()
                   fs.unlink(archivePath, () => {})
-                  reject(err)
+                  reject(wrapGoogleDriveError(err, url))
                   return
                 }
 
@@ -3738,7 +3777,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
               }
             )
           })
-          .catch(reject)
+          .catch((err) => reject(wrapGoogleDriveError(err, url)))
       } else {
         // Regular URL or Dropbox
         handleDownload(url)
@@ -4162,7 +4201,7 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
                   console.error('[Install] Google Drive download error:', err)
                   dest.close()
                   fs.unlink(tempFilePath, () => {})
-                  reject(err)
+                  reject(wrapGoogleDriveError(err, url))
                   return
                 }
 
@@ -4210,7 +4249,7 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
               }
             )
           })
-          .catch(reject)
+          .catch((err) => reject(wrapGoogleDriveError(err, url)))
       } else {
         // Regular URL or Dropbox
         handleDownload(url)

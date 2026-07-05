@@ -308,7 +308,7 @@ export function InstallerSidebar({
       if (!filePath) throw new Error('Could not resolve file path.')
 
       const lowerPath = filePath.toLowerCase()
-      if (lowerPath.endsWith('.zip') || lowerPath.endsWith('.rar')) {
+      if (lowerPath.endsWith('.zip') || lowerPath.endsWith('.rar') || lowerPath.endsWith('.7z')) {
         setFile(paramFile)
         addLogEntry(t('scan_arch'))
         setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
