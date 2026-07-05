@@ -91,7 +91,8 @@ function App() {
     isInstalling,
     installComplete,
     installInfo,
-    closeInstallWidget
+    closeInstallWidget,
+    cancelInstall
   } = useDownload()
   const hasCheckedUpdates = useRef(false)
   const [selectedDevice, setSelectedDevice] = useState(null)
@@ -414,6 +415,7 @@ function App() {
         speed={installInfo.speed}
         isComplete={installComplete}
         onClose={closeInstallWidget}
+        onCancel={cancelInstall}
       />
 
       {/* Network Status Widget - Shows when offline or API unreachable */}

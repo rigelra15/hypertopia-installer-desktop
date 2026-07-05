@@ -95,6 +95,7 @@ export default function GameDetailModal({
     showWidget,
     cancelDownload,
     // Install context
+    isInstalling: isGlobalInstalling,
     startInstall: startInstallWidget,
     cancelInstall
   } = useDownload()
@@ -138,6 +139,10 @@ export default function GameDetailModal({
   })
   const [confirmInstall, setConfirmInstall] = useState(null) // For install confirmation modal
   const [showInstallModal, setShowInstallModal] = useState(false) // For install progress modal
+
+  useEffect(() => {
+    if (!isGlobalInstalling) setIsInstalling(false)
+  }, [isGlobalInstalling])
 
   // Update and Report dialog state
   const [showUpdateDialog, setShowUpdateDialog] = useState(false)
@@ -722,7 +727,6 @@ export default function GameDetailModal({
 
     setConfirmInstall(null)
     setIsInstalling(true)
-    setShowInstallModal(true)
     setInstallProgress({
       step: 'DOWNLOADING',
       percent: 0,
@@ -747,13 +751,17 @@ export default function GameDetailModal({
       } else {
         setIsInstalling(false)
         setShowInstallModal(false)
-        toast.error(`${t('install_failed') || 'Installation failed:'} ${result.error}`)
+        if (result.error !== 'Installation cancelled') {
+          toast.error(`${t('install_failed') || 'Installation failed:'} ${result.error}`)
+        }
       }
     } catch (error) {
       console.error('[Install] Error:', error)
       setIsInstalling(false)
       setShowInstallModal(false)
-      toast.error(`${t('install_failed') || 'Installation failed:'} ${error.message}`)
+      if (error.message !== 'Installation cancelled') {
+        toast.error(`${t('install_failed') || 'Installation failed:'} ${error.message}`)
+      }
     }
   }
 
@@ -1650,15 +1658,24 @@ export default function GameDetailModal({
                       {t('install_confirm_desc') ||
                         'This will download and install the APK directly to your Meta Quest device:'}
                     </p>
-                    <div className="mt-4 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
+                    <div className="mt-4 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
                       <p className="font-medium text-gray-900 dark:text-white">{gameTitle}</p>
                       <p className="mt-1 text-xs text-gray-500 dark:text-white/50">
                         {t('qgo_version') || 'Version'}: {currentVersion.version || gameVersion}
                       </p>
-                      <p className="mt-1 text-xs text-green-400 flex items-center gap-1">
-                        <Icon icon="bi:headset-vr" className="w-3 h-3" />
-                        {t('connected_device') || 'Device'}: {deviceModel || connectedDevice}
-                      </p>
+                      <div className="mt-3 flex items-center gap-3 rounded-xl border border-[#0081FB]/25 bg-[#0081FB]/10 p-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0081FB] text-white shadow-lg shadow-[#0081FB]/20">
+                          <Icon icon="bi:headset-vr" className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-[#0081FB]">
+                            {t('connected_device') || 'Device Connected'}
+                          </p>
+                          <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                            {deviceModel || connectedDevice}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                     <div className="mt-6 flex justify-end gap-2">
                       <button
@@ -1669,7 +1686,7 @@ export default function GameDetailModal({
                       </button>
                       <button
                         onClick={handleConfirmInstall}
-                        className="rounded-lg bg-linear-to-r from-green-600 to-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-green-500/20 transition-all hover:shadow-xl"
+                        className="rounded-lg bg-linear-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-[#0081FB]/20 transition-all hover:shadow-xl"
                       >
                         {t('install') || 'Install'}
                       </button>
@@ -1753,7 +1770,7 @@ export default function GameDetailModal({
                       </div>
                       <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
                         <div
-                          className="h-full bg-linear-to-r from-green-500 to-emerald-400 transition-all duration-300"
+                          className="h-full bg-linear-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
                           style={{ width: `${installProgress.percent}%` }}
                         />
                       </div>
@@ -1793,14 +1810,14 @@ export default function GameDetailModal({
                     <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-white/70">
                       {installProgress.step === 'COMPLETED' ? (
                         <>
-                          <Icon icon="mdi:check-circle" className="h-5 w-5 text-green-500" />
+                          <Icon icon="mdi:check-circle" className="h-5 w-5 text-[#0081FB]" />
                           <span>{t('install_success') || 'Installation complete!'}</span>
                         </>
                       ) : (
                         <>
                           <Icon
                             icon="mdi:loading"
-                            className="h-5 w-5 animate-spin text-green-500"
+                            className="h-5 w-5 animate-spin text-[#0081FB]"
                           />
                           <span>
                             {installProgress.step === 'DOWNLOADING'

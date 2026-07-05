@@ -197,7 +197,8 @@ ipcMain.handle('cancel-installation', async () => {
     }
   }
 
-  resetInstallationState()
+  installationState.activeChildProcess = null
+  installationState.tempDir = null
   return { success: true, message: 'Installation cancelled' }
 })
 
@@ -1362,27 +1363,13 @@ const sevenBin = require('7zip-bin')
 
 // Helper: Get 7za binary path
 function get7zPath() {
-  const isDev = !app.isPackaged
+  if (!app.isPackaged) return sevenBin.path7za
 
-  if (isDev) {
-    // In development, use the path from 7zip-bin package
-    return sevenBin.path7za
-  }
-
-  // In production, the 7zip-bin module is unpacked to app.asar.unpacked
-  // We need to manually construct the path to the executable
-  const arch = process.arch // x64, ia32, arm64
-  const sevenZipPath = path.join(
-    process.resourcesPath,
-    'app.asar.unpacked',
-    'node_modules',
-    '7zip-bin',
-    'win',
-    arch,
-    '7za.exe'
+  // 7zip-bin already picks the correct platform/arch; packaged apps need the unpacked path.
+  return sevenBin.path7za.replace(
+    `${path.sep}app.asar${path.sep}`,
+    `${path.sep}app.asar.unpacked${path.sep}`
   )
-
-  return sevenZipPath
 }
 
 // Helper: Get UnRAR binary path (cross-platform)
@@ -2431,6 +2418,44 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
       }, 1000)
     }
   }
+})
+
+// Stage dragged files when macOS/Finder drag paths are not readable from the main process.
+const stagedDropFiles = new Map()
+
+ipcMain.handle('stage-dropped-file-start', async (_, fileName) => {
+  const safeName = path.basename(fileName || `archive-${Date.now()}`)
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const dir = path.join(os.tmpdir(), 'hypertopia_dropped_files')
+  await fs.ensureDir(dir)
+  const filePath = path.join(dir, `${id}-${safeName}`)
+  stagedDropFiles.set(id, fs.createWriteStream(filePath))
+  return { id, filePath }
+})
+
+ipcMain.handle('stage-dropped-file-chunk', async (_, id, chunk) => {
+  const stream = stagedDropFiles.get(id)
+  if (!stream) throw new Error('Dropped file staging session not found')
+  await new Promise((resolve, reject) =>
+    stream.write(Buffer.from(chunk), (err) => (err ? reject(err) : resolve()))
+  )
+  return true
+})
+
+ipcMain.handle('stage-dropped-file-finish', async (_, id) => {
+  const stream = stagedDropFiles.get(id)
+  if (!stream) throw new Error('Dropped file staging session not found')
+  stagedDropFiles.delete(id)
+  await new Promise((resolve, reject) => stream.end((err) => (err ? reject(err) : resolve())))
+  return true
+})
+
+ipcMain.handle('stage-dropped-file-cancel', async (_, id, filePath) => {
+  const stream = stagedDropFiles.get(id)
+  stagedDropFiles.delete(id)
+  if (stream) stream.destroy()
+  if (filePath) await fs.remove(filePath).catch(() => {})
+  return true
 })
 
 // FUNGSI SCAN ZIP/RAR
@@ -3751,6 +3776,11 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
 
                 dest.on('finish', () =>
                   dest.close(() => {
+                    if (installationState.isCancelled || !fs.existsSync(archivePath)) {
+                      reject(new Error('Installation cancelled'))
+                      return
+                    }
+
                     const stats = fs.statSync(archivePath)
                     if (stats.size === 0) {
                       reject(new Error('Downloaded file is empty'))

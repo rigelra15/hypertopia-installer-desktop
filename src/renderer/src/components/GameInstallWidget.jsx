@@ -19,10 +19,12 @@ export default function GameInstallWidget({
   totalBytes,
   speed,
   isComplete,
-  onClose
+  onClose,
+  onCancel
 }) {
   const { t } = useLanguage()
   const [isExpanded, setIsExpanded] = useState(true)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   // Format file size
   const formatSize = (bytes) => {
@@ -327,9 +329,47 @@ export default function GameInstallWidget({
                       </div>
                     )}
 
+                    {/* Cancel button */}
+                    {!isComplete &&
+                      !isError &&
+                      onCancel &&
+                      (showCancelConfirm ? (
+                        <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3">
+                          <p className="mb-3 text-center text-xs font-medium text-red-500 dark:text-red-400">
+                            {t('confirm_cancel_install_msg') ||
+                              'Cancel this download and install process?'}
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setShowCancelConfirm(false)}
+                              className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10"
+                            >
+                              {t('no_back') || 'No, Back'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowCancelConfirm(false)
+                                onCancel?.()
+                              }}
+                              className="flex-1 rounded-lg bg-red-500 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-red-600"
+                            >
+                              {t('yes_cancel') || 'Yes, Cancel'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowCancelConfirm(true)}
+                          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/20"
+                        >
+                          <Icon icon="mdi:close-circle" className="h-4 w-4" />
+                          {t('cancel_download_install') || 'Cancel Download & Install'}
+                        </button>
+                      ))}
+
                     {/* Info text when not complete/error */}
                     {!isComplete && !isError && (
-                      <p className="text-xs text-gray-400 dark:text-white/40 text-center">
+                      <p className="mt-3 text-xs text-gray-400 dark:text-white/40 text-center">
                         {t('install_background_info') || 'Installation running in background'}
                       </p>
                     )}
@@ -354,5 +394,6 @@ GameInstallWidget.propTypes = {
   totalBytes: PropTypes.number,
   speed: PropTypes.number,
   isComplete: PropTypes.bool,
-  onClose: PropTypes.func
+  onClose: PropTypes.func,
+  onCancel: PropTypes.func
 }

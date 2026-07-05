@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
 import PropTypes from 'prop-types'
 import { ToastContext } from '../contexts/ToastContext'
+import { useLanguage } from '../contexts/LanguageContext'
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
@@ -44,6 +45,13 @@ ToastProvider.propTypes = {
 }
 
 function ToastContainer({ toasts, onRemove }) {
+  const { language } = useLanguage()
+  const copyLabel = language === 'id' ? 'Salin' : 'Copy'
+
+  const copyError = (message) => {
+    navigator.clipboard?.writeText(message).catch(() => {})
+  }
+
   const getIcon = (type) => {
     switch (type) {
       case 'success':
@@ -71,7 +79,7 @@ function ToastContainer({ toasts, onRemove }) {
   }
 
   return (
-    <div className="fixed bottom-20 right-4 z-9999 flex flex-col gap-2 max-w-sm pointer-events-none">
+    <div className="fixed bottom-20 right-4 z-9999 flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-2 pointer-events-none">
       <AnimatePresence>
         {toasts.map((toast) => (
           <motion.div
@@ -80,10 +88,26 @@ function ToastContainer({ toasts, onRemove }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, x: 100, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className={`flex items-start gap-3 rounded-xl border p-3 shadow-lg pointer-events-auto ${getColors(toast.type)}`}
+            className={`flex min-w-0 items-start gap-3 overflow-hidden rounded-xl border p-3 shadow-lg pointer-events-auto ${getColors(toast.type)}`}
           >
             <Icon icon={getIcon(toast.type)} className="h-5 w-5 shrink-0 mt-0.5" />
-            <p className="flex-1 text-sm font-medium">{toast.message}</p>
+            <div className="min-w-0 flex-1">
+              <p
+                className="whitespace-pre-wrap text-sm font-medium leading-relaxed"
+                style={{ overflowWrap: 'anywhere' }}
+              >
+                {toast.message}
+              </p>
+              {toast.type === 'error' && (
+                <button
+                  onClick={() => copyError(toast.message)}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-current/20 px-2 py-1 text-xs font-semibold transition-colors hover:bg-white/20 dark:hover:bg-white/10"
+                >
+                  <Icon icon="mdi:content-copy" className="h-3.5 w-3.5" />
+                  {copyLabel}
+                </button>
+              )}
+            </div>
             <button
               onClick={() => onRemove(toast.id)}
               className="shrink-0 rounded p-0.5 hover:bg-white/10 transition-colors"

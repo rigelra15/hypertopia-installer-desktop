@@ -76,6 +76,7 @@ export function InstallerSidebar({
   const [showBrowseModal, setShowBrowseModal] = useState(false)
   const [sourceType, setSourceType] = useState('archive') // 'archive' or 'folder'
   const [folderPath, setFolderPath] = useState(null)
+  const [archivePath, setArchivePath] = useState(null)
   const [isCollapsed, setIsCollapsed] = useState(
     () => localStorage.getItem('sidebar-collapsed') === 'true'
   )
@@ -250,6 +251,7 @@ export function InstallerSidebar({
             setFile(null)
             setSourceType('folder')
             setFolderPath(folderPath)
+            setArchivePath(null)
 
             try {
               const result = await window.api.scanFolder(folderPath)
@@ -302,19 +304,28 @@ export function InstallerSidebar({
     try {
       if (!paramFile) return
 
-      const filePath = window.api.getFilePath(paramFile)
+      let filePath = window.api.getFilePath(paramFile)
       // Debug logging for production troubleshooting
 
-      if (!filePath) throw new Error('Could not resolve file path.')
+      if (!filePath) filePath = await window.api.stageDroppedFile(paramFile)
 
-      const lowerPath = filePath.toLowerCase()
+      const lowerPath = (filePath || paramFile.name || '').toLowerCase()
       if (lowerPath.endsWith('.zip') || lowerPath.endsWith('.rar') || lowerPath.endsWith('.7z')) {
         setFile(paramFile)
+        setArchivePath(filePath)
         addLogEntry(t('scan_arch'))
         setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
 
         try {
-          const result = await window.api.scanZip(filePath)
+          let result
+          try {
+            result = await window.api.scanZip(filePath)
+          } catch (scanErr) {
+            if (!scanErr.message?.includes('ARCHIVE_NOT_FOUND') || !paramFile.stream) throw scanErr
+            filePath = await window.api.stageDroppedFile(paramFile)
+            setArchivePath(filePath)
+            result = await window.api.scanZip(filePath)
+          }
           setStatus(result)
 
           if (result.hasApk && result.hasObb) {
@@ -334,11 +345,13 @@ export function InstallerSidebar({
           addLogEntry('Error: ' + scanErr.message)
           setErrorDetails(scanErr.message)
           setFile(null)
+          setArchivePath(null)
           setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
         }
       } else {
         addLogEntry(t('invalid_fmt'))
         setFile(null)
+        setArchivePath(null)
       }
     } catch (err) {
       console.error(err)
@@ -413,6 +426,7 @@ export function InstallerSidebar({
     if (confirmModalMode === 'confirm') {
       setFile(null)
       setFolderPath(null)
+      setArchivePath(null)
       setStatus({ hasApk: false, hasObb: false, apkName: null, obbFolder: null })
       addLogEntry(t('waiting_file') || 'Waiting for game file...')
     }
@@ -438,7 +452,8 @@ export function InstallerSidebar({
         await window.api.installGameFolder(folderPath, type, selectedDevice)
       } else {
         // Install from archive (existing behavior)
-        const filePath = window.api.getFilePath(file)
+        const filePath = archivePath || window.api.getFilePath(file)
+        if (!filePath) throw new Error('Could not resolve file path.')
         await window.api.installGame(filePath, type, selectedDevice)
       }
       addLogEntry(t('install_success'))

@@ -437,6 +437,7 @@
   "download_cancelling": "Cancelling download...",
   "cancel_download": "Cancel Download",
   "cancel_download_install": "Cancel",
+  "confirm_cancel_install_msg": "Cancel this download and install process?",
 
   "network_offline": "No Internet Connection",
   "network_api_unreachable": "Server Unreachable",

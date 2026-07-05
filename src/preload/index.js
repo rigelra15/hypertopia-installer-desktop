@@ -5,6 +5,22 @@ import { ipcRenderer } from 'electron'
 // Custom APIs for renderer
 const api = {
   scanZip: (filePath) => ipcRenderer.invoke('scan-zip', filePath),
+  stageDroppedFile: async (file) => {
+    const { id, filePath } = await ipcRenderer.invoke('stage-dropped-file-start', file.name)
+    try {
+      const reader = file.stream().getReader()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        await ipcRenderer.invoke('stage-dropped-file-chunk', id, value)
+      }
+      await ipcRenderer.invoke('stage-dropped-file-finish', id)
+      return filePath
+    } catch (err) {
+      await ipcRenderer.invoke('stage-dropped-file-cancel', id, filePath)
+      throw err
+    }
+  },
   getFilePath: (file) => {
     // Debug logging
 

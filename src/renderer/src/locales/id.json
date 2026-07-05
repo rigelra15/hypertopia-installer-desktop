@@ -444,6 +444,7 @@
   "download_cancelling": "Membatalkan unduhan...",
   "cancel_download": "Batalkan Unduhan",
   "cancel_download_install": "Batal",
+  "confirm_cancel_install_msg": "Batalkan proses unduh dan instal ini?",
 
   "network_offline": "Tidak Ada Koneksi Internet",
   "network_api_unreachable": "Server Tidak Dapat Dijangkau",
