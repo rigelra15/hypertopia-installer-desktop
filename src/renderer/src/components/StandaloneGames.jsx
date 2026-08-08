@@ -11,8 +11,6 @@ import RequestGameModal from './RequestGameModal'
 import RequestGameList from './RequestGameList'
 import coverImages from '../utils/coverImages'
 
-const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48, 96]
-
 // Helper function to compare versions (from highest to lowest)
 const compareVersions = (versionA, versionB) => {
   const parseVersion = (version) => {
@@ -54,8 +52,8 @@ export function StandaloneGames({
   const [error, setError] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [sortBy, setSortBy] = useState('added') // 'updated' | 'added' | 'name' | 'downloads' | 'size' | 'rating'
-  const [sortOrder, setSortOrder] = useState('asc') // 'asc' | 'desc'
+  const [sortBy] = useState('added') // 'updated' | 'added' | 'name' | 'downloads' | 'size' | 'rating'
+  const [sortOrder] = useState('asc') // 'asc' | 'desc'
   const searchTimeoutRef = useRef(null)
 
   // Device preference state
@@ -65,7 +63,7 @@ export function StandaloneGames({
 
   // Pagination state from API
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(24)
+  const [itemsPerPage] = useState(24)
   const [totalItems, setTotalItems] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
 
@@ -82,7 +80,7 @@ export function StandaloneGames({
   const [showRequestModal, setShowRequestModal] = useState(false)
 
   // View mode: 'grid' | 'list'
-  const [viewMode, setViewMode] = useState('grid')
+  const [viewMode] = useState('grid')
 
   // Sub-tab: 'games' | 'requests'
   const [activeSubTab, setActiveSubTab] = useState('games')
@@ -228,10 +226,6 @@ export function StandaloneGames({
 
   const handleRefresh = () => {
     loadGames(true) // Force refresh, bypass cache
-  }
-
-  const toggleSortOrder = () => {
-    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
   }
 
   const handlePageChange = (page) => {

@@ -92,7 +92,7 @@ function obfuscatePassword(password) {
   }
   return {
     key: Buffer.from(keyBytes).toString('base64'),
-    data: Buffer.from(dataBytes).toString('base64'),
+    data: Buffer.from(dataBytes).toString('base64')
   }
 }
 

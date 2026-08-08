@@ -587,14 +587,16 @@ export function QuestGamesOptimizer({
 
         // Auto-delete APK file after successful install to avoid clutter
         try {
-          const fileName = version ? `QuestGamesOptimizer_v${version}.apk` : 'QuestGamesOptimizer.apk'
+          const fileName = version
+            ? `QuestGamesOptimizer_v${version}.apk`
+            : 'QuestGamesOptimizer.apk'
           await window.api.deleteDownloadedFile(fileName)
           setDownloadedFiles((prev) => {
             const updated = { ...prev }
             delete updated[version || 'unknown']
             return updated
           })
-        } catch (_) {
+        } catch {
           // Non-critical — ignore if delete fails
         }
       } else {
@@ -775,7 +777,9 @@ export function QuestGamesOptimizer({
       if (result.success) {
         toast.success(t('qgo_clear_data_success') || 'QGO data cleared successfully')
       } else {
-        toast.error(`${t('qgo_clear_data_failed') || 'Failed to clear QGO data:'} ${result.message}`)
+        toast.error(
+          `${t('qgo_clear_data_failed') || 'Failed to clear QGO data:'} ${result.message}`
+        )
       }
     } catch (err) {
       console.error('Clear QGO data error:', err)
@@ -1085,7 +1089,8 @@ export function QuestGamesOptimizer({
                           ) : (
                             // Install / Update button
                             (() => {
-                              const isUpdate = installedQgoVersion &&
+                              const isUpdate =
+                                installedQgoVersion &&
                                 compareSemver(version, installedQgoVersion) > 0
                               return (
                                 <button
@@ -1104,9 +1109,14 @@ export function QuestGamesOptimizer({
                                       : 'bg-gray-600 opacity-50'
                                   }`}
                                 >
-                                  <Icon icon={isUpdate ? 'mdi:update' : 'mdi:package-down'} className="h-4 w-4" />
+                                  <Icon
+                                    icon={isUpdate ? 'mdi:update' : 'mdi:package-down'}
+                                    className="h-4 w-4"
+                                  />
                                   <span className="hidden sm:inline">
-                                    {isUpdate ? (t('qgo_update') || 'Update') : (t('install') || 'Install')}
+                                    {isUpdate
+                                      ? t('qgo_update') || 'Update'
+                                      : t('install') || 'Install'}
                                   </span>
                                 </button>
                               )
@@ -1455,7 +1465,8 @@ export function QuestGamesOptimizer({
                 {t('qgo_clear_data') || 'Reset Data'}
               </h3>
               <p className="text-center text-sm text-gray-500 dark:text-white/50 mb-6">
-                {t('qgo_confirm_clear_data') || 'Clear all QGO app data on device? This resets all settings and fixes the issue where game profiles don\'t show.'}
+                {t('qgo_confirm_clear_data') ||
+                  "Clear all QGO app data on device? This resets all settings and fixes the issue where game profiles don't show."}
               </p>
               <div className="flex gap-3">
                 <button
@@ -1465,7 +1476,10 @@ export function QuestGamesOptimizer({
                   {t('cancel') || 'Batal'}
                 </button>
                 <button
-                  onClick={() => { setClearDataConfirm(false); handleClearQgoData() }}
+                  onClick={() => {
+                    setClearDataConfirm(false)
+                    handleClearQgoData()
+                  }}
                   className="flex-1 rounded-xl bg-gradient-to-r from-yellow-600 to-amber-500 hover:brightness-110 py-2.5 text-sm font-semibold text-white transition-all"
                 >
                   {t('qgo_clear_data') || 'Reset Data'}
@@ -1501,7 +1515,8 @@ export function QuestGamesOptimizer({
                 {t('uninstall_app') || 'Hapus Instalasi'}
               </h3>
               <p className="text-center text-sm text-gray-500 dark:text-white/50 mb-6">
-                {t('qgo_confirm_uninstall') || 'Are you sure you want to uninstall Quest Games Optimizer from device?'}
+                {t('qgo_confirm_uninstall') ||
+                  'Are you sure you want to uninstall Quest Games Optimizer from device?'}
               </p>
               <div className="flex gap-3">
                 <button
@@ -1511,7 +1526,10 @@ export function QuestGamesOptimizer({
                   {t('cancel') || 'Batal'}
                 </button>
                 <button
-                  onClick={() => { setUninstallConfirm(false); handleUninstall() }}
+                  onClick={() => {
+                    setUninstallConfirm(false)
+                    handleUninstall()
+                  }}
                   className="flex-1 rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 hover:brightness-110 py-2.5 text-sm font-semibold text-white transition-all"
                 >
                   {t('uninstall_app') || 'Hapus Instalasi'}

@@ -1360,6 +1360,7 @@ app.whenReady().then(() => {
 // node-7z untuk ZIP, node-unrar-js untuk RAR (karena 7za tidak support RAR5)
 const Seven = require('node-7z')
 const sevenBin = require('7zip-bin')
+const yauzl = require('yauzl')
 
 // Helper: Get 7za binary path
 function get7zPath() {
@@ -1537,6 +1538,145 @@ function parseManifestData(content) {
   return null
 }
 
+// APK release folders are not always named exactly like the package. Some
+// release tools append a trailing '-' to the APK filename, so normalize that
+// presentation detail before using the name to locate OBB data.
+function normalizePackageName(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\\/g, '/')
+    .split('/')
+    .pop()
+    .replace(/\.apk$/i, '')
+    .replace(/-+$/, '')
+}
+
+function getPackageNameForApk(apkName, manifestData = null) {
+  const manifestPackageName = normalizePackageName(manifestData?.packageName)
+  if (manifestPackageName && manifestPackageName.includes('.')) {
+    return manifestPackageName
+  }
+
+  return normalizePackageName(apkName)
+}
+
+function findReleaseManifestPath(dir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true })
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      const found = findReleaseManifestPath(fullPath)
+      if (found) return found
+    } else {
+      const lowerName = entry.name.toLowerCase()
+      if (lowerName === 'release.manifest' || lowerName === 'release.manifest.txt') {
+        return fullPath
+      }
+    }
+  }
+
+  return null
+}
+
+function readReleaseManifestInfo(dir) {
+  try {
+    const manifestPath = findReleaseManifestPath(dir)
+    if (!manifestPath) return { path: null, data: null }
+
+    const content = fs.readFileSync(manifestPath, 'utf8')
+    return { path: manifestPath, data: parseManifestData(content) }
+  } catch (error) {
+    console.warn('[Manifest] Failed to find/read release.manifest:', error.message)
+    return { path: null, data: null }
+  }
+}
+
+function hasDirectObbFile(dir) {
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .some((entry) => !entry.isDirectory() && entry.name.toLowerCase().endsWith('.obb'))
+}
+
+function findObbFolderInDirectory(dir, packageName) {
+  const normalizedPackageName = normalizePackageName(packageName)
+  const rootName = normalizePackageName(path.basename(dir))
+
+  // Support selecting the package directory itself, not only its parent.
+  if (normalizedPackageName && rootName === normalizedPackageName) {
+    return dir
+  }
+
+  const entries = fs.readdirSync(dir, { withFileTypes: true })
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+
+    const fullPath = path.join(dir, entry.name)
+    if (normalizedPackageName && normalizePackageName(entry.name) === normalizedPackageName) {
+      return fullPath
+    }
+
+    const found = findObbFolderInDirectory(fullPath, packageName)
+    if (found) return found
+  }
+
+  // If the filename/manifest package is unavailable or slightly inconsistent,
+  // use the old structural fallback, but only when the folder is unambiguous.
+  const obbCandidates = []
+  if (hasDirectObbFile(dir)) obbCandidates.push(dir)
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    const fullPath = path.join(dir, entry.name)
+    if (hasDirectObbFile(fullPath)) obbCandidates.push(fullPath)
+  }
+
+  if (obbCandidates.length === 1) return obbCandidates[0]
+  return null
+}
+
+function findObbFolderFromArchiveEntries(entries, packageName) {
+  const normalizedPackageName = normalizePackageName(packageName)
+
+  for (const rawEntry of entries) {
+    const normalizedEntry = String(rawEntry.file || rawEntry || '').replace(/\\/g, '/')
+    const parts = normalizedEntry.split('/').filter(Boolean)
+    const packageIndex = parts.findIndex((part, index) => {
+      const isFile = index === parts.length - 1 && /\.(apk|obb)$/i.test(part)
+      return (
+        !isFile && normalizedPackageName && normalizePackageName(part) === normalizedPackageName
+      )
+    })
+
+    if (packageIndex !== -1) return parts[packageIndex]
+  }
+
+  // Fallback for archives whose APK filename does not match the OBB folder.
+  const obbFolders = new Set()
+  for (const rawEntry of entries) {
+    const normalizedEntry = String(rawEntry.file || rawEntry || '')
+      .replace(/\\/g, '/')
+      .split('/')
+      .filter(Boolean)
+    if (normalizedEntry.split('/').length > 1 && normalizedEntry.toLowerCase().endsWith('.obb')) {
+      const parts = normalizedEntry.split('/').filter(Boolean)
+      obbFolders.add(parts[parts.length - 2])
+    }
+  }
+
+  return obbFolders.size === 1 ? [...obbFolders][0] : null
+}
+
+function getArchiveEntryRelativePath(entryPath, folderName) {
+  const parts = String(entryPath || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter(Boolean)
+  const folderIndex = parts.lastIndexOf(folderName)
+  if (folderIndex === -1) return null
+  return parts.slice(folderIndex + 1).join('/')
+}
+
 // Helper: Scan RAR for APK and OBB using UnRAR command-line (no memory limit)
 async function scanRar(rarPath) {
   return new Promise((resolve, reject) => {
@@ -1606,19 +1746,6 @@ async function scanRar(rarPath) {
         }
       }
 
-      // Second pass: detect OBB folder by matching APK package name
-      if (result.apkName) {
-        const packageName = result.apkName.replace(/\.apk$/i, '')
-        for (const fileName of lines) {
-          const parts = fileName.replace(/\\/g, '/').split('/')
-          if (parts.some((p) => p === packageName)) {
-            result.hasObb = true
-            result.obbFolder = packageName
-            break
-          }
-        }
-      }
-
       // If manifest found, try to read it
       if (result.manifestPath) {
         try {
@@ -1639,6 +1766,12 @@ async function scanRar(rarPath) {
         } catch (e) {
           console.error('[scanRar] Failed to read manifest:', e)
         }
+      }
+
+      if (result.apkName) {
+        const packageName = getPackageNameForApk(result.apkName, result.manifestData)
+        result.obbFolder = findObbFolderFromArchiveEntries(lines, packageName)
+        result.hasObb = Boolean(result.obbFolder)
       }
 
       resolve(result)
@@ -1722,39 +1855,6 @@ async function scan7z(archivePath) {
         }
       }
 
-      // Detect OBB folder by matching APK package name
-      if (result.apkName) {
-        const packageName = result.apkName.replace(/\.apk$/i, '')
-        for (const entry of allEntries) {
-          const parts = entry.file.replace(/\\/g, '/').split('/')
-          if (parts.some((p) => p === packageName)) {
-            result.hasObb = true
-            result.obbFolder = packageName
-            break
-          }
-        }
-
-        // Collect OBB files and total size
-        if (result.hasObb) {
-          const obbPrefix = result.obbFolder + '/'
-          for (const entry of allEntries) {
-            const normalized = entry.file.replace(/\\/g, '/')
-            const folderIdx = normalized.indexOf(obbPrefix)
-            if (folderIdx !== -1 && entry.size > 0) {
-              const relativePath = normalized.substring(folderIdx + obbPrefix.length)
-              if (relativePath && !relativePath.endsWith('/')) {
-                result.obbFiles.push({
-                  name: relativePath.split('/').pop(),
-                  relativePath: relativePath,
-                  size: entry.size
-                })
-                result.obbSize += entry.size
-              }
-            }
-          }
-        }
-      }
-
       // If manifest found, try to read it
       if (result.manifestPath) {
         try {
@@ -1773,6 +1873,27 @@ async function scan7z(archivePath) {
           result.manifestData = parseManifestData(manifestOutput)
         } catch (e) {
           console.error('[scan7z] Failed to read manifest:', e)
+        }
+      }
+
+      if (result.apkName) {
+        const packageName = getPackageNameForApk(result.apkName, result.manifestData)
+        result.obbFolder = findObbFolderFromArchiveEntries(allEntries, packageName)
+        result.hasObb = Boolean(result.obbFolder)
+
+        // Collect OBB files and total size
+        if (result.hasObb) {
+          for (const entry of allEntries) {
+            const relativePath = getArchiveEntryRelativePath(entry.file, result.obbFolder)
+            if (relativePath && entry.size > 0 && !relativePath.endsWith('/')) {
+              result.obbFiles.push({
+                name: relativePath.split('/').pop(),
+                relativePath,
+                size: entry.size
+              })
+              result.obbSize += entry.size
+            }
+          }
         }
       }
       resolve(result)
@@ -2052,7 +2173,86 @@ function runAdbCommand(args, onOutput) {
   })
 }
 
-function validateLocalApkFile(apkPath) {
+function testApkArchive(apkPath) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(get7zPath(), ['t', '-y', apkPath], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    })
+
+    let output = ''
+    let settled = false
+
+    const finish = (error) => {
+      if (settled) return
+      settled = true
+      if (error) reject(error)
+      else resolve(true)
+    }
+
+    child.stdout.on('data', (data) => {
+      output += data.toString()
+    })
+
+    child.stderr.on('data', (data) => {
+      output += data.toString()
+    })
+
+    child.on('error', (error) => {
+      finish(new Error(`Gagal menjalankan pemeriksaan APK: ${error.message}`))
+    })
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        finish(null)
+        return
+      }
+
+      const detail = output.trim().split(/\r?\n/).slice(-8).join('\n')
+      finish(new Error(detail || `7z gagal memeriksa APK (code ${code})`))
+    })
+  })
+}
+
+function inspectApkArchive(apkPath) {
+  return new Promise((resolve, reject) => {
+    yauzl.open(apkPath, { lazyEntries: true, validateEntrySizes: true }, (openError, zipFile) => {
+      if (openError) {
+        reject(openError)
+        return
+      }
+
+      let hasAndroidManifest = false
+      let settled = false
+
+      const finish = (error) => {
+        if (settled) return
+        settled = true
+        if (error) reject(error)
+        else resolve(hasAndroidManifest)
+      }
+
+      zipFile.on('error', finish)
+      zipFile.on('entry', (entry) => {
+        const entryName = String(entry.fileName || '').replace(/\\/g, '/')
+        if (entryName === 'AndroidManifest.xml') {
+          hasAndroidManifest = true
+        }
+        zipFile.readEntry()
+      })
+      zipFile.on('end', () => {
+        if (!hasAndroidManifest) {
+          finish(new Error('AndroidManifest.xml tidak ditemukan di dalam APK.'))
+        } else {
+          finish(null)
+        }
+      })
+
+      zipFile.readEntry()
+    })
+  })
+}
+
+async function validateLocalApkFile(apkPath) {
   if (!fs.existsSync(apkPath)) {
     throw new Error('APK file not found')
   }
@@ -2069,10 +2269,10 @@ function validateLocalApkFile(apkPath) {
   const fd = fs.openSync(apkPath, 'r')
   try {
     const header = Buffer.alloc(4)
-    fs.readSync(fd, header, 0, header.length, 0)
+    const bytesRead = fs.readSync(fd, header, 0, header.length, 0)
     const isZipApk = header[0] === 0x50 && header[1] === 0x4b
 
-    if (!isZipApk) {
+    if (bytesRead < 2 || !isZipApk) {
       const headerText = header.toString('utf8').trim().toLowerCase()
       if (headerText.startsWith('<')) {
         throw new Error(
@@ -2086,6 +2286,28 @@ function validateLocalApkFile(apkPath) {
     }
   } finally {
     fs.closeSync(fd)
+  }
+
+  try {
+    // Checking the entire ZIP catches truncated files that still start with PK.
+    await testApkArchive(apkPath)
+  } catch (error) {
+    throw new Error(
+      `APK corrupt atau tidak lengkap. Pemeriksaan ZIP gagal: ${error.message}. ` +
+        'Coba download atau extract ulang file game.'
+    )
+  }
+
+  try {
+    const hasAndroidManifest = await inspectApkArchive(apkPath)
+    if (!hasAndroidManifest) {
+      throw new Error('AndroidManifest.xml tidak ditemukan di dalam APK.')
+    }
+  } catch (error) {
+    throw new Error(
+      `File berakhiran .apk tetapi bukan APK Android yang valid: ${error.message}. ` +
+        'Coba download atau extract ulang file game.'
+    )
   }
 
   return stats
@@ -2124,9 +2346,7 @@ function isNoIncrementalUnsupported(error) {
   )
 }
 
-async function installApkWithAdb(deviceFlag, apkPath, onOutput) {
-  validateLocalApkFile(apkPath)
-
+async function installApkDirect(deviceFlag, apkPath, onOutput) {
   try {
     return await runAdbCommand(
       [...deviceFlag, 'install', '-r', '--no-incremental', apkPath],
@@ -2134,14 +2354,44 @@ async function installApkWithAdb(deviceFlag, apkPath, onOutput) {
     )
   } catch (error) {
     if (isNoIncrementalUnsupported(error)) {
-      try {
-        return await runAdbCommand([...deviceFlag, 'install', '-r', apkPath], onOutput)
-      } catch (fallbackError) {
-        throw getReadableInstallError(fallbackError)
-      }
+      return await runAdbCommand([...deviceFlag, 'install', '-r', apkPath], onOutput)
+    }
+    throw error
+  }
+}
+
+async function installApkViaRemoteFile(deviceFlag, apkPath, onOutput) {
+  const remoteApk = `/data/local/tmp/hypertopia_${Date.now()}.apk`
+
+  try {
+    await runAdbCommand([...deviceFlag, 'push', apkPath, remoteApk], onOutput)
+    return await runAdbCommand([...deviceFlag, 'shell', 'pm', 'install', '-r', remoteApk])
+  } finally {
+    // Do not leave large APK files behind on the headset after a failed install.
+    await runAdbCommand([...deviceFlag, 'shell', 'rm', '-f', remoteApk]).catch(() => {})
+  }
+}
+
+async function installApkWithAdb(deviceFlag, apkPath, onOutput) {
+  await validateLocalApkFile(apkPath)
+
+  try {
+    // Push + pm install is more reliable on Meta Quest firmware than the
+    // streaming install path used by adb install.
+    return await installApkViaRemoteFile(deviceFlag, apkPath, onOutput)
+  } catch (error) {
+    if (installationState.isCancelled) {
+      throw error
     }
 
-    throw getReadableInstallError(error)
+    // Keep the standard adb install path as a fallback for devices where
+    // pm install cannot access /data/local/tmp.
+    console.warn('[APK Install] Push + pm install failed, trying adb install:', error.message)
+    try {
+      return await installApkDirect(deviceFlag, apkPath, onOutput)
+    } catch (fallbackError) {
+      throw getReadableInstallError(fallbackError)
+    }
   }
 }
 
@@ -2277,26 +2527,11 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 
       apkPath = findFileByExt(tempDir, '.apk')
 
-      // Find OBB folder by matching APK package name
-      const findObbByPackageName = (dir, packageName) => {
-        const ent = fs.readdirSync(dir, { withFileTypes: true })
-        for (const dirent of ent) {
-          const res = path.resolve(dir, dirent.name)
-          if (dirent.isDirectory()) {
-            if (dirent.name === packageName) {
-              return res
-            }
-            const found = findObbByPackageName(res, packageName)
-            if (found) return found
-          }
-        }
-        return null
-      }
-
       if (apkPath) {
         const apkFileName = path.basename(apkPath)
-        const packageName = apkFileName.replace(/\.apk$/i, '')
-        obbPath = findObbByPackageName(tempDir, packageName)
+        const manifestInfo = readReleaseManifestInfo(tempDir)
+        const packageName = getPackageNameForApk(apkFileName, manifestInfo.data)
+        obbPath = findObbFolderInDirectory(tempDir, packageName)
       }
     } else {
       apkPath = filePath
@@ -2592,48 +2827,6 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
       return null
     }
 
-    // Recursive function to find OBB folder by matching APK package name
-    const findObbFolder = (dir, packageName) => {
-      const entries = fs.readdirSync(dir, { withFileTypes: true })
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name)
-        if (entry.isDirectory()) {
-          // Check if this folder name matches the APK package name
-          if (entry.name === packageName) {
-            let obbFilesList = []
-            let totalObbSize = 0
-
-            const getAllFilesRelative = (currentDir, basePath = '') => {
-              const list = fs.readdirSync(currentDir, { withFileTypes: true })
-              for (const file of list) {
-                const subPath = path.join(currentDir, file.name)
-                const relPath = path.join(basePath, file.name)
-                if (file.isDirectory()) {
-                  getAllFilesRelative(subPath, relPath)
-                } else {
-                  const stat = fs.statSync(subPath)
-                  obbFilesList.push({ name: file.name, relativePath: relPath, size: stat.size })
-                  totalObbSize += stat.size
-                }
-              }
-            }
-            getAllFilesRelative(fullPath)
-
-            return {
-              path: fullPath,
-              name: entry.name,
-              obbFiles: obbFilesList,
-              obbSize: totalObbSize
-            }
-          }
-          // Otherwise recurse
-          const found = findObbFolder(fullPath, packageName)
-          if (found) return found
-        }
-      }
-      return null
-    }
-
     const apkResult = findApk(folderPath)
     if (apkResult) {
       result.hasApk = true
@@ -2641,43 +2834,38 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
       result.apkSize = apkResult.size
     }
 
-    // Use APK package name to find OBB folder
-    if (apkResult) {
-      const packageName = apkResult.name.replace(/\.apk$/i, '')
-      const obbResult = findObbFolder(folderPath, packageName)
-      if (obbResult) {
-        result.hasObb = true
-        result.obbFolder = obbResult.name
-        result.obbSize = obbResult.obbSize
-        result.obbFiles = obbResult.obbFiles
-      }
-    }
+    const manifestInfo = readReleaseManifestInfo(folderPath)
+    result.manifestData = manifestInfo.data
 
-    // Attempt to find and parse release.manifest
-    try {
-      const findManifest = (dir) => {
-        const entries = fs.readdirSync(dir, { withFileTypes: true })
-        for (const entry of entries) {
-          const fullPath = path.join(dir, entry.name)
-          if (entry.isDirectory()) {
-            const found = findManifest(fullPath)
-            if (found) return found
-          } else {
-            const lowerName = entry.name.toLowerCase()
-            if (lowerName === 'release.manifest' || lowerName === 'release.manifest.txt') {
-              return fullPath
+    // Use release metadata or a normalized APK name to find the OBB folder.
+    if (apkResult) {
+      const packageName = getPackageNameForApk(apkResult.name, result.manifestData)
+      const obbPath = findObbFolderInDirectory(folderPath, packageName)
+      if (obbPath) {
+        const obbFilesList = []
+        let totalObbSize = 0
+
+        const getAllFilesRelative = (currentDir, basePath = '') => {
+          const list = fs.readdirSync(currentDir, { withFileTypes: true })
+          for (const file of list) {
+            const subPath = path.join(currentDir, file.name)
+            const relPath = path.join(basePath, file.name)
+            if (file.isDirectory()) {
+              getAllFilesRelative(subPath, relPath)
+            } else {
+              const stat = fs.statSync(subPath)
+              obbFilesList.push({ name: file.name, relativePath: relPath, size: stat.size })
+              totalObbSize += stat.size
             }
           }
         }
-        return null
+        getAllFilesRelative(obbPath)
+
+        result.hasObb = true
+        result.obbFolder = path.basename(obbPath)
+        result.obbSize = totalObbSize
+        result.obbFiles = obbFilesList
       }
-      const manifestPath = findManifest(folderPath)
-      if (manifestPath) {
-        const manifestOutput = fs.readFileSync(manifestPath, 'utf8')
-        result.manifestData = parseManifestData(manifestOutput)
-      }
-    } catch (e) {
-      console.error('[Scan Folder] Failed to find/read manifest:', e)
     }
 
     return result
@@ -2718,28 +2906,13 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
       return null
     }
 
-    // Find OBB folder by matching APK package name
-    const findObbByPackageName = (dir, packageName) => {
-      const entries = fs.readdirSync(dir, { withFileTypes: true })
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name)
-        if (entry.isDirectory()) {
-          if (entry.name === packageName) {
-            return fullPath
-          }
-          const found = findObbByPackageName(fullPath, packageName)
-          if (found) return found
-        }
-      }
-      return null
-    }
-
     const apkPath = findApk(folderPath)
     if (!apkPath) throw new Error('No APK found in folder.')
 
     const apkFileName = path.basename(apkPath)
-    const packageName = apkFileName.replace(/\.apk$/i, '')
-    const obbPath = findObbByPackageName(folderPath, packageName)
+    const manifestInfo = readReleaseManifestInfo(folderPath)
+    const packageName = getPackageNameForApk(apkFileName, manifestInfo.data)
+    const obbPath = findObbFolderInDirectory(folderPath, packageName)
 
     // Install APK
     sendProgress('INSTALLING_APK', 0, 'progress_installing_package')
@@ -3948,28 +4121,15 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
       return null
     }
 
-    const findObbParent = (dir) => {
-      const ent = fs.readdirSync(dir, { withFileTypes: true })
-      for (const dirent of ent) {
-        const res = path.resolve(dir, dirent.name)
-        if (dirent.isDirectory()) {
-          const children = fs.readdirSync(res)
-          if (children.some((c) => c.toLowerCase().endsWith('.obb'))) {
-            return res
-          }
-          const found = findObbParent(res)
-          if (found) return found
-        }
-      }
-      return null
-    }
-
     const apkPath = findFileByExt(extractDir, '.apk')
-    const obbPath = findObbParent(extractDir)
 
     if (!apkPath) {
       throw new Error('No APK found in archive.')
     }
+
+    const manifestInfo = readReleaseManifestInfo(extractDir)
+    const packageName = getPackageNameForApk(path.basename(apkPath), manifestInfo.data)
+    const obbPath = findObbFolderInDirectory(extractDir, packageName)
 
     // 4. INSTALL APK
     sendProgress('INSTALLING', 0, 'Installing package...')
