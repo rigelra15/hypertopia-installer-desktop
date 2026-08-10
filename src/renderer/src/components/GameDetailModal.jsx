@@ -61,6 +61,28 @@ const gameAccessRecordMatches = (record, candidates) => {
     .some((value) => value && candidateSet.has(value))
 }
 
+const normalizeDownloadLinks = (links) =>
+  Array.isArray(links)
+    ? links.filter((link) => typeof link === 'string' && link.trim()).map((link) => link.trim())
+    : []
+
+const getDownloadPartCount = (version) => {
+  const rawPartCount = version?.partCount
+  if (rawPartCount !== undefined && rawPartCount !== null && rawPartCount !== '') {
+    const partCount = Number(rawPartCount)
+    if (Number.isFinite(partCount)) return Math.max(0, Math.floor(partCount))
+  }
+
+  if (Array.isArray(version?.downloadLinks)) {
+    const linkCount = normalizeDownloadLinks(version.downloadLinks).length
+    if (linkCount > 0) return linkCount
+  }
+
+  // The paginated endpoint may omit or redact secure download URLs. Assume one
+  // part until the authenticated download endpoint tells us otherwise.
+  return 1
+}
+
 // Helper function to get Quest model info
 const getQuestInfo = (questKey) => {
   const questMap = {
@@ -116,6 +138,7 @@ export default function GameDetailModal({
   // For confirmation modal
   const [deviceModel, setDeviceModel] = useState(null) // Device model name for display
   const [downloadedFiles, setDownloadedFiles] = useState({}) // Track which files are already downloaded
+  const [resolvedDownloadLinks, setResolvedDownloadLinks] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null) // For delete confirmation modal
 
   // YouTube video state
@@ -241,6 +264,7 @@ export default function GameDetailModal({
     setIsInstalling(false)
     setShowInstallModal(false)
     setDownloadedFiles({})
+    setResolvedDownloadLinks(null)
     // Sync local download count with game data
     setLocalDownloadCount(game?.downloadCount || 0)
     setLocalVersions(versions)
@@ -255,7 +279,7 @@ export default function GameDetailModal({
       try {
         const currentVer = localVersions[selectedVersion] || {
           version: gameVersion,
-          downloadLinks: []
+          downloadLinks: resolvedDownloadLinks || (game.linkDownload ? [game.linkDownload] : [])
         }
         const version = currentVer.version || gameVersion
         const downloadLinks = (currentVer.downloadLinks || []).filter((link) => link && link.trim())
@@ -285,7 +309,16 @@ export default function GameDetailModal({
     }
 
     checkDownloaded()
-  }, [isOpen, game, gameTitle, selectedVersion, gameVersion, downloadComplete, localVersions])
+  }, [
+    isOpen,
+    game,
+    gameTitle,
+    selectedVersion,
+    gameVersion,
+    downloadComplete,
+    localVersions,
+    resolvedDownloadLinks
+  ])
 
   // Listen for install progress events
   useEffect(() => {
@@ -348,10 +381,28 @@ export default function GameDetailModal({
     }
     return {
       version: gameVersion,
-      downloadLinks: game.linkDownload ? [game.linkDownload] : [],
+      downloadLinks: game.linkDownload ? [game.linkDownload] : resolvedDownloadLinks || undefined,
       isSupportedV76: isSupportedV76,
       downloadCount: localDownloadCount || 0
     }
+  }
+
+  const cacheResolvedDownloadLinks = (links) => {
+    const normalizedLinks = normalizeDownloadLinks(links)
+    if (normalizedLinks.length === 0) return
+
+    setResolvedDownloadLinks(normalizedLinks)
+    setLocalVersions((previousVersions) => {
+      if (previousVersions.length === 0) return previousVersions
+
+      const updatedVersions = [...previousVersions]
+      updatedVersions[selectedVersion] = {
+        ...updatedVersions[selectedVersion],
+        downloadLinks: normalizedLinks,
+        partCount: normalizedLinks.length
+      }
+      return updatedVersions
+    })
   }
 
   // Update download count to Firebase (same as website)
@@ -623,12 +674,21 @@ export default function GameDetailModal({
     let url
     try {
       const result = await fetchDownloadUrl(gameId, user.email, 'standalone')
-      // For multi-part games, linkDownload is an array
-      if (result.linkDownload && Array.isArray(result.linkDownload)) {
-        url = partIndex !== null ? result.linkDownload[partIndex] : result.linkDownload[0]
-      } else {
-        url = result.downloadUrl
+      const secureLinks = normalizeDownloadLinks(result.linkDownload)
+      if (secureLinks.length === 0 && result.downloadUrl) {
+        secureLinks.push(result.downloadUrl)
       }
+
+      cacheResolvedDownloadLinks(secureLinks)
+
+      // The list endpoint may not expose part metadata. Resolve it from the
+      // authenticated response before showing the parts picker.
+      if (partIndex === null && secureLinks.length > 1) {
+        setShowDownloadParts(true)
+        return
+      }
+
+      url = secureLinks[partIndex ?? 0]
     } catch (err) {
       toast.error(err.message || t('download_failed') || 'Gagal mengambil link download.')
       return
@@ -667,9 +727,10 @@ export default function GameDetailModal({
     // Determine number of parts from current version (count only, no URLs needed)
     const currentVer = getCurrentVersion()
     // versions may have downloadLinks stripped — use partCount if available, else assume 1
-    const partCount = currentVer.partCount || currentVer.downloadLinks?.length || 1
+    const partCount = getDownloadPartCount(currentVer)
+    const hasResolvedParts = normalizeDownloadLinks(currentVer.downloadLinks).length > 1
 
-    if (partCount > 1) {
+    if (partCount > 1 && hasResolvedParts) {
       setShowDownloadParts(true)
     } else {
       await downloadInApp(game.id || gameTitle, null)
@@ -766,6 +827,7 @@ export default function GameDetailModal({
   }
 
   const currentVersion = getCurrentVersion()
+  const currentVersionPartCount = getDownloadPartCount(currentVersion)
 
   return (
     <AnimatePresence
@@ -1178,8 +1240,7 @@ export default function GameDetailModal({
                       {gameStatus !== 'coming_soon' ? (
                         <>
                           {/* Multi-part games */}
-                          {(currentVersion.partCount ?? currentVersion.downloadLinks?.length ?? 0) >
-                          1 ? (
+                          {currentVersionPartCount > 1 ? (
                             areAllPartsDownloaded() ? (
                               <button
                                 onClick={handleDeleteAllParts}
@@ -1193,11 +1254,7 @@ export default function GameDetailModal({
                               <button
                                 onClick={handleDownload}
                                 disabled={
-                                  !(
-                                    currentVersion.partCount ?? currentVersion.downloadLinks?.length
-                                  ) ||
-                                  isDownloading ||
-                                  isInstalling
+                                  currentVersionPartCount === 0 || isDownloading || isInstalling
                                 }
                                 className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex flex-col items-center justify-center gap-1"
                               >
@@ -1222,13 +1279,7 @@ export default function GameDetailModal({
                                 )}
                               </button>
                             )
-                          ) : (currentVersion.partCount ??
-                              currentVersion.downloadLinks?.length ??
-                              0) <= 1 &&
-                            (currentVersion.partCount ??
-                              currentVersion.downloadLinks?.length ??
-                              0) >= 1 &&
-                            isFileDownloaded(null) ? (
+                          ) : currentVersionPartCount === 1 && isFileDownloaded(null) ? (
                             // Single file ALREADY downloaded → [Hapus File] + [Instal Game] in flex-row
                             <div className="flex flex-row gap-3">
                               <button
@@ -1245,9 +1296,7 @@ export default function GameDetailModal({
                                 onClick={handleDownloadAndInstall}
                                 disabled={
                                   !connectedDevice ||
-                                  !(
-                                    currentVersion.partCount ?? currentVersion.downloadLinks?.length
-                                  ) ||
+                                  currentVersionPartCount === 0 ||
                                   isDownloading ||
                                   isInstalling
                                 }
@@ -1281,11 +1330,7 @@ export default function GameDetailModal({
                             <button
                               onClick={handleDownloadAndInstall}
                               disabled={
-                                !(
-                                  currentVersion.partCount ?? currentVersion.downloadLinks?.length
-                                ) ||
-                                isDownloading ||
-                                isInstalling
+                                currentVersionPartCount === 0 || isDownloading || isInstalling
                               }
                               className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
                             >
@@ -1316,11 +1361,7 @@ export default function GameDetailModal({
                             <button
                               onClick={handleDownload}
                               disabled={
-                                !(
-                                  currentVersion.partCount ?? currentVersion.downloadLinks?.length
-                                ) ||
-                                isDownloading ||
-                                isInstalling
+                                currentVersionPartCount === 0 || isDownloading || isInstalling
                               }
                               className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
                             >
