@@ -802,7 +802,14 @@ export default function GameDetailModal({
     try {
       await updateDownloadCount()
 
-      const result = await window.api.downloadAndInstallArchive(link, fileName, connectedDevice)
+      let result = await window.api.downloadAndInstallArchive(link, fileName, connectedDevice)
+      if (!result.success && result.retryUrl && result.retryUrl !== link) {
+        result = await window.api.downloadAndInstallArchive(
+          result.retryUrl,
+          fileName,
+          connectedDevice
+        )
+      }
 
       if (result.success) {
         setIsInstalling(false)

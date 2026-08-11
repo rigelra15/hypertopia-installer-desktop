@@ -194,7 +194,23 @@ export function DownloadProvider({ children }) {
         })
 
       try {
-        const result = await window.api.downloadFile(url, fileName)
+        let result = await window.api.downloadFile(url, fileName)
+
+        // The main process requests a fresh Google Drive mirror when the
+        // source file quota is exhausted. Retry once with the returned URL so
+        // users do not need to manually restart the download.
+        if (!result.success && result.retryUrl && result.retryUrl !== url) {
+          setDownloadInfo((prev) => ({
+            ...prev,
+            progress: 0,
+            downloadedBytes: 0,
+            totalBytes: 0,
+            speed: 0,
+            status: 'preparing'
+          }))
+          result = await window.api.downloadFile(result.retryUrl, fileName)
+        }
+
         if (result.success) {
           setIsDownloading(false)
           setDownloadComplete(true)

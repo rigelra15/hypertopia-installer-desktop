@@ -671,7 +671,10 @@ export function QuestGamesOptimizer({
         throw new Error('Tidak ada link download untuk versi ini.')
       }
 
-      const result = await window.api.downloadAndInstallApk(url, fileName, selectedDevice)
+      let result = await window.api.downloadAndInstallApk(url, fileName, selectedDevice)
+      if (!result.success && result.retryUrl && result.retryUrl !== url) {
+        result = await window.api.downloadAndInstallApk(result.retryUrl, fileName, selectedDevice)
+      }
 
       if (result.success) {
         setConfirmInstall(null)

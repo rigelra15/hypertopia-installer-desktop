@@ -3211,17 +3211,35 @@ const requestDriveLinkRefresh = async (url) => {
       body: JSON.stringify({ url })
     }
   )
-  return response.json()
+  const data = await response.json().catch(() => null)
+  if (!response.ok || !data?.success) {
+    throw new Error(data?.error || `Mirror request failed with HTTP ${response.status}`)
+  }
+  return data
 }
 
 const wrapGoogleDriveError = (err, url) => {
   if (!isGoogleDriveQuotaError(err)) return err
-  if (url) {
-    requestDriveLinkRefresh(url).catch((refreshErr) => {
-      console.warn('[Google Drive] Failed to request mirror link:', refreshErr.message)
-    })
+  const wrappedError = new Error(googleDriveQuotaMessage)
+  wrappedError.code = 'GOOGLE_DRIVE_QUOTA_EXCEEDED'
+  wrappedError.sourceUrl = url || null
+  return wrappedError
+}
+
+const refreshDriveUrlForError = async (error) => {
+  if (error?.code !== 'GOOGLE_DRIVE_QUOTA_EXCEEDED' || !error.sourceUrl) return null
+
+  try {
+    const result = await requestDriveLinkRefresh(error.sourceUrl)
+    const newUrl = typeof result?.newUrl === 'string' ? result.newUrl.trim() : ''
+    if (newUrl && newUrl !== error.sourceUrl) return newUrl
+
+    console.warn('[Google Drive] Mirror response did not include a new URL')
+  } catch (refreshErr) {
+    console.warn('[Google Drive] Failed to request mirror link:', refreshErr.message)
   }
-  return new Error(googleDriveQuotaMessage)
+
+  return null
 }
 
 // Helper: Extract file ID from Google Drive URL
@@ -3626,7 +3644,8 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
     }
   } catch (error) {
     console.error('Failed to download file:', error)
-    return { success: false, error: error.message }
+    const retryUrl = await refreshDriveUrlForError(error)
+    return { success: false, error: error.message, retryUrl }
   }
 })
 
@@ -4203,6 +4222,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
     return { success: true, hasObb: !!obbPath }
   } catch (error) {
     console.error('[Install Archive] Error:', error)
+    const retryUrl = await refreshDriveUrlForError(error)
     sendProgress('ERROR', 0, error.message)
 
     // On cancellation, clean up everything
@@ -4230,7 +4250,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
       }
     }
 
-    return { success: false, error: error.message }
+    return { success: false, error: error.message, retryUrl }
   }
 })
 
@@ -4469,6 +4489,7 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
     return { success: true }
   } catch (error) {
     console.error('Download and install failed:', error)
+    const retryUrl = await refreshDriveUrlForError(error)
 
     // Cleanup temp directory on error
     try {
@@ -4478,7 +4499,7 @@ ipcMain.handle('download-and-install-apk', async (event, { url, fileName, device
     }
 
     sendProgress('ERROR', 0, error.message)
-    return { success: false, error: error.message }
+    return { success: false, error: error.message, retryUrl }
   }
 })
 
