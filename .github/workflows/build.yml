@@ -65,7 +65,7 @@ jobs:
     needs: release
     strategy:
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -85,6 +85,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
       - name: Build (electron-vite)
         run: npm run build
         env:
@@ -101,16 +104,46 @@ jobs:
           REACT_APP_HYPERTOPIA_API_SECRET: ${{ secrets.REACT_APP_HYPERTOPIA_API_SECRET }}
         run: npx electron-builder --publish never --win
 
+      - name: Verify Windows runtime tools
+        if: matrix.os == 'windows-latest'
+        run: npm run verify:win-tools -- dist/win-unpacked x64
+
+      - name: Verify Windows update metadata
+        if: matrix.os == 'windows-latest'
+        run: npm run verify:update-metadata -- win
+
       - name: Build installers (Mac)
         if: matrix.os == 'macos-latest'
-        continue-on-error: true
-        id: build_mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS builds remain unsigned until the signing/notarization secrets
+          # are configured; the app uses its manual GitHub release checker meanwhile.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          REACT_APP_GOOGLE_API_KEY: ${{ secrets.REACT_APP_GOOGLE_API_KEY }}
+          REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
+          REACT_APP_HYPERTOPIA_API_SECRET: ${{ secrets.REACT_APP_HYPERTOPIA_API_SECRET }}
+        run: npx electron-builder --publish never --mac --x64 --arm64
+
+      - name: Verify Mac update metadata
+        if: matrix.os == 'macos-latest'
+        run: npm run verify:update-metadata -- mac
+
+      - name: Build installers (Linux)
+        if: matrix.os == 'ubuntu-latest'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REACT_APP_GOOGLE_API_KEY: ${{ secrets.REACT_APP_GOOGLE_API_KEY }}
           REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
           REACT_APP_HYPERTOPIA_API_SECRET: ${{ secrets.REACT_APP_HYPERTOPIA_API_SECRET }}
-        run: npx electron-builder --publish never --mac --x64 --arm64
+        run: npx electron-builder --publish never --linux AppImage deb --x64
+
+      - name: Verify Linux runtime tools
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run verify:linux-tools
+
+      - name: Verify Linux update metadata
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run verify:update-metadata -- linux
 
       - name: Upload release assets (Windows)
         if: matrix.os == 'windows-latest'
@@ -123,7 +156,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          # Upload whatever was built — DMG/ZIP/blockmap/yml — even if hdiutil detach failed
+          # Upload the artifacts after the build and metadata verification steps pass.
           shopt -s nullglob
           files=(dist/*.dmg dist/*.zip dist/*.yml dist/*.blockmap)
           if [ ${#files[@]} -gt 0 ]; then
@@ -132,3 +165,9 @@ jobs:
             echo "No Mac artifacts found to upload"
             exit 1
           fi
+
+      - name: Upload release assets (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: gh release upload "${{ github.ref_name }}" dist/*.AppImage dist/*.deb dist/latest-linux.yml --repo rigelra15/hypertopia-installer-releases --clobber

@@ -10,6 +10,38 @@ import os from 'os'
 // Set app name for native OS integrations
 app.name = 'HyperTopia Installer'
 
+const RELEASES_REPO = 'rigelra15/hypertopia-installer-releases'
+const RELEASES_API_URL = `https://api.github.com/repos/${RELEASES_REPO}`
+
+function parseInstallerVersion(version) {
+  const match = String(version || '')
+    .trim()
+    .replace(/^v/i, '')
+    .match(/^(\d+)\.(\d+)\.(\d+)(?:-rev(\d+))?$/i)
+
+  if (!match) return null
+
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    revision: match[4] ? Number(match[4]) : 0
+  }
+}
+
+function compareInstallerVersions(leftVersion, rightVersion) {
+  const left = parseInstallerVersion(leftVersion)
+  const right = parseInstallerVersion(rightVersion)
+
+  if (!left || !right) return null
+
+  for (const key of ['major', 'minor', 'patch', 'revision']) {
+    if (left[key] !== right[key]) return left[key] > right[key] ? 1 : -1
+  }
+
+  return 0
+}
+
 // Google API credentials - injected at build time via define in electron.vite.config.mjs
 const GOOGLE_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY || ''
 
@@ -38,15 +70,21 @@ const ZIP_PASSWORD = _deobfuscatePassword()
 autoUpdater.autoDownload = true
 autoUpdater.autoInstallOnAppQuit = true
 
-// Disable strict semver check to allow custom suffixes like -revX.
-// By default, semver considers 1.0.216-rev1 to be OLDER than 1.0.216.
-// The user explicitly wants to ignore this and just install whatever is the newest published release on GitHub.
-autoUpdater.allowDowngrade = true
+// Keep revision releases ordered after their base version while preventing
+// an older release from being installed over a newer one.
+autoUpdater.allowDowngrade = false
 autoUpdater.isUpdateAvailable = async function (updateInfo) {
   if (!updateInfo || !updateInfo.version) return false
-  // Simply compare version strings - if they differ, there's an update
-  if (updateInfo.version === app.getVersion()) return false
-  return true
+
+  const comparison = compareInstallerVersions(updateInfo.version, app.getVersion())
+  if (comparison === null) {
+    console.warn(
+      `[AutoUpdater] Unsupported version format: ${updateInfo.version} vs ${app.getVersion()}`
+    )
+    return false
+  }
+
+  return comparison > 0
 }
 
 let mainWindow = null
@@ -386,23 +424,24 @@ ipcMain.handle('get-app-version', async () => {
 ipcMain.handle('get-latest-release', async () => {
   try {
     const { net } = require('electron')
-    const response = await net.fetch(
-      'https://api.github.com/repos/rigelra15/hypertopia-installer-releases/releases/latest',
-      {
-        headers: { 'User-Agent': 'HyperTopia-Installer' }
-      }
-    )
+    const response = await net.fetch(`${RELEASES_API_URL}/releases/latest`, {
+      headers: { 'User-Agent': 'HyperTopia-Installer' }
+    })
     if (!response.ok) {
       throw new Error(`GitHub API returned ${response.status}`)
     }
     const data = await response.json()
+    const version = data.tag_name ? data.tag_name.replace(/^v/, '') : null
+    const comparison = compareInstallerVersions(version, app.getVersion())
+
     return {
-      version: data.tag_name ? data.tag_name.replace(/^v/, '') : null,
-      url: data.html_url || null
+      version,
+      url: data.html_url || null,
+      isNewer: comparison === null ? null : comparison > 0
     }
   } catch (err) {
     console.error('[get-latest-release] Error:', err.message)
-    return { version: null, url: null, error: err.message }
+    return { version: null, url: null, isNewer: null, error: err.message }
   }
 })
 
@@ -1060,7 +1099,7 @@ app.whenReady().then(() => {
       const { net } = await import('electron')
       const request = net.request({
         method: 'GET',
-        url: 'https://api.github.com/repos/rigelra15/hypertopia-installer/releases/latest',
+        url: `${RELEASES_API_URL}/releases/latest`,
         headers: { 'User-Agent': 'HyperTopia-Installer' }
       })
       request.on('response', (response) => {
@@ -1073,7 +1112,8 @@ app.whenReady().then(() => {
             const release = JSON.parse(body)
             const latestVersion = release.tag_name?.replace(/^v/, '')
             const currentVersion = app.getVersion()
-            if (latestVersion && latestVersion !== currentVersion) {
+            const comparison = compareInstallerVersions(latestVersion, currentVersion)
+            if (latestVersion && comparison !== null && comparison > 0) {
               if (mainWindow) {
                 mainWindow.webContents.send('update-available-mac', {
                   version: latestVersion,
@@ -1362,15 +1402,79 @@ const Seven = require('node-7z')
 const sevenBin = require('7zip-bin')
 const yauzl = require('yauzl')
 
-// Helper: Get 7za binary path
+// Helper: Resolve the bundled 7za binary.
+//
+// electron-builder can place native binaries in either extraResources or
+// app.asar.unpacked. Prefer extraResources because it is more resilient when
+// a portable build is extracted to a temporary folder, then fall back to the
+// asar-unpacked location used by older releases.
 function get7zPath() {
-  if (!app.isPackaged) return sevenBin.path7za
+  const configuredPath = sevenBin.path7za
 
-  // 7zip-bin already picks the correct platform/arch; packaged apps need the unpacked path.
-  return sevenBin.path7za.replace(
-    `${path.sep}app.asar${path.sep}`,
-    `${path.sep}app.asar.unpacked${path.sep}`
+  // Preserve the documented system 7za override for development/debugging.
+  if (configuredPath === '7za') return configuredPath
+
+  const binaryName = process.platform === 'win32' ? '7za.exe' : '7za'
+  const platformFolder =
+    process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : 'linux'
+  const architectures = [process.arch]
+
+  // Windows ARM64 can run the x64 binary through its compatibility layer.
+  // Keep this fallback for packages that contain only the x64 variant.
+  if (process.platform === 'win32' && process.arch === 'arm64') {
+    architectures.push('x64', 'ia32')
+  }
+
+  const candidates = []
+  for (const architecture of architectures) {
+    candidates.push(
+      path.join(process.resourcesPath, '7zip-bin', platformFolder, architecture, binaryName)
+    )
+  }
+
+  for (const architecture of architectures) {
+    candidates.push(
+      path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'node_modules',
+        '7zip-bin',
+        platformFolder,
+        architecture,
+        binaryName
+      )
+    )
+  }
+
+  if (configuredPath && configuredPath !== '7za') {
+    candidates.push(
+      configuredPath.replace(
+        `${path.sep}app.asar${path.sep}`,
+        `${path.sep}app.asar.unpacked${path.sep}`
+      )
+    )
+  }
+
+  const uniqueCandidates = [...new Set(candidates)]
+  const existingPath = uniqueCandidates.find((candidate) => {
+    try {
+      return fs.statSync(candidate).isFile()
+    } catch {
+      return false
+    }
+  })
+
+  if (existingPath) return existingPath
+
+  const error = new Error(
+    `Komponen pemeriksaan APK (7za${process.platform === 'win32' ? '.exe' : ''}) tidak ditemukan. ` +
+      'Instalasi aplikasi mungkin tidak lengkap atau file tersebut dikarantina antivirus. ' +
+      'Install ulang aplikasi dari installer resmi dan izinkan file 7za jika diminta. ' +
+      `Path pertama yang dicari: ${uniqueCandidates[0] || configuredPath}`
   )
+  error.code = 'MISSING_7ZA'
+  error.candidates = uniqueCandidates
+  throw error
 }
 
 // Helper: Get UnRAR binary path (cross-platform)
@@ -2174,8 +2278,10 @@ function runAdbCommand(args, onOutput) {
 }
 
 function testApkArchive(apkPath) {
+  const sevenPath = get7zPath()
+
   return new Promise((resolve, reject) => {
-    const child = spawn(get7zPath(), ['t', '-y', apkPath], {
+    const child = spawn(sevenPath, ['t', '-y', apkPath], {
       stdio: ['pipe', 'pipe', 'pipe']
     })
 
@@ -2292,6 +2398,10 @@ async function validateLocalApkFile(apkPath) {
     // Checking the entire ZIP catches truncated files that still start with PK.
     await testApkArchive(apkPath)
   } catch (error) {
+    if (error?.code === 'MISSING_7ZA') {
+      throw error
+    }
+
     throw new Error(
       `APK corrupt atau tidak lengkap. Pemeriksaan ZIP gagal: ${error.message}. ` +
         'Coba download atau extract ulang file game.'

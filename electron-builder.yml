@@ -28,6 +28,11 @@ win:
       to: platform-tools
       filter:
         - '**/*'
+    # Keep 7za outside app.asar as a stable fallback for portable and updated builds.
+    - from: node_modules/7zip-bin/win
+      to: 7zip-bin/win
+      filter:
+        - '**/*'
 nsis:
   oneClick: true
   allowToChangeInstallationDirectory: false
@@ -40,7 +45,7 @@ nsis:
 portable:
   artifactName: ${name}-${version}-portable.${ext}
 mac:
-  artifactName: "HyperTopia Installer-${version}-mac-${arch}.${ext}"
+  artifactName: "HyperTopia-Installer-${version}-mac-${arch}.${ext}"
   icon: resources/icon.icns
   target:
     - target: dmg
@@ -58,6 +63,30 @@ mac:
         - '**/*'
     - from: resources/unrar-darwin
       to: unrar-darwin
+      filter:
+        - '**/*'
+    - from: node_modules/7zip-bin/mac
+      to: 7zip-bin/mac
+      filter:
+        - '**/*'
+linux:
+  artifactName: "HyperTopia-Installer-${version}-linux-${arch}.${ext}"
+  maintainer: "HyperTopia <hypertopiaid@gmail.com>"
+  category: Utility
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  extraResources:
+    - from: resources/platform-tools-linux
+      to: platform-tools-linux
+      filter:
+        - '**/*'
+    - from: node_modules/7zip-bin/linux
+      to: 7zip-bin/linux
       filter:
         - '**/*'
 dmg:

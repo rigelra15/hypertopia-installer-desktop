@@ -96,6 +96,12 @@ export function SettingsModal({
     }
   }
 
+  const latestReleaseIsNewer =
+    latestRelease?.isNewer ??
+    (latestRelease?.version && appVersion?.version
+      ? latestRelease.version !== appVersion.version
+      : false)
+
   const handleChangeFolder = async () => {
     setIsChanging(true)
     try {
@@ -441,31 +447,23 @@ export function SettingsModal({
                 {!isCheckingLatest && latestRelease?.version && appVersion?.version && (
                   <div
                     className={`mt-1 flex items-center gap-2 rounded-md px-2.5 py-1.5 ${
-                      latestRelease.version === appVersion.version
+                      !latestReleaseIsNewer
                         ? 'bg-green-500/10 border border-green-500/20'
                         : 'bg-amber-500/10 border border-amber-500/20'
                     }`}
                   >
                     <Icon
-                      icon={
-                        latestRelease.version === appVersion.version
-                          ? 'mdi:check-circle'
-                          : 'mdi:alert-circle'
-                      }
-                      className={`h-4 w-4 shrink-0 ${
-                        latestRelease.version === appVersion.version
-                          ? 'text-green-500'
-                          : 'text-amber-500'
-                      }`}
+                      icon={!latestReleaseIsNewer ? 'mdi:check-circle' : 'mdi:alert-circle'}
+                      className={`h-4 w-4 shrink-0 ${!latestReleaseIsNewer ? 'text-green-500' : 'text-amber-500'}`}
                     />
                     <span
                       className={`text-[11px] font-medium ${
-                        latestRelease.version === appVersion.version
+                        !latestReleaseIsNewer
                           ? 'text-green-600 dark:text-green-400'
                           : 'text-amber-600 dark:text-amber-400'
                       }`}
                     >
-                      {latestRelease.version === appVersion.version
+                      {!latestReleaseIsNewer
                         ? t('settings_version_up_to_date') || 'Your app is up to date!'
                         : t('settings_version_outdated') ||
                           `Update available: v${latestRelease.version}`}
@@ -476,7 +474,7 @@ export function SettingsModal({
                 {!isCheckingLatest &&
                   latestRelease?.version &&
                   appVersion?.version &&
-                  latestRelease.version !== appVersion.version && (
+                  latestReleaseIsNewer && (
                     <div className="mt-1 rounded-md border border-[#0081FB]/20 bg-[#0081FB]/5 p-2.5">
                       <div className="flex gap-2">
                         <Icon
