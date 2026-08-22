@@ -11,6 +11,7 @@ import coverImages from '../utils/coverImages'
 import { Tooltip } from './Tooltip'
 import UpdateGameDialog from './UpdateGameDialog'
 import ReportGameDialog from './ReportGameDialog'
+import CompatibilityReviewDialog from './CompatibilityReviewDialog'
 import { apiFetch } from '../utils/apiClient'
 
 // Helper function to compare versions (from highest to lowest)
@@ -170,6 +171,7 @@ export default function GameDetailModal({
   // Update and Report dialog state
   const [showUpdateDialog, setShowUpdateDialog] = useState(false)
   const [showReportDialog, setShowReportDialog] = useState(false)
+  const [showCompatibilityReviews, setShowCompatibilityReviews] = useState(false)
 
   // Safely extract game properties with fallbacks (must be before state that uses them)
   const gameTitle = game?.gameTitle || game?.name || game?.id?.replace(/!/g, '') || 'Unknown Game'
@@ -1148,6 +1150,19 @@ export default function GameDetailModal({
                     })
                   })()}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCompatibilityReviews(true)}
+                  className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 text-xs font-semibold text-amber-700 transition-colors hover:border-amber-400 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-200 dark:hover:border-amber-300"
+                >
+                  <Icon icon="mdi:star" className="h-3.5 w-3.5 text-amber-400" />
+                  <span>
+                    {game?.compatibilityReviewSummary?.reviewCount
+                      ? Number(game.compatibilityReviewSummary.averageRating || 0).toFixed(1)
+                      : '—'}
+                  </span>
+                  <span className="font-normal opacity-75">Compatibility</span>
+                </button>
               </div>
 
               {/* Content Body */}
@@ -1899,6 +1914,14 @@ export default function GameDetailModal({
         gameTitle={gameTitle}
         gameVersion={getCurrentVersion()?.version || gameVersion}
         onSubmit={() => setShowReportDialog(false)}
+      />
+      <CompatibilityReviewDialog
+        isOpen={showCompatibilityReviews}
+        onClose={() => setShowCompatibilityReviews(false)}
+        gameId={game?.id || gameTitle}
+        gameTitle={gameTitle}
+        testedVersion={getCurrentVersion()?.version || gameVersion}
+        summary={game?.compatibilityReviewSummary}
       />
     </AnimatePresence>
   )
