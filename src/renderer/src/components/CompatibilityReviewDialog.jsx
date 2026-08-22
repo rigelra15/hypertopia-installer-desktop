@@ -7,10 +7,10 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { apiFetch } from '../utils/apiClient'
 
 const tags = [
-  ['perfectly_compatible', 'Perfectly compatible'],
-  ['mostly_playable', 'Mostly playable'],
-  ['some_issues', 'Some issues'],
-  ['unplayable', 'Unplayable']
+  ['perfectly_compatible', 'Sangat kompatibel'],
+  ['mostly_playable', 'Sebagian besar bisa dimainkan'],
+  ['some_issues', 'Ada beberapa masalah'],
+  ['unplayable', 'Tidak bisa dimainkan']
 ]
 const devices = [
   ['quest1', 'Meta Quest 1'],
@@ -26,7 +26,8 @@ export default function CompatibilityReviewDialog({
   gameId,
   gameTitle,
   testedVersion,
-  summary
+  summary,
+  selectedDevice
 }) {
   const { user } = useAuth()
   const { language } = useLanguage()
@@ -44,7 +45,11 @@ export default function CompatibilityReviewDialog({
 
   useEffect(() => {
     if (!isOpen) return
-    setForm((current) => ({ ...current, testedVersion: testedVersion || current.testedVersion }))
+    setForm((current) => ({
+      ...current,
+      questModel: selectedDevice || current.questModel,
+      testedVersion: testedVersion || current.testedVersion
+    }))
     setLoading(true)
     apiFetch(
       `/api/v1/compatibility-reviews?gameType=standalone&gameId=${encodeURIComponent(gameId)}`
@@ -55,7 +60,7 @@ export default function CompatibilityReviewDialog({
         setError(language === 'en' ? 'Reviews unavailable.' : 'Review belum dapat dimuat.')
       )
       .finally(() => setLoading(false))
-  }, [gameId, isOpen, language, testedVersion])
+  }, [gameId, isOpen, language, selectedDevice, testedVersion])
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -102,6 +107,9 @@ export default function CompatibilityReviewDialog({
   }
 
   const average = summary?.reviewCount ? Number(summary.averageRating || 0).toFixed(1) : '—'
+  const deviceOptions = selectedDevice
+    ? devices.filter(([value]) => value === selectedDevice)
+    : devices
   return (
     <AnimatePresence>
       {isOpen && (
@@ -207,15 +215,13 @@ export default function CompatibilityReviewDialog({
                   ))}
                 </div>
                 <select
-                  value={form.questModel}
+                  value={form.questModel || selectedDevice || ''}
                   onChange={(event) => setForm({ ...form, questModel: event.target.value })}
                   className="min-h-11 w-full rounded-lg border border-gray-200 bg-transparent px-3 text-sm dark:border-white/10 dark:text-white"
                   required
                 >
-                  <option value="">
-                    {language === 'en' ? 'Select Meta Quest model' : 'Pilih model Meta Quest'}
-                  </option>
-                  {devices.map(([value, label]) => (
+                  <option value="">Pilih model Meta Quest</option>
+                  {deviceOptions.map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -262,5 +268,6 @@ CompatibilityReviewDialog.propTypes = {
   gameId: PropTypes.string.isRequired,
   gameTitle: PropTypes.string.isRequired,
   testedVersion: PropTypes.string,
-  summary: PropTypes.object
+  summary: PropTypes.object,
+  selectedDevice: PropTypes.string
 }

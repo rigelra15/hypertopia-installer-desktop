@@ -826,6 +826,18 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
   }
   const selectedKey = selectedDevice ? deviceToKeyMap[selectedDevice] : null
   const hasV76 = isSupportedV76 || versions.some((v) => v?.isSupportedV76)
+  const compatibilityScore = game.compatibilityReviewSummary?.reviewCount
+    ? Number(game.compatibilityReviewSummary.averageRating || 0).toFixed(1)
+    : '—'
+  const compatibilityBadge = (
+    <span
+      className="inline-flex h-8 min-h-8 items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-1.5 text-xs font-semibold text-amber-700 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-200"
+      title="Rating kompatibilitas"
+    >
+      <Icon icon="mdi:star" className="h-3.5 w-3.5 text-amber-400" />
+      {compatibilityScore}
+    </span>
+  )
 
   // Fetch cover image from Firebase Storage only
   useEffect(() => {
@@ -949,6 +961,7 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
             <div className="flex items-center gap-1 shrink-0">
               <StatusBadge game={game} t={t} />
               <V76Badge hasV76={hasV76} tooltipDir="left" t={t} />
+              {compatibilityBadge}
             </div>
           </div>
 
@@ -1095,11 +1108,14 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
             <span>{formatDownloadCount(getTotalDownloadCount())}</span>
           </div>
 
-          <div className="flex items-center gap-1 text-xs font-medium text-gray-400 dark:text-white/40 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">
-            {versions.length > 1 && (
-              <Icon icon="mdi:layers-outline" className="w-3.5 h-3.5 text-[#0081FB]" />
-            )}
-            <span>{getVersionDisplay()}</span>
+          <div className="flex items-center gap-2">
+            {compatibilityBadge}
+            <div className="flex items-center gap-1 text-xs font-medium text-gray-400 dark:text-white/40 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">
+              {versions.length > 1 && (
+                <Icon icon="mdi:layers-outline" className="w-3.5 h-3.5 text-[#0081FB]" />
+              )}
+              <span>{getVersionDisplay()}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1117,6 +1133,10 @@ GameCard.propTypes = {
     gameStatus: PropTypes.string,
     photoUrl: PropTypes.string,
     downloadCount: PropTypes.number,
+    compatibilityReviewSummary: PropTypes.shape({
+      reviewCount: PropTypes.number,
+      averageRating: PropTypes.number
+    }),
     isSupportedV76: PropTypes.bool,
     versions: PropTypes.array,
     linkDownload: PropTypes.string,

@@ -1922,6 +1922,7 @@ export default function GameDetailModal({
         gameTitle={gameTitle}
         testedVersion={getCurrentVersion()?.version || gameVersion}
         summary={game?.compatibilityReviewSummary}
+        selectedDevice={selectedDevice}
       />
     </AnimatePresence>
   )
