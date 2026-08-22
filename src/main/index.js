@@ -1664,6 +1664,11 @@ function getPackageNameForApk(apkName, manifestData = null) {
   return normalizePackageName(apkName)
 }
 
+function isAndroidPackageName(value) {
+  const normalized = normalizePackageName(value)
+  return /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(normalized)
+}
+
 function findReleaseManifestPath(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true })
 
@@ -1705,9 +1710,11 @@ function hasDirectObbFile(dir) {
 function findObbFolderInDirectory(dir, packageName) {
   const normalizedPackageName = normalizePackageName(packageName)
   const rootName = normalizePackageName(path.basename(dir))
+  const packageNameIsValid = isAndroidPackageName(normalizedPackageName)
 
-  // Support selecting the package directory itself, not only its parent.
-  if (normalizedPackageName && rootName === normalizedPackageName) {
+  // A folder name matching an APK fallback is not enough to identify OBB data.
+  // Require an actual .obb file so the APK-only game root is never selected.
+  if (packageNameIsValid && rootName === normalizedPackageName && hasDirectObbFile(dir)) {
     return dir
   }
 
@@ -1716,7 +1723,11 @@ function findObbFolderInDirectory(dir, packageName) {
     if (!entry.isDirectory()) continue
 
     const fullPath = path.join(dir, entry.name)
-    if (normalizedPackageName && normalizePackageName(entry.name) === normalizedPackageName) {
+    if (
+      packageNameIsValid &&
+      normalizePackageName(entry.name) === normalizedPackageName &&
+      hasDirectObbFile(fullPath)
+    ) {
       return fullPath
     }
 
@@ -1741,6 +1752,7 @@ function findObbFolderInDirectory(dir, packageName) {
 
 function findObbFolderFromArchiveEntries(entries, packageName) {
   const normalizedPackageName = normalizePackageName(packageName)
+  const packageNameIsValid = isAndroidPackageName(normalizedPackageName)
 
   for (const rawEntry of entries) {
     const normalizedEntry = String(rawEntry.file || rawEntry || '').replace(/\\/g, '/')
@@ -1748,7 +1760,12 @@ function findObbFolderFromArchiveEntries(entries, packageName) {
     const packageIndex = parts.findIndex((part, index) => {
       const isFile = index === parts.length - 1 && /\.(apk|obb)$/i.test(part)
       return (
-        !isFile && normalizedPackageName && normalizePackageName(part) === normalizedPackageName
+        !isFile &&
+        packageNameIsValid &&
+        normalizePackageName(part) === normalizedPackageName &&
+        parts.some((candidate, candidateIndex) => {
+          return candidateIndex > index && /\.obb$/i.test(candidate)
+        })
       )
     })
 
@@ -1762,9 +1779,8 @@ function findObbFolderFromArchiveEntries(entries, packageName) {
       .replace(/\\/g, '/')
       .split('/')
       .filter(Boolean)
-    if (normalizedEntry.split('/').length > 1 && normalizedEntry.toLowerCase().endsWith('.obb')) {
-      const parts = normalizedEntry.split('/').filter(Boolean)
-      obbFolders.add(parts[parts.length - 2])
+    if (normalizedEntry.length > 1 && normalizedEntry.at(-1).toLowerCase().endsWith('.obb')) {
+      obbFolders.add(normalizedEntry.at(-2))
     }
   }
 
@@ -1792,12 +1808,15 @@ async function scanRar(rarPath) {
       hasObb: false,
       apkName: null,
       obbFolder: null,
+      obbSize: 0,
+      obbFiles: [],
       manifestPath: null,
       manifestData: null
     }
 
-    // Use 'lb' command for bare list output (just filenames)
-    const listArgs = ['lb']
+    // Use the technical listing so the confirmation modal can show the real
+    // OBB size instead of reporting 0 B for RAR archives.
+    const listArgs = ['lt']
     if (zipPassword) listArgs.push(`-p${zipPassword}`)
     listArgs.push(rarPath)
 
@@ -1828,11 +1847,19 @@ async function scanRar(rarPath) {
         return reject(new Error('RAR_ERROR: Gagal membaca file RAR: ' + stderr))
       }
 
-      // Parse file list
-      const lines = stdout
-        .split('\n')
-        .map((l) => l.trim())
-        .filter((l) => l)
+      // Parse technical file entries from UnRAR's block output.
+      const archiveEntries = stdout
+        .split(/\r?\n\s*\r?\n/)
+        .map((block) => {
+          const nameMatch = block.match(/^\s*Name:\s*(.+)$/m)
+          const typeMatch = block.match(/^\s*Type:\s*(.+)$/m)
+          const sizeMatch = block.match(/^\s*Size:\s*(\d+)$/m)
+          if (!nameMatch || typeMatch?.[1].trim().toLowerCase() !== 'file') return null
+          return { file: nameMatch[1].trim(), size: Number(sizeMatch?.[1] || 0) }
+        })
+        .filter(Boolean)
+
+      const lines = archiveEntries.map((entry) => entry.file)
 
       // First pass: find APK name and manifest
       for (const fileName of lines) {
@@ -1876,6 +1903,20 @@ async function scanRar(rarPath) {
         const packageName = getPackageNameForApk(result.apkName, result.manifestData)
         result.obbFolder = findObbFolderFromArchiveEntries(lines, packageName)
         result.hasObb = Boolean(result.obbFolder)
+
+        if (result.hasObb) {
+          for (const entry of archiveEntries) {
+            const relativePath = getArchiveEntryRelativePath(entry.file, result.obbFolder)
+            if (relativePath && /\.obb$/i.test(relativePath)) {
+              result.obbFiles.push({
+                name: relativePath.split('/').pop(),
+                relativePath,
+                size: entry.size
+              })
+              result.obbSize += entry.size
+            }
+          }
+        }
       }
 
       resolve(result)
@@ -2506,10 +2547,12 @@ async function installApkWithAdb(deviceFlag, apkPath, onOutput) {
 }
 
 async function pushObbFile(deviceFlag, localFilePath, remoteDestPath, sendProgress, label) {
+  let directError = null
   try {
     await runAdbCommand([...deviceFlag, 'push', localFilePath, remoteDestPath])
     return
   } catch (directErr) {
+    directError = directErr
     console.warn(`[OBB Fallback] Direct push failed for ${label}: ${directErr.message}`)
   }
 
@@ -2519,7 +2562,10 @@ async function pushObbFile(deviceFlag, localFilePath, remoteDestPath, sendProgre
   try {
     await runAdbCommand([...deviceFlag, 'push', localFilePath, tmpPath])
   } catch (tmpErr) {
-    throw new Error(`Failed to push OBB file "${label}" (direct and /tmp): ${tmpErr.message}`)
+    throw new Error(
+      `Gagal menyalin OBB "${label}" ke ${remoteDestPath} (direct dan /tmp). ` +
+        `Detail ADB: ${tmpErr.message || directError?.message || 'transfer gagal'}`
+    )
   }
 
   const remoteDir = remoteDestPath.substring(0, remoteDestPath.lastIndexOf('/'))
@@ -2536,9 +2582,111 @@ async function pushObbFile(deviceFlag, localFilePath, remoteDestPath, sendProgre
       await runAdbCommand([...deviceFlag, 'shell', 'cp', tmpPath, remoteDestPath])
       await runAdbCommand([...deviceFlag, 'shell', 'rm', tmpPath]).catch(() => {})
     } catch (cpErr) {
-      throw new Error(`Failed to move OBB file "${label}" to final location: ${cpErr.message}`)
+      throw new Error(
+        `Gagal memindahkan OBB "${label}" ke ${remoteDestPath}. ` +
+          'Android menolak folder Android/obb atau package name target tidak sesuai. ' +
+          `Detail ADB: ${cpErr.message}`
+      )
     }
   }
+}
+
+function getAllFilesRelative(dir, basePath = '') {
+  const results = []
+  const entries = fs.readdirSync(dir, { withFileTypes: true })
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name)
+    const relativePath = path.join(basePath, entry.name)
+
+    if (entry.isDirectory()) {
+      results.push(...getAllFilesRelative(fullPath, relativePath))
+    } else if (entry.isFile()) {
+      results.push({ localPath: fullPath, relativePath, name: entry.name })
+    }
+  }
+
+  return results
+}
+
+function getObbPackageName(obbPath, packageName) {
+  // Prefer the package from release.manifest/metadata when it is valid; the
+  // folder name is the fallback for extracted releases without metadata.
+  const candidates = [packageName, path.basename(obbPath)]
+    .map((candidate) => normalizePackageName(candidate))
+    .filter(Boolean)
+
+  const resolvedPackageName = candidates.find((candidate) => isAndroidPackageName(candidate))
+  if (resolvedPackageName) return resolvedPackageName
+
+  throw new Error(
+    'Folder OBB ditemukan, tetapi package Android tidak dapat ditentukan. ' +
+      'Pastikan folder OBB bernama seperti com.vendor.game atau sertakan release.manifest, lalu coba lagi.'
+  )
+}
+
+async function prepareRemoteObbFolder(deviceFlag, packageName) {
+  const remoteObbFolder = `/sdcard/Android/obb/${packageName}`
+
+  try {
+    await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteObbFolder])
+  } catch (mkdirError) {
+    console.warn(`[OBB Push] mkdir ${remoteObbFolder} failed: ${mkdirError.message}`)
+  }
+
+  try {
+    await runAdbCommand([...deviceFlag, 'shell', 'ls', '-d', remoteObbFolder])
+  } catch (verifyError) {
+    // Some Quest/Android builds allow adb push to create the package folder
+    // even when shell mkdir is restricted. Let the file push try, but never
+    // fall back to pushing the local folder (which can include the APK).
+    console.warn(`[OBB Push] Could not verify ${remoteObbFolder}: ${verifyError.message}`)
+  }
+
+  return remoteObbFolder
+}
+
+async function pushObbDirectory(deviceFlag, obbPath, packageName, sendProgress) {
+  const obbPackageName = getObbPackageName(obbPath, packageName)
+  const obbFiles = getAllFilesRelative(obbPath).filter((fileObj) => /\.obb$/i.test(fileObj.name))
+
+  if (obbFiles.length === 0) {
+    return { packageName: obbPackageName, fileCount: 0 }
+  }
+
+  const remoteObbFolder = await prepareRemoteObbFolder(deviceFlag, obbPackageName)
+  const createdDirs = new Set([remoteObbFolder])
+
+  for (let i = 0; i < obbFiles.length; i++) {
+    if (installationState.isCancelled) {
+      throw new Error('Installation cancelled')
+    }
+
+    const fileObj = obbFiles[i]
+    const relativePath = fileObj.relativePath.replace(/\\/g, '/')
+    if (relativePath.split('/').some((part) => part === '..')) {
+      throw new Error(`Path OBB tidak valid: ${fileObj.relativePath}`)
+    }
+
+    const remoteFilePath = `${remoteObbFolder}/${relativePath}`
+    const remoteDirPath = remoteFilePath.substring(0, remoteFilePath.lastIndexOf('/'))
+
+    if (!createdDirs.has(remoteDirPath)) {
+      try {
+        await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteDirPath])
+        createdDirs.add(remoteDirPath)
+      } catch (error) {
+        console.warn(`[OBB Push] Failed to create dir ${remoteDirPath}: ${error.message}`)
+      }
+    }
+
+    const progressPercent = Math.round((i / obbFiles.length) * 100)
+    sendProgress('PUSHING_OBB', progressPercent, `Copying: ${fileObj.name}`)
+    await pushObbFile(deviceFlag, fileObj.localPath, remoteFilePath, sendProgress, fileObj.name)
+  }
+
+  sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
+  return { packageName: obbPackageName, fileCount: obbFiles.length }
 }
 
 // IPC: Install Game
@@ -2576,6 +2724,7 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
 
     let apkPath = null
     let obbPath = null
+    let packageName = null
 
     // 1. EXTRACTION
     if (filePath.toLowerCase().endsWith('.zip') || filePath.toLowerCase().endsWith('.rar')) {
@@ -2640,7 +2789,7 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
       if (apkPath) {
         const apkFileName = path.basename(apkPath)
         const manifestInfo = readReleaseManifestInfo(tempDir)
-        const packageName = getPackageNameForApk(apkFileName, manifestInfo.data)
+        packageName = getPackageNameForApk(apkFileName, manifestInfo.data)
         obbPath = findObbFolderInDirectory(tempDir, packageName)
       }
     } else {
@@ -2657,89 +2806,7 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
     // 3. PUSH OBB
     if (type === 'full' && obbPath) {
       sendProgress('PUSHING_OBB', 0, 'progress_preparing_obb')
-
-      // Ensure /sdcard/Android/obb/ directory exists
-      try {
-        await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', '/sdcard/Android/obb/'])
-      } catch (mkdirErr) {
-        console.warn('mkdir /sdcard/Android/obb/ failed (might already exist):', mkdirErr.message)
-        // Continue anyway - folder might already exist
-      }
-
-      // Get list of ALL files in OBB folder recursively
-      const obbFolderName = path.basename(obbPath)
-
-      const getAllFilesRelative = (dir, basePath = '') => {
-        let results = []
-        const list = fs.readdirSync(dir)
-        list.forEach((file) => {
-          const fullPath = path.join(dir, file)
-          const relPath = path.join(basePath, file)
-          const stat = fs.statSync(fullPath)
-          if (stat && stat.isDirectory()) {
-            results = results.concat(getAllFilesRelative(fullPath, relPath))
-          } else {
-            results.push({ localPath: fullPath, relativePath: relPath, name: file })
-          }
-        })
-        return results
-      }
-
-      const obbFiles = getAllFilesRelative(obbPath)
-
-      // Create remote folder (without quotes - spawn passes args individually)
-      const remoteObbFolder = `/sdcard/Android/obb/${obbFolderName}`
-      try {
-        await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteObbFolder])
-      } catch (e) {
-        console.warn('mkdir obb folder failed:', e.message)
-      }
-
-      // Verify the directory was actually created
-      try {
-        await runAdbCommand([...deviceFlag, 'shell', 'ls', '-d', remoteObbFolder])
-      } catch {
-        console.warn(
-          '[OBB Push] Directory verification failed, attempting push of entire folder...'
-        )
-        // Fallback: push entire OBB folder at once (adb push handles dir creation)
-        try {
-          sendProgress('PUSHING_OBB', 0, `Copying OBB folder...`)
-          await runAdbCommand([...deviceFlag, 'push', obbPath, remoteObbFolder])
-          sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
-          // Skip individual file push since folder push succeeded
-          obbFiles.length = 0
-        } catch (pushFolderErr) {
-          console.error('[OBB Push] Folder push also failed:', pushFolderErr.message)
-          throw pushFolderErr
-        }
-      }
-
-      // Push each file individually with progress tracking
-      const createdDirs = new Set([remoteObbFolder])
-
-      for (let i = 0; i < obbFiles.length; i++) {
-        const fileObj = obbFiles[i]
-        const remoteFilePath = `${remoteObbFolder}/${fileObj.relativePath.replace(/\\/g, '/')}`
-        const remoteDirPath = remoteFilePath.substring(0, remoteFilePath.lastIndexOf('/'))
-
-        if (!createdDirs.has(remoteDirPath)) {
-          try {
-            // NOTE: Do NOT wrap path in quotes - spawn() passes each arg separately
-            await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteDirPath])
-            createdDirs.add(remoteDirPath)
-          } catch (err) {
-            console.warn(`[OBB Push] Failed to create dir ${remoteDirPath}:`, err.message)
-          }
-        }
-
-        const progressPercent = Math.round((i / obbFiles.length) * 100)
-        sendProgress('PUSHING_OBB', progressPercent, `Copying: ${fileObj.name}`)
-
-        await pushObbFile(deviceFlag, fileObj.localPath, remoteFilePath, sendProgress, fileObj.name)
-      }
-
-      sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
+      await pushObbDirectory(deviceFlag, obbPath, packageName, sendProgress)
     }
 
     sendProgress('COMPLETED', 100, 'progress_finished')
@@ -2952,6 +3019,7 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
       const packageName = getPackageNameForApk(apkResult.name, result.manifestData)
       const obbPath = findObbFolderInDirectory(folderPath, packageName)
       if (obbPath) {
+        const obbPackageName = getObbPackageName(obbPath, packageName)
         const obbFilesList = []
         let totalObbSize = 0
 
@@ -2962,7 +3030,7 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
             const relPath = path.join(basePath, file.name)
             if (file.isDirectory()) {
               getAllFilesRelative(subPath, relPath)
-            } else {
+            } else if (file.name.toLowerCase().endsWith('.obb')) {
               const stat = fs.statSync(subPath)
               obbFilesList.push({ name: file.name, relativePath: relPath, size: stat.size })
               totalObbSize += stat.size
@@ -2972,7 +3040,7 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
         getAllFilesRelative(obbPath)
 
         result.hasObb = true
-        result.obbFolder = path.basename(obbPath)
+        result.obbFolder = obbPackageName
         result.obbSize = totalObbSize
         result.obbFiles = obbFilesList
       }
@@ -3032,87 +3100,7 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
     // Push OBB if full install
     if (type === 'full' && obbPath) {
       sendProgress('PUSHING_OBB', 0, 'progress_preparing_obb')
-
-      try {
-        await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', '/sdcard/Android/obb/'])
-      } catch (mkdirErr) {
-        console.warn('mkdir failed (might exist):', mkdirErr.message)
-      }
-
-      // Get list of ALL files in OBB folder recursively
-      const obbFolderName = path.basename(obbPath)
-
-      const getAllFilesRelative = (dir, basePath = '') => {
-        let results = []
-        const list = fs.readdirSync(dir)
-        list.forEach((file) => {
-          const fullPath = path.join(dir, file)
-          const relPath = path.join(basePath, file)
-          const stat = fs.statSync(fullPath)
-          if (stat && stat.isDirectory()) {
-            results = results.concat(getAllFilesRelative(fullPath, relPath))
-          } else {
-            results.push({ localPath: fullPath, relativePath: relPath, name: file })
-          }
-        })
-        return results
-      }
-
-      const obbFiles = getAllFilesRelative(obbPath)
-
-      // Create remote folder (without quotes - spawn passes args individually)
-      const remoteObbFolder = `/sdcard/Android/obb/${obbFolderName}`
-      try {
-        await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteObbFolder])
-      } catch (e) {
-        console.warn('mkdir obb folder failed:', e.message)
-      }
-
-      // Verify the directory was actually created
-      try {
-        await runAdbCommand([...deviceFlag, 'shell', 'ls', '-d', remoteObbFolder])
-      } catch {
-        console.warn(
-          '[OBB Push Folder] Directory verification failed, attempting push of entire folder...'
-        )
-        // Fallback: push entire OBB folder at once (adb push handles dir creation)
-        try {
-          sendProgress('PUSHING_OBB', 0, `Copying OBB folder...`)
-          await runAdbCommand([...deviceFlag, 'push', obbPath, remoteObbFolder])
-          sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
-          // Skip individual file push since folder push succeeded
-          obbFiles.length = 0
-        } catch (pushFolderErr) {
-          console.error('[OBB Push Folder] Folder push also failed:', pushFolderErr.message)
-          throw pushFolderErr
-        }
-      }
-
-      // Push each file individually with progress tracking
-      const createdDirs = new Set([remoteObbFolder])
-
-      for (let i = 0; i < obbFiles.length; i++) {
-        const fileObj = obbFiles[i]
-        const remoteFilePath = `${remoteObbFolder}/${fileObj.relativePath.replace(/\\/g, '/')}`
-        const remoteDirPath = remoteFilePath.substring(0, remoteFilePath.lastIndexOf('/'))
-
-        if (!createdDirs.has(remoteDirPath)) {
-          try {
-            // NOTE: Do NOT wrap path in quotes - spawn() passes each arg separately
-            await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteDirPath])
-            createdDirs.add(remoteDirPath)
-          } catch (err) {
-            console.warn(`[OBB Push Folder] Failed to create dir ${remoteDirPath}:`, err.message)
-          }
-        }
-
-        const progressPercent = Math.round((i / obbFiles.length) * 100)
-        sendProgress('PUSHING_OBB', progressPercent, `Copying: ${fileObj.name}`)
-
-        await pushObbFile(deviceFlag, fileObj.localPath, remoteFilePath, sendProgress, fileObj.name)
-      }
-
-      sendProgress('PUSHING_OBB', 100, 'progress_obb_complete')
+      await pushObbDirectory(deviceFlag, obbPath, packageName, sendProgress)
     }
 
     sendProgress('COMPLETED', 100, 'progress_finished')
@@ -4268,56 +4256,7 @@ ipcMain.handle('download-and-install-archive', async (event, { url, fileName, de
     // 5. PUSH OBB (if exists)
     if (obbPath) {
       sendProgress('PUSHING_OBB', 0, 'Preparing OBB data...')
-
-      // Ensure /sdcard/Android/obb/ directory exists
-      try {
-        await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', '/sdcard/Android/obb/'])
-      } catch (mkdirErr) {
-        console.warn('mkdir /sdcard/Android/obb/ failed:', mkdirErr.message)
-      }
-
-      const obbFolderName = path.basename(obbPath)
-      const obbFiles = fs
-        .readdirSync(obbPath)
-        .filter((f) => fs.statSync(path.join(obbPath, f)).isFile())
-
-      const remoteObbFolder = `/sdcard/Android/obb/${obbFolderName}`
-      try {
-        await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remoteObbFolder])
-      } catch (e) {
-        console.warn('mkdir obb folder failed:', e.message)
-      }
-
-      for (let i = 0; i < obbFiles.length; i++) {
-        if (installationState.isCancelled) {
-          throw new Error('Installation cancelled')
-        }
-
-        const obbFileName = obbFiles[i]
-        const localFilePath = path.join(obbPath, obbFileName)
-        const remoteFilePath = `${remoteObbFolder}/${obbFileName}`
-        const progressPercent = Math.round((i / obbFiles.length) * 100)
-
-        sendProgress('PUSHING_OBB', progressPercent, `Copying: ${obbFileName}`)
-
-        try {
-          await runAdbCommand([...deviceFlag, 'push', localFilePath, remoteFilePath], (output) => {
-            const match = output.match(/\[\s*(\d+)%\]/)
-            if (match) {
-              const fileProgress = parseInt(match[1])
-              const totalProgress = Math.round(((i + fileProgress / 100) / obbFiles.length) * 100)
-              sendProgress('PUSHING_OBB', totalProgress, `Copying: ${obbFileName}`)
-            }
-          })
-        } catch (directErr) {
-          console.warn(
-            `[Install Archive] Direct OBB push failed, using fallback: ${directErr.message}`
-          )
-          await pushObbFile(deviceFlag, localFilePath, remoteFilePath, sendProgress, obbFileName)
-        }
-      }
-
-      sendProgress('PUSHING_OBB', 100, 'OBB data copied successfully!')
+      await pushObbDirectory(deviceFlag, obbPath, packageName, sendProgress)
     }
 
     sendProgress('COMPLETED', 100, 'Installation complete!')
