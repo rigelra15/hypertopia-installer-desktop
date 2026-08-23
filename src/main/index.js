@@ -1701,10 +1701,31 @@ function readReleaseManifestInfo(dir) {
   }
 }
 
-function hasDirectObbFile(dir) {
-  return fs
-    .readdirSync(dir, { withFileTypes: true })
-    .some((entry) => !entry.isDirectory() && entry.name.toLowerCase().endsWith('.obb'))
+// Some Quest releases store the secondary game payload as classic `.obb`
+// files, while Unity/VRP releases can contain raw `.bundle`, `.data`, or
+// similarly named files inside the package folder. Treat the package folder
+// as the payload boundary, but never count the APK or release metadata itself.
+function isObbPayloadFile(filePath) {
+  const normalizedPath = String(filePath || '').replace(/\\/g, '/')
+  const fileName = normalizedPath.split('/').filter(Boolean).pop() || ''
+  const lowerName = fileName.toLowerCase()
+
+  return Boolean(
+    fileName &&
+    !fileName.startsWith('.') &&
+    lowerName !== '.ds_store' &&
+    !lowerName.endsWith('.apk') &&
+    !lowerName.endsWith('release.manifest') &&
+    !lowerName.endsWith('release.manifest.txt')
+  )
+}
+
+function getPayloadFilesInDirectory(dir) {
+  return getAllFilesRelative(dir).filter((fileObj) => isObbPayloadFile(fileObj.name))
+}
+
+function hasPayloadFiles(dir) {
+  return getPayloadFilesInDirectory(dir).length > 0
 }
 
 function findObbFolderInDirectory(dir, packageName) {
@@ -1712,9 +1733,9 @@ function findObbFolderInDirectory(dir, packageName) {
   const rootName = normalizePackageName(path.basename(dir))
   const packageNameIsValid = isAndroidPackageName(normalizedPackageName)
 
-  // A folder name matching an APK fallback is not enough to identify OBB data.
-  // Require an actual .obb file so the APK-only game root is never selected.
-  if (packageNameIsValid && rootName === normalizedPackageName && hasDirectObbFile(dir)) {
+  // A folder name matching an APK fallback is not enough to identify payload.
+  // Require at least one non-APK file so an APK-only game root is never selected.
+  if (packageNameIsValid && rootName === normalizedPackageName && hasPayloadFiles(dir)) {
     return dir
   }
 
@@ -1726,7 +1747,7 @@ function findObbFolderInDirectory(dir, packageName) {
     if (
       packageNameIsValid &&
       normalizePackageName(entry.name) === normalizedPackageName &&
-      hasDirectObbFile(fullPath)
+      hasPayloadFiles(fullPath)
     ) {
       return fullPath
     }
@@ -1736,14 +1757,14 @@ function findObbFolderInDirectory(dir, packageName) {
   }
 
   // If the filename/manifest package is unavailable or slightly inconsistent,
-  // use the old structural fallback, but only when the folder is unambiguous.
+  // use a structural fallback, but only when one child folder contains the
+  // secondary payload. Do not treat arbitrary files beside the APK as OBB data.
   const obbCandidates = []
-  if (hasDirectObbFile(dir)) obbCandidates.push(dir)
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue
     const fullPath = path.join(dir, entry.name)
-    if (hasDirectObbFile(fullPath)) obbCandidates.push(fullPath)
+    if (hasPayloadFiles(fullPath)) obbCandidates.push(fullPath)
   }
 
   if (obbCandidates.length === 1) return obbCandidates[0]
@@ -1753,24 +1774,21 @@ function findObbFolderInDirectory(dir, packageName) {
 function findObbFolderFromArchiveEntries(entries, packageName) {
   const normalizedPackageName = normalizePackageName(packageName)
   const packageNameIsValid = isAndroidPackageName(normalizedPackageName)
+  const packageFolders = new Set()
 
   for (const rawEntry of entries) {
     const normalizedEntry = String(rawEntry.file || rawEntry || '').replace(/\\/g, '/')
     const parts = normalizedEntry.split('/').filter(Boolean)
-    const packageIndex = parts.findIndex((part, index) => {
-      const isFile = index === parts.length - 1 && /\.(apk|obb)$/i.test(part)
-      return (
-        !isFile &&
-        packageNameIsValid &&
-        normalizePackageName(part) === normalizedPackageName &&
-        parts.some((candidate, candidateIndex) => {
-          return candidateIndex > index && /\.obb$/i.test(candidate)
-        })
-      )
-    })
+    if (!parts.length || !isObbPayloadFile(parts.at(-1))) continue
 
-    if (packageIndex !== -1) return parts[packageIndex]
+    for (let index = 0; index < parts.length - 1; index++) {
+      if (packageNameIsValid && normalizePackageName(parts[index]) === normalizedPackageName) {
+        packageFolders.add(parts[index])
+      }
+    }
   }
+
+  if (packageFolders.size > 0) return [...packageFolders][0]
 
   // Fallback for archives whose APK filename does not match the OBB folder.
   const obbFolders = new Set()
@@ -1779,7 +1797,7 @@ function findObbFolderFromArchiveEntries(entries, packageName) {
       .replace(/\\/g, '/')
       .split('/')
       .filter(Boolean)
-    if (normalizedEntry.length > 1 && normalizedEntry.at(-1).toLowerCase().endsWith('.obb')) {
+    if (normalizedEntry.length > 1 && isObbPayloadFile(normalizedEntry.at(-1))) {
       obbFolders.add(normalizedEntry.at(-2))
     }
   }
@@ -1907,7 +1925,7 @@ async function scanRar(rarPath) {
         if (result.hasObb) {
           for (const entry of archiveEntries) {
             const relativePath = getArchiveEntryRelativePath(entry.file, result.obbFolder)
-            if (relativePath && /\.obb$/i.test(relativePath)) {
+            if (relativePath && isObbPayloadFile(relativePath)) {
               result.obbFiles.push({
                 name: relativePath.split('/').pop(),
                 relativePath,
@@ -1979,6 +1997,8 @@ async function scan7z(archivePath) {
         const sizeMatch = block.match(/^Size = (\d+)$/m)
         if (pathMatch) {
           const fileName = pathMatch[1].trim()
+          const folderMatch = block.match(/^Folder = \+$/m)
+          if (folderMatch) continue
           const size = parseInt(sizeMatch ? sizeMatch[1] : '0', 10)
           allEntries.push({ file: fileName, size })
 
@@ -2030,7 +2050,7 @@ async function scan7z(archivePath) {
         if (result.hasObb) {
           for (const entry of allEntries) {
             const relativePath = getArchiveEntryRelativePath(entry.file, result.obbFolder)
-            if (relativePath && entry.size > 0 && !relativePath.endsWith('/')) {
+            if (relativePath && entry.size > 0 && isObbPayloadFile(relativePath)) {
               result.obbFiles.push({
                 name: relativePath.split('/').pop(),
                 relativePath,
@@ -2648,7 +2668,7 @@ async function prepareRemoteObbFolder(deviceFlag, packageName) {
 
 async function pushObbDirectory(deviceFlag, obbPath, packageName, sendProgress) {
   const obbPackageName = getObbPackageName(obbPath, packageName)
-  const obbFiles = getAllFilesRelative(obbPath).filter((fileObj) => /\.obb$/i.test(fileObj.name))
+  const obbFiles = getPayloadFilesInDirectory(obbPath)
 
   if (obbFiles.length === 0) {
     return { packageName: obbPackageName, fileCount: 0 }
@@ -3020,24 +3040,12 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
       const obbPath = findObbFolderInDirectory(folderPath, packageName)
       if (obbPath) {
         const obbPackageName = getObbPackageName(obbPath, packageName)
-        const obbFilesList = []
-        let totalObbSize = 0
-
-        const getAllFilesRelative = (currentDir, basePath = '') => {
-          const list = fs.readdirSync(currentDir, { withFileTypes: true })
-          for (const file of list) {
-            const subPath = path.join(currentDir, file.name)
-            const relPath = path.join(basePath, file.name)
-            if (file.isDirectory()) {
-              getAllFilesRelative(subPath, relPath)
-            } else if (file.name.toLowerCase().endsWith('.obb')) {
-              const stat = fs.statSync(subPath)
-              obbFilesList.push({ name: file.name, relativePath: relPath, size: stat.size })
-              totalObbSize += stat.size
-            }
-          }
-        }
-        getAllFilesRelative(obbPath)
+        const obbFilesList = getPayloadFilesInDirectory(obbPath).map((fileObj) => ({
+          name: fileObj.name,
+          relativePath: fileObj.relativePath,
+          size: fs.statSync(fileObj.localPath).size
+        }))
+        const totalObbSize = obbFilesList.reduce((sum, fileObj) => sum + fileObj.size, 0)
 
         result.hasObb = true
         result.obbFolder = obbPackageName
