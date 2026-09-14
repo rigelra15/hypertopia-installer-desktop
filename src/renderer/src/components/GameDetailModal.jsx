@@ -12,6 +12,10 @@ import { Tooltip } from './Tooltip'
 import UpdateGameDialog from './UpdateGameDialog'
 import ReportGameDialog from './ReportGameDialog'
 import CompatibilityReviewDialog from './CompatibilityReviewDialog'
+import StandaloneGameMedia from './StandaloneGameMedia'
+import StandaloneGameMetaOverview, {
+  StandaloneGameMetaIdentity
+} from './StandaloneGameMetaOverview'
 import { apiFetch } from '../utils/apiClient'
 
 // Helper function to compare versions (from highest to lowest)
@@ -106,8 +110,10 @@ export default function GameDetailModal({
   onClose,
   game: gameProp,
   selectedDevice,
-  connectedDevice
+  connectedDevice,
+  presentation = 'modal'
 }) {
+  const isPage = presentation === 'page'
   const { t } = useLanguage()
   const { user, accessTypes, gameAccess } = useAuth()
   const {
@@ -226,12 +232,13 @@ export default function GameDetailModal({
     }
   }, [isOpen, game, gameTitle])
 
-  // YouTube video autoplay with 2-second delay
+  // Legacy YouTube preview remains modal-only. The page uses an explicit Play
+  // gesture for Meta media and never starts playback on initial render.
   useEffect(() => {
-    if (!isOpen || !game?.videoIdYouTube) {
+    if (!isOpen || isPage || !game?.videoIdYouTube) {
       setVideoReady(false)
       setIsMuted(true)
-      setIsPlaying(true)
+      setIsPlaying(false)
       return
     }
     const timer = setTimeout(() => {
@@ -240,7 +247,7 @@ export default function GameDetailModal({
       postYTCommand('playVideo')
     }, 2000)
     return () => clearTimeout(timer)
-  }, [isOpen, game?.videoIdYouTube])
+  }, [isOpen, isPage, game?.videoIdYouTube])
 
   // YouTube iframe command helper
   const postYTCommand = (command, args = []) => {
@@ -846,21 +853,33 @@ export default function GameDetailModal({
     >
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-50 overflow-y-auto"
+          className={
+            isPage
+              ? 'standalone-detail-shell relative min-h-full w-full'
+              : 'fixed inset-0 z-50 overflow-y-auto'
+          }
           initial={false}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className="flex min-h-full items-center justify-center p-4">
+          <div
+            className={
+              isPage
+                ? 'standalone-detail-frame min-h-full w-full'
+                : 'flex min-h-full items-center justify-center p-4'
+            }
+          >
             {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={onClose}
-              className="fixed inset-0 bg-black/80"
-            />
+            {!isPage && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+                className="fixed inset-0 bg-black/80"
+              />
+            )}
 
             {/* Modal Content */}
             <motion.div
@@ -868,11 +887,30 @@ export default function GameDetailModal({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-2xl bg-white dark:bg-[#111] rounded-2xl shadow-2xl overflow-visible"
+              className={
+                isPage
+                  ? 'standalone-detail-panel relative w-full overflow-visible bg-white dark:bg-[#111]'
+                  : 'relative w-full max-w-2xl overflow-visible rounded-2xl bg-white shadow-2xl dark:bg-[#111]'
+              }
             >
               {/* Header / Image Area with Ambient Glow */}
-              <div className="px-4 pt-4 pb-2 shrink-0" style={{ overflow: 'visible' }}>
+              <div
+                className={
+                  isPage
+                    ? 'standalone-detail-media shrink-0'
+                    : 'shrink-0 px-4 pb-2 pt-4'
+                }
+                style={{ overflow: 'visible' }}
+              >
                 <div className="relative" style={{ overflow: 'visible' }}>
+                  {isPage ? (
+                    <StandaloneGameMedia
+                      key={game?.id || gameTitle}
+                      game={game}
+                      description={game?.metaStore?.description}
+                    />
+                  ) : (
+                    <>
                   {/* Ambient bloom - dynamic video or blurred image behind cover/video */}
                   {game?.videoIdYouTube ? (
                     <div
@@ -1113,16 +1151,27 @@ export default function GameDetailModal({
                       </div>
                     )}
                   </div>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Title & Badges */}
-              <div className="px-6 pt-4 pb-0 shrink-0">
+              <div className={isPage ? 'standalone-detail-info-column' : undefined}>
+                {/* Title & Badges */}
+                <div
+                  className={
+                    isPage
+                      ? 'standalone-detail-title shrink-0 px-0 pt-0'
+                      : 'shrink-0 px-6 pb-0 pt-4'
+                  }
+                >
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                   {gameTitle}
                 </h2>
+                {isPage && <StandaloneGameMetaIdentity game={game} />}
                 {/* Device Support Badges */}
-                <div className="flex gap-2 items-center flex-wrap pb-1">
+                {isPage && <h3 className="standalone-detail-page__support-label">Dukungan Quest</h3>}
+                <div className="standalone-detail-page__support-list flex gap-2 items-center flex-wrap pb-1">
                   {(() => {
                     const deviceToKeyMap = {
                       quest1: 'supportMetaQuest1',
@@ -1150,26 +1199,38 @@ export default function GameDetailModal({
                     })
                   })()}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowCompatibilityReviews(true)}
-                  className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 text-xs font-semibold text-amber-700 transition-colors hover:border-amber-400 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-200 dark:hover:border-amber-300"
-                >
-                  <Icon icon="mdi:star" className="h-3.5 w-3.5 text-amber-400" />
-                  <span>
-                    {game?.compatibilityReviewSummary?.reviewCount
-                      ? Number(game.compatibilityReviewSummary.averageRating || 0).toFixed(1)
-                      : '—'}
-                  </span>
-                  <span className="font-normal opacity-75">Compatibility</span>
-                </button>
-              </div>
+                <section className="standalone-detail-review-card" aria-labelledby="desktop-compatibility-review-title">
+                  <div className="standalone-detail-review-card__copy">
+                    <div className="standalone-detail-review-card__heading">
+                      <Icon icon="ri:meta-line" aria-hidden="true" />
+                      <h3 id="desktop-compatibility-review-title">Review Kompatibilitas</h3>
+                    </div>
+                    {game?.compatibilityReviewSummary?.reviewCount ? (
+                      <p className="standalone-detail-review-card__rating">
+                        <span aria-hidden="true">★</span>
+                        <strong>{Number(game.compatibilityReviewSummary.averageRating || 0).toFixed(1)}</strong>
+                        <span>({game.compatibilityReviewSummary.reviewCount} review)</span>
+                      </p>
+                    ) : (
+                      <p className="standalone-detail-review-card__empty">Belum ada review</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCompatibilityReviews(true)}
+                    className="standalone-detail-review-card__button"
+                  >
+                    Lihat review
+                  </button>
+                </section>
+                </div>
 
-              {/* Content Body */}
-              <div className="p-6">
+                {/* Content Body */}
+                <div className={isPage ? 'standalone-detail-body p-0' : 'p-6'}>
+                {isPage && <StandaloneGameMetaOverview game={game} showDescription={false} />}
                 {/* Main actions area */}
                 {user && canAccessDownload ? (
-                  <div className="space-y-4">
+                  <div className="standalone-detail-download-actions space-y-4">
                     {/* Version selector */}
                     {(versions.length > 0 || gameVersion) && (
                       <div className="relative version-selector">
@@ -1422,7 +1483,7 @@ export default function GameDetailModal({
 
                 {/* Update & Report Buttons */}
                 {user && canAccessDownload && gameStatus !== 'coming_soon' && (
-                  <div className="flex gap-2 mt-3">
+                  <div className="standalone-detail-request-actions flex gap-2 mt-3">
                     <button
                       onClick={() => setShowUpdateDialog(true)}
                       className="flex-1 py-2.5 px-4 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 border border-yellow-500/20"
@@ -1439,6 +1500,7 @@ export default function GameDetailModal({
                     </button>
                   </div>
                 )}
+                </div>
               </div>
             </motion.div>
 
@@ -1933,5 +1995,6 @@ GameDetailModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   game: PropTypes.object,
   selectedDevice: PropTypes.string,
-  connectedDevice: PropTypes.string
+  connectedDevice: PropTypes.string,
+  presentation: PropTypes.oneOf(['modal', 'page'])
 }
