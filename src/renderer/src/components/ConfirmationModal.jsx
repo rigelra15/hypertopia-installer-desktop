@@ -6,7 +6,8 @@ import { Modal } from './ui/Modal'
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confirm' }) => {
   const { t } = useLanguage()
 
-  const { name, size, type, hasObb, obbSize } = fileData || {}
+  const { name, size, type, hasObb, obbSize, installMethod, specialInstallData } = fileData || {}
+  const isHalfLife2Vr = installMethod === 'half-life-2-vr'
   const hasRenderableContent = mode === 'clear-all' || !!fileData
 
   const formatSize = (bytes) => {
@@ -26,12 +27,14 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
 
   const getIcon = () => {
     if (mode === 'clear-all' || mode === 'delete') return 'mdi:trash-can-outline'
+    if (isHalfLife2Vr) return 'mdi:source-branch'
     if (type === 'zip' || type === 'rar' || type === 'archive') return 'mdi:folder-zip'
     return 'mdi:android'
   }
 
   const getIconColor = () => {
     if (mode === 'clear-all' || mode === 'delete') return '#EF4444'
+    if (isHalfLife2Vr) return '#8B5CF6'
     return '#0081FB'
   }
 
@@ -44,6 +47,12 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
     if (mode === 'delete')
       return t('delete_confirm_desc') || 'This file will be permanently deleted.'
     if (mode === 'view') return null
+    if (isHalfLife2Vr) {
+      return (
+        t('half_life_2_vr_confirm_desc') ||
+        'SourceVR will install the APK, grant storage access, and copy the four game data folders.'
+      )
+    }
     return t('confirm_install_desc') || 'Review the file details before installing.'
   }
 
@@ -157,12 +166,18 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`text-xs px-2.5 py-0.5 rounded font-bold uppercase tracking-wider ${
-              hasObb
-                ? 'bg-[#0081FB]/20 text-[#0081FB] dark:text-[#0081FB] border border-[#0081FB]/30'
-                : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
+              isHalfLife2Vr
+                ? 'bg-violet-500/20 text-violet-700 dark:text-violet-400 border border-violet-500/30'
+                : hasObb
+                  ? 'bg-[#0081FB]/20 text-[#0081FB] dark:text-[#0081FB] border border-[#0081FB]/30'
+                  : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
             }`}
           >
-            {hasObb ? t('badge_apk_obb') : t('badge_apk')}
+            {isHalfLife2Vr
+              ? t('half_life_2_vr_badge') || 'SOURCEVR'
+              : hasObb
+                ? t('badge_apk_obb')
+                : t('badge_apk')}
           </span>
           <span
             className={`text-xs px-2.5 py-0.5 rounded font-bold uppercase tracking-wider ${
@@ -214,6 +229,49 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
                   {fileData.manifestData.packageName}
                 </div>
               )}
+            </div>
+          )}
+
+          {isHalfLife2Vr && (
+            <div className="rounded-xl border border-violet-500/30 bg-violet-500/10 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
+                <Icon icon="mdi:source-branch" className="text-base" />
+                {t('half_life_2_vr_install_method') || 'SourceVR install method'}
+              </div>
+              <p className="text-xs text-violet-800/80 dark:text-violet-200/80">
+                {t('half_life_2_vr_target') || 'Target'}:{' '}
+                <span className="font-mono">{specialInstallData?.targetPath}</span>
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {specialInstallData?.payloadDirs?.length > 0 ? (
+                  specialInstallData.payloadDirs.map((payloadDir) => (
+                    <div
+                      key={payloadDir.name}
+                      className="rounded-lg border border-violet-500/20 bg-white/40 p-2 dark:bg-black/10"
+                    >
+                      <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">
+                        common/{payloadDir.name}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-gray-600 dark:text-gray-400">
+                        {payloadDir.fileCount} {t('files_found') || 'files'} ·{' '}
+                        {formatSize(payloadDir.size)}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-2 rounded-lg border border-violet-500/20 bg-white/40 p-2 dark:bg-black/10">
+                    <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">
+                      {specialInstallData?.payloadArchiveName || '_data.7z'}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-gray-600 dark:text-gray-400">
+                      {t('half_life_2_vr_data_archive') || 'Nested SourceVR data archive'} ·{' '}
+                      {formatSize(
+                        specialInstallData?.payloadArchiveSize || specialInstallData?.payloadSize
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -315,6 +373,24 @@ ConfirmationModal.propTypes = {
     name: PropTypes.string,
     size: PropTypes.number,
     type: PropTypes.string,
+    installMethod: PropTypes.string,
+    specialInstallData: PropTypes.shape({
+      packageName: PropTypes.string,
+      apkName: PropTypes.string,
+      payloadRoot: PropTypes.string,
+      targetPath: PropTypes.string,
+      payloadArchiveName: PropTypes.string,
+      payloadArchiveSize: PropTypes.number,
+      payloadSize: PropTypes.number,
+      payloadFileCount: PropTypes.number,
+      payloadDirs: PropTypes.arrayOf(
+        PropTypes.shape({
+          name: PropTypes.string,
+          size: PropTypes.number,
+          fileCount: PropTypes.number
+        })
+      )
+    }),
     hasObb: PropTypes.bool,
     obbSize: PropTypes.number,
     apkName: PropTypes.string,

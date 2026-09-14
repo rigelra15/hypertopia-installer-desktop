@@ -103,6 +103,7 @@ export function InstallerSidebar({
   const [compactDeviceModel, setCompactDeviceModel] = useState(null)
   const [compactDeviceBattery, setCompactDeviceBattery] = useState(null)
   const fileInputRef = useRef(null)
+  const isHalfLife2Vr = status?.installMethod === 'half-life-2-vr'
 
   useEffect(() => {
     if (errorDetails) setHasMountedErrorModal(true)
@@ -198,6 +199,18 @@ export function InstallerSidebar({
     setLogHistory((prev) => [...prev.slice(-399), { time, message }]) // Keep last 400 entries
   }
 
+  const logScanResult = (result, noContentMessage) => {
+    if (result?.installMethod === 'half-life-2-vr') {
+      addLogEntry(t('half_life_2_vr_detected') || 'Half-Life 2 VR SourceVR structure found.')
+    } else if (result?.hasApk && result?.hasObb) {
+      addLogEntry('Found APK and OBB bundle.')
+    } else if (result?.hasApk) {
+      addLogEntry('Found APK file.')
+    } else {
+      addLogEntry(noContentMessage || 'No content found.')
+    }
+  }
+
   // ... (keep useEffects and other handlers as is, until handleInstall)
 
   const handleOpenSettings = () => {
@@ -256,14 +269,7 @@ export function InstallerSidebar({
             try {
               const result = await window.api.scanFolder(folderPath)
               setStatus(result)
-
-              if (result.hasApk && result.hasObb) {
-                addLogEntry('Found APK and OBB bundle.')
-              } else if (result.hasApk) {
-                addLogEntry('Found APK file.')
-              } else {
-                addLogEntry('No APK found in the selected folder.')
-              }
+              logScanResult(result, 'No APK found in the selected folder.')
 
               const folderName = folderPath.split(/[/\\]/).pop()
               setFile({ name: folderName, size: 0, isFolder: true })
@@ -327,14 +333,7 @@ export function InstallerSidebar({
             result = await window.api.scanZip(filePath)
           }
           setStatus(result)
-
-          if (result.hasApk && result.hasObb) {
-            addLogEntry('Found APK and OBB bundle.')
-          } else if (result.hasApk) {
-            addLogEntry('Found APK file.')
-          } else {
-            addLogEntry('No content found.')
-          }
+          logScanResult(result)
 
           if (result.hasApk && selectedDevice) {
             setConfirmModalMode('confirm')
@@ -397,14 +396,7 @@ export function InstallerSidebar({
 
       const result = await window.api.scanFolder(selectedPath)
       setStatus(result)
-
-      if (result.hasApk && result.hasObb) {
-        addLogEntry('Found APK and OBB bundle.')
-      } else if (result.hasApk) {
-        addLogEntry('Found APK file.')
-      } else {
-        addLogEntry('No content found.')
-      }
+      logScanResult(result)
 
       // Create a fake file object for display purposes
       const folderName = selectedPath.split(/[/\\]/).pop()
@@ -443,11 +435,23 @@ export function InstallerSidebar({
 
   const handleInstall = async (type) => {
     if (!file && !folderPath) return
+    const isSpecialInstall = type === 'half-life-2-vr'
     setIsInstalling(true)
-    addLogEntry(type === 'apk' ? t('install_apk') : t('install_full'))
+    addLogEntry(
+      isSpecialInstall
+        ? t('install_half_life_2_vr') || 'Installing Half-Life 2 VR SourceVR...'
+        : type === 'apk'
+          ? t('install_apk')
+          : t('install_full')
+    )
 
     try {
-      if (sourceType === 'folder' && folderPath) {
+      if (isSpecialInstall) {
+        const sourcePath =
+          sourceType === 'folder' ? folderPath : archivePath || window.api.getFilePath(file)
+        if (!sourcePath) throw new Error('Could not resolve Half-Life 2 VR source path.')
+        await window.api.installHalfLife2Vr(sourcePath, sourceType, selectedDevice)
+      } else if (sourceType === 'folder' && folderPath) {
         // Install from folder (skip extraction)
         await window.api.installGameFolder(folderPath, type, selectedDevice)
       } else {
@@ -611,6 +615,7 @@ export function InstallerSidebar({
                 {/* File type badge – click to open detail */}
                 {(() => {
                   const gameName =
+                    (isHalfLife2Vr ? t('half_life_2_vr_name') : null) ||
                     status?.manifestData?.gameName ||
                     (sourceType === 'folder' ? status?.apkName : file?.name) ||
                     ''
@@ -618,16 +623,27 @@ export function InstallerSidebar({
                   return (
                     <Tooltip
                       content={
-                        status.hasObb ? 'APK + OBB — klik untuk detail' : 'APK — klik untuk detail'
+                        isHalfLife2Vr
+                          ? t('half_life_2_vr_tooltip') || 'Half-Life 2 VR — klik untuk detail'
+                          : status.hasObb
+                            ? 'APK + OBB — klik untuk detail'
+                            : 'APK — klik untuk detail'
                       }
                       side="right"
                     >
                       <button
                         onClick={() => setShowFileDetail(true)}
+                        aria-label={
+                          isHalfLife2Vr
+                            ? t('half_life_2_vr_tooltip') || 'View Half-Life 2 VR details'
+                            : t('view_details') || 'View game details'
+                        }
                         className={`group flex flex-col items-center gap-1 rounded-xl p-1.5 transition-all hover:scale-105 ${
-                          status.hasObb
-                            ? 'bg-[#0081FB]/10 text-[#0081FB] hover:bg-[#0081FB]/20'
-                            : 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-500/20'
+                          isHalfLife2Vr
+                            ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20'
+                            : status.hasObb
+                              ? 'bg-[#0081FB]/10 text-[#0081FB] hover:bg-[#0081FB]/20'
+                              : 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-500/20'
                         }`}
                       >
                         <Icon icon="dashicons:games" className="h-5 w-5 shrink-0" />
@@ -654,9 +670,20 @@ export function InstallerSidebar({
                 <Tooltip content={t('btn_apk') || 'Install APK'} side="right">
                   <button
                     onClick={() => handleInstall('apk')}
-                    disabled={!status.hasApk || isInstalling || status.hasObb || !selectedDevice}
+                    aria-label={t('btn_apk') || 'Install APK'}
+                    disabled={
+                      !status.hasApk ||
+                      isInstalling ||
+                      status.hasObb ||
+                      isHalfLife2Vr ||
+                      !selectedDevice
+                    }
                     className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
-                      !status.hasApk || isInstalling || status.hasObb || !selectedDevice
+                      !status.hasApk ||
+                      isInstalling ||
+                      status.hasObb ||
+                      isHalfLife2Vr ||
+                      !selectedDevice
                         ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-300 dark:text-white/20'
                         : 'bg-[#0081FB]/10 text-[#0081FB] hover:bg-[#0081FB]/20'
                     }`}
@@ -669,9 +696,20 @@ export function InstallerSidebar({
                 <Tooltip content={`${t('btn_full') || 'Install Full'} (APK + OBB)`} side="right">
                   <button
                     onClick={() => handleInstall('full')}
-                    disabled={!status.hasApk || !status.hasObb || isInstalling || !selectedDevice}
+                    aria-label={`${t('btn_full') || 'Install Full'} (APK + OBB)`}
+                    disabled={
+                      !status.hasApk ||
+                      !status.hasObb ||
+                      isHalfLife2Vr ||
+                      isInstalling ||
+                      !selectedDevice
+                    }
                     className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
-                      !status.hasApk || !status.hasObb || isInstalling || !selectedDevice
+                      !status.hasApk ||
+                      !status.hasObb ||
+                      isHalfLife2Vr ||
+                      isInstalling ||
+                      !selectedDevice
                         ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-300 dark:text-white/20'
                         : 'bg-[#0081FB]/10 text-[#0081FB] dark:text-[#0081FB] hover:bg-[#0081FB]/20'
                     }`}
@@ -679,6 +717,26 @@ export function InstallerSidebar({
                     <Icon icon="mdi:lightning-bolt" className="h-4 w-4" />
                   </button>
                 </Tooltip>
+
+                {isHalfLife2Vr && (
+                  <Tooltip
+                    content={t('btn_half_life_2_vr') || 'Install Half-Life 2 VR'}
+                    side="right"
+                  >
+                    <button
+                      onClick={() => handleInstall('half-life-2-vr')}
+                      disabled={isInstalling || !selectedDevice}
+                      aria-label={t('btn_half_life_2_vr') || 'Install Half-Life 2 VR'}
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+                        isInstalling || !selectedDevice
+                          ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-300 dark:text-white/20'
+                          : 'bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20'
+                      }`}
+                    >
+                      <Icon icon="mdi:source-branch" className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                )}
               </div>
             ) : (
               /* No file – browse shortcut */
@@ -805,9 +863,14 @@ export function InstallerSidebar({
                   name: sourceType === 'folder' ? status?.apkName || file?.name : file?.name,
                   size:
                     sourceType === 'folder'
-                      ? (status?.apkSize || 0) + (status?.obbSize || 0)
+                      ? (status?.apkSize || 0) +
+                        (isHalfLife2Vr
+                          ? status?.specialInstallData?.payloadSize || 0
+                          : status?.obbSize || 0)
                       : file?.size || 0,
                   type: sourceType,
+                  installMethod: status?.installMethod,
+                  specialInstallData: status?.specialInstallData,
                   hasObb: status?.hasObb,
                   obbFolder: status?.obbFolder,
                   apkName: status?.apkName || null,
@@ -965,7 +1028,7 @@ export function InstallerSidebar({
                   ref={fileInputRef}
                   onChange={handleFileInput}
                   className="hidden"
-                  accept=".zip,.rar"
+                  accept=".zip,.rar,.7z"
                 />
 
                 <div className="mb-4 rounded-full p-4 bg-blue-100 dark:bg-[#0081FB]/20 text-[#0081FB]">
@@ -982,7 +1045,7 @@ export function InstallerSidebar({
                   {t('drag_drop_full') || 'Drop Game File or Folder Here'}
                 </p>
                 <p className="mt-1 text-center text-xs text-gray-500 dark:text-white/50">
-                  {t('support_ext_full') || 'ZIP, RAR, or extracted folder'}
+                  {t('support_ext_full') || 'ZIP, RAR, 7z, or extracted folder'}
                 </p>
                 <button
                   onClick={() => setShowBrowseModal(true)}
@@ -998,27 +1061,34 @@ export function InstallerSidebar({
                     className={`shrink-0 rounded-xl p-3 ${
                       file.isFolder
                         ? 'bg-green-500/10 text-green-500'
-                        : 'bg-[#0081FB]/10 text-[#0081FB]'
+                        : isHalfLife2Vr
+                          ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                          : 'bg-[#0081FB]/10 text-[#0081FB]'
                     }`}
                   >
                     <Icon icon="dashicons:games" className="text-2xl" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="break-all text-base font-bold text-gray-900 dark:text-white mb-2.5">
-                      {status?.manifestData?.gameName ||
+                      {(isHalfLife2Vr ? t('half_life_2_vr_name') : null) ||
+                        status?.manifestData?.gameName ||
                         (sourceType === 'folder' ? status.apkName || file.name : file.name)}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       <span
                         className={`inline-flex items-center rounded bg-gray-100 dark:bg-[#111520] px-2 py-1 text-[11px] font-bold tracking-wider ring-1 ring-inset ${
-                          status.hasObb
-                            ? 'text-[#0081FB] dark:text-[#0081FB] ring-[#0081FB]/30'
-                            : 'text-emerald-700 dark:text-emerald-400 ring-emerald-500/30'
+                          isHalfLife2Vr
+                            ? 'text-violet-700 dark:text-violet-400 ring-violet-500/30'
+                            : status.hasObb
+                              ? 'text-[#0081FB] dark:text-[#0081FB] ring-[#0081FB]/30'
+                              : 'text-emerald-700 dark:text-emerald-400 ring-emerald-500/30'
                         }`}
                       >
-                        {status.hasObb
-                          ? t('badge_apk_obb') || 'APK + OBB'
-                          : t('badge_apk') || 'APK ONLY'}
+                        {isHalfLife2Vr
+                          ? t('half_life_2_vr_badge') || 'SOURCEVR'
+                          : status.hasObb
+                            ? t('badge_apk_obb') || 'APK + OBB'
+                            : t('badge_apk') || 'APK ONLY'}
                       </span>
 
                       {sourceType !== 'folder' && (
@@ -1026,10 +1096,16 @@ export function InstallerSidebar({
                           className={`inline-flex items-center rounded bg-gray-100 dark:bg-[#111520] px-2 py-1 text-[11px] font-bold tracking-wider ring-1 ring-inset ${
                             file?.name?.toLowerCase().endsWith('.rar')
                               ? 'text-purple-600 dark:text-purple-400 ring-purple-500/30'
-                              : 'text-yellow-700 dark:text-yellow-500 ring-yellow-500/30'
+                              : file?.name?.toLowerCase().endsWith('.7z')
+                                ? 'text-orange-600 dark:text-orange-400 ring-orange-500/30'
+                                : 'text-yellow-700 dark:text-yellow-500 ring-yellow-500/30'
                           }`}
                         >
-                          {file?.name?.toLowerCase().endsWith('.rar') ? 'RAR' : 'ZIP'}
+                          {file?.name?.toLowerCase().endsWith('.rar')
+                            ? 'RAR'
+                            : file?.name?.toLowerCase().endsWith('.7z')
+                              ? '7Z'
+                              : 'ZIP'}
                         </span>
                       )}
 
@@ -1037,7 +1113,10 @@ export function InstallerSidebar({
                         {(() => {
                           const totalSize =
                             sourceType === 'folder'
-                              ? (status?.apkSize || 0) + (status?.obbSize || 0)
+                              ? (status?.apkSize || 0) +
+                                (isHalfLife2Vr
+                                  ? status?.specialInstallData?.payloadSize || 0
+                                  : status?.obbSize || 0)
                               : file?.size || 0
                           if (!totalSize) return '0 B TOTAL'
                           const k = 1024
@@ -1052,6 +1131,13 @@ export function InstallerSidebar({
                         })()}
                       </span>
                     </div>
+                    {isHalfLife2Vr && (
+                      <p className="mt-2 flex items-center gap-1.5 text-[10px] text-violet-700 dark:text-violet-300">
+                        <Icon icon="mdi:folder-arrow-up-outline" className="h-3.5 w-3.5 shrink-0" />
+                        {t('half_life_2_vr_desc') ||
+                          'APK + SourceVR data → /sdcard/SourceVRPort/common'}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-5 flex justify-end gap-3 border-t border-gray-200 dark:border-white/5 pt-4">
@@ -1167,15 +1253,25 @@ export function InstallerSidebar({
               <button
                 onClick={() => handleInstall('apk')}
                 disabled={
-                  !file || !status.hasApk || isInstalling || status.hasObb || !selectedDevice
+                  !file ||
+                  !status.hasApk ||
+                  isInstalling ||
+                  status.hasObb ||
+                  isHalfLife2Vr ||
+                  !selectedDevice
                 }
                 className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all ${
-                  !file || !status.hasApk || isInstalling || status.hasObb || !selectedDevice
+                  !file ||
+                  !status.hasApk ||
+                  isInstalling ||
+                  status.hasObb ||
+                  isHalfLife2Vr ||
+                  !selectedDevice
                     ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20'
                     : 'bg-linear-to-r from-[#0081FB] to-[#00C2FF] text-white shadow-lg shadow-[#0081FB]/25 hover:shadow-[#0081FB]/40 hover:scale-[1.02] active:scale-[0.98]'
                 }`}
               >
-                {isInstalling && !status.hasObb ? (
+                {isInstalling && !status.hasObb && !isHalfLife2Vr ? (
                   <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
                 ) : (
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1193,15 +1289,25 @@ export function InstallerSidebar({
               <button
                 onClick={() => handleInstall('full')}
                 disabled={
-                  !file || !status.hasApk || !status.hasObb || isInstalling || !selectedDevice
+                  !file ||
+                  !status.hasApk ||
+                  !status.hasObb ||
+                  isHalfLife2Vr ||
+                  isInstalling ||
+                  !selectedDevice
                 }
                 className={`group relative flex flex-1 items-center justify-center gap-1.5 overflow-hidden rounded-xl py-2 text-xs font-semibold transition-all ${
-                  !file || !status.hasApk || !status.hasObb || isInstalling || !selectedDevice
+                  !file ||
+                  !status.hasApk ||
+                  !status.hasObb ||
+                  isHalfLife2Vr ||
+                  isInstalling ||
+                  !selectedDevice
                     ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20'
                     : 'bg-[#0081FB] hover:bg-[#006fd6] text-white active:scale-[0.98]'
                 }`}
               >
-                {isInstalling && status.hasObb ? (
+                {isInstalling && status.hasObb && !isHalfLife2Vr ? (
                   <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
                 ) : (
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1221,6 +1327,31 @@ export function InstallerSidebar({
                 </div>
               </button>
             </div>
+
+            {isHalfLife2Vr && (
+              <button
+                onClick={() => handleInstall('half-life-2-vr')}
+                disabled={isInstalling || !selectedDevice}
+                aria-label={t('btn_half_life_2_vr') || 'Install Half-Life 2 VR'}
+                className={`flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-all ${
+                  isInstalling || !selectedDevice
+                    ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20'
+                    : 'bg-linear-to-r from-violet-600 to-fuchsia-500 text-white shadow-lg shadow-violet-500/20 hover:shadow-violet-500/35 hover:scale-[1.01] active:scale-[0.99]'
+                }`}
+              >
+                {isInstalling ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                ) : (
+                  <Icon icon="mdi:source-branch" className="h-4 w-4" />
+                )}
+                <span className="flex flex-col items-start leading-none">
+                  <span>{t('btn_half_life_2_vr') || 'Install Half-Life 2 VR'}</span>
+                  <span className="mt-0.5 text-[9px] font-normal opacity-85">
+                    {t('half_life_2_vr_badge') || 'SourceVR · APK + game data'}
+                  </span>
+                </span>
+              </button>
+            )}
 
             <div>
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-white/30">
@@ -1274,9 +1405,14 @@ export function InstallerSidebar({
               name: sourceType === 'folder' ? status?.apkName || file?.name : file?.name,
               size:
                 sourceType === 'folder'
-                  ? (status?.apkSize || 0) + (status?.obbSize || 0)
+                  ? (status?.apkSize || 0) +
+                    (isHalfLife2Vr
+                      ? status?.specialInstallData?.payloadSize || 0
+                      : status?.obbSize || 0)
                   : file?.size || 0,
               type: sourceType,
+              installMethod: status?.installMethod,
+              specialInstallData: status?.specialInstallData,
               hasObb: status?.hasObb,
               obbFolder: status?.obbFolder,
               apkName: status?.apkName || null,

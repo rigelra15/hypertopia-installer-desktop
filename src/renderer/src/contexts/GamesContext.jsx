@@ -128,6 +128,27 @@ export function GamesProvider({ children }) {
     [getCacheKey, isCacheValid, gamesCache, paginationCache]
   )
 
+  const fetchStandaloneGame = useCallback(async (gameKey) => {
+    const normalizedKey = String(gameKey || '').trim()
+    if (!normalizedKey) throw new Error('Game key is required')
+
+    const response = await apiFetch(`/api/v1/standalone-games/${encodeURIComponent(normalizedKey)}`)
+    if (!response.ok) {
+      if (response.status === 404) throw new Error('Game tidak ditemukan.')
+      throw new Error('Gagal mengambil detail game.')
+    }
+
+    const result = await response.json()
+    if (!result?.data || typeof result.data !== 'object') {
+      throw new Error('Respons detail game tidak valid.')
+    }
+
+    return {
+      id: result.data.id || normalizedKey,
+      ...result.data
+    }
+  }, [])
+
   /**
    * Clear all cache (useful for manual refresh)
    */
@@ -284,6 +305,7 @@ export function GamesProvider({ children }) {
   const value = {
     // Games
     fetchGames,
+    fetchStandaloneGame,
     clearCache,
     getCachedGames,
     isLoading,

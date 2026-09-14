@@ -10,7 +10,7 @@ export default function BrowseMethodModal({ isOpen, onClose, onSelectArchive, on
     {
       id: 'archive',
       icon: 'mdi:zip-box',
-      title: t('browse_method_archive') || 'Select ZIP/RAR File',
+      title: t('browse_method_archive') || 'Select ZIP/RAR/7z File',
       desc: t('browse_method_archive_desc') || 'Auto-extract by app',
       color: '#0081FB',
       onClick: onSelectArchive,

@@ -124,8 +124,11 @@ export default function DownloadActivityModal({ isOpen, onClose, onNavigateToMan
     const map = {
       DOWNLOADING: t('da_step_downloading'),
       EXTRACTING: t('da_step_extracting'),
+      PREPARING_HL2VR: t('progress_preparing_half_life_2_vr'),
       INSTALLING: t('da_step_installing'),
       PUSHING_OBB: t('da_step_pushing_obb'),
+      CONFIGURING_HL2VR: t('progress_granting_half_life_2_vr'),
+      PUSHING_HL2VR: t('progress_pushing_half_life_2_vr'),
       COMPLETED: t('da_step_completed'),
       ERROR: t('da_step_error')
     }

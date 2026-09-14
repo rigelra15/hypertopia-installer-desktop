@@ -64,6 +64,8 @@ const api = {
   scanFolder: (folderPath) => ipcRenderer.invoke('scan-folder', folderPath),
   installGameFolder: (folderPath, type, deviceSerial) =>
     ipcRenderer.invoke('install-game-folder', { folderPath, type, deviceSerial }),
+  installHalfLife2Vr: (sourcePath, sourceType, deviceSerial) =>
+    ipcRenderer.invoke('install-half-life-2-vr', { sourcePath, sourceType, deviceSerial }),
   onInstallProgress: (callback) => {
     const subscription = (_event, value) => callback(value)
     ipcRenderer.on('install-progress', subscription)

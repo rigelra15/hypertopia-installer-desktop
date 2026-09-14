@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useGames } from '../contexts/GamesContext'
 import { useDownload } from '../contexts/DownloadContext'
 import DevicePreferenceModal from './DevicePreferenceModal'
-import GameDetailModal from './GameDetailModal'
+import StandaloneGameDetailPage from './StandaloneGameDetailPage'
 import RequestGameModal from './RequestGameModal'
 import RequestGameList from './RequestGameList'
 import coverImages from '../utils/coverImages'
@@ -75,6 +75,8 @@ export function StandaloneGames({
   // Game detail modal state
   const [selectedGame, setSelectedGame] = useState(null)
   const [showGameDetail, setShowGameDetail] = useState(false)
+  const listScrollRef = useRef(null)
+  const listScrollTopRef = useRef(0)
 
   // Request game modal state
   const [showRequestModal, setShowRequestModal] = useState(false)
@@ -200,6 +202,17 @@ export function StandaloneGames({
     setCurrentPage(1)
   }, [debouncedSearch, sortBy, sortOrder, itemsPerPage, devicePreference])
 
+  const openGameDetail = useCallback((game) => {
+    listScrollTopRef.current = listScrollRef.current?.scrollTop || 0
+    setSelectedGame(game)
+    setShowGameDetail(true)
+  }, [])
+
+  const closeGameDetail = useCallback(() => {
+    setShowGameDetail(false)
+    setSelectedGame(null)
+  }, [])
+
   // Handle deep link download from website
   useEffect(() => {
     if (pendingDeepLinkDownload && pendingDeepLinkDownload.game && games.length > 0) {
@@ -210,8 +223,7 @@ export function StandaloneGames({
       })
 
       if (matchingGame) {
-        setSelectedGame(matchingGame)
-        setShowGameDetail(true)
+        openGameDetail(matchingGame)
         // Clear the pending download
         if (onDeepLinkProcessed) {
           onDeepLinkProcessed()
@@ -222,11 +234,18 @@ export function StandaloneGames({
         setDebouncedSearch(pendingDeepLinkDownload.game)
       }
     }
-  }, [pendingDeepLinkDownload, games, onDeepLinkProcessed])
+  }, [pendingDeepLinkDownload, games, onDeepLinkProcessed, openGameDetail])
 
   const handleRefresh = () => {
     loadGames(true) // Force refresh, bypass cache
   }
+
+  useEffect(() => {
+    if (showGameDetail) return
+    requestAnimationFrame(() => {
+      listScrollRef.current?.scrollTo({ top: listScrollTopRef.current })
+    })
+  }, [showGameDetail])
 
   const handlePageChange = (page) => {
     setCurrentPage(page)
@@ -262,6 +281,34 @@ export function StandaloneGames({
     }
 
     return pages
+  }
+
+  if (showGameDetail && selectedGame) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white dark:bg-[#111]">
+        <StandaloneGameDetailPage
+          game={selectedGame}
+          onBack={closeGameDetail}
+          selectedDevice={devicePreference}
+          connectedDevice={connectedDevice}
+        />
+        <DevicePreferenceModal
+          isOpen={showDeviceModal}
+          onClose={() => setShowDeviceModal(false)}
+          onSave={(device) => {
+            setDevicePreference(device)
+            setShowDeviceModal(false)
+          }}
+          currentDevice={devicePreference}
+          totalGames={totalItems}
+        />
+        <RequestGameModal
+          isOpen={showRequestModal}
+          onClose={() => setShowRequestModal(false)}
+          onSuccess={() => setShowRequestModal(false)}
+        />
+      </div>
+    )
   }
 
   return (
@@ -456,7 +503,7 @@ export function StandaloneGames({
           </div>
 
           {/* Content */}
-          <div className="games-content flex-1 overflow-y-auto p-4">
+          <div ref={listScrollRef} className="games-content flex-1 overflow-y-auto p-4">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-16">
                 <Icon icon="mdi:loading" className="h-10 w-10 animate-spin text-[#0081FB]" />
@@ -510,10 +557,7 @@ export function StandaloneGames({
                       isEligible={isEligible}
                       selectedDevice={devicePreference}
                       viewMode={viewMode}
-                      onClick={() => {
-                        setSelectedGame(game)
-                        setShowGameDetail(true)
-                      }}
+                      onClick={() => openGameDetail(game)}
                     />
                   ))}
                 </div>
@@ -618,18 +662,6 @@ export function StandaloneGames({
         }}
         currentDevice={devicePreference}
         totalGames={totalItems}
-      />
-
-      {/* Game Detail Modal */}
-      <GameDetailModal
-        isOpen={showGameDetail}
-        onClose={() => {
-          setShowGameDetail(false)
-          setSelectedGame(null)
-        }}
-        game={selectedGame}
-        selectedDevice={devicePreference}
-        connectedDevice={connectedDevice}
       />
 
       {/* Request Game Modal */}

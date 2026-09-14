@@ -1720,6 +1720,381 @@ function isObbPayloadFile(filePath) {
   )
 }
 
+const HALF_LIFE_2_VR_INSTALL_METHOD = 'half-life-2-vr'
+const HALF_LIFE_2_VR_PACKAGE_NAME = 'com.sourcevrport.hl2vr'
+const HALF_LIFE_2_VR_APK_NAME = `${HALF_LIFE_2_VR_PACKAGE_NAME}.apk`
+const HALF_LIFE_2_VR_PAYLOAD_DIRS = ['hl2', 'platform', 'episodic', 'ep2']
+const HALF_LIFE_2_VR_REMOTE_COMMON_PATH = '/sdcard/SourceVRPort/common'
+
+function normalizeArchiveEntryPath(entryPath) {
+  return String(entryPath || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter((part) => part && part !== '.')
+    .join('/')
+}
+
+function getArchiveEntryPath(entry) {
+  return normalizeArchiveEntryPath(typeof entry === 'string' ? entry : entry?.file)
+}
+
+function archivePathStartsWith(parts, prefixParts) {
+  return (
+    parts.length >= prefixParts.length &&
+    prefixParts.every((part, index) => part.toLowerCase() === parts[index].toLowerCase())
+  )
+}
+
+function getHalfLife2VrPayloadStats(payloadPath) {
+  const payloadFiles = getAllFilesRelative(payloadPath).filter((fileObj) =>
+    isObbPayloadFile(fileObj.relativePath)
+  )
+  let payloadSize = 0
+
+  for (const fileObj of payloadFiles) {
+    try {
+      payloadSize += fs.statSync(fileObj.localPath).size
+    } catch (error) {
+      throw new Error(`Gagal membaca ukuran data Half-Life 2 VR: ${error.message}`)
+    }
+  }
+
+  return { fileCount: payloadFiles.length, size: payloadSize }
+}
+
+function hasHalfLife2VrInstallInstructions(installFilePath) {
+  try {
+    const content = fs.readFileSync(installFilePath, 'utf8').toLowerCase()
+    return (
+      content.includes('sourcevrport') &&
+      content.includes(HALF_LIFE_2_VR_PACKAGE_NAME) &&
+      content.includes('adb push common/hl2') &&
+      content.includes('adb push common/platform') &&
+      content.includes('adb push common/episodic') &&
+      content.includes('adb push common/ep2')
+    )
+  } catch {
+    return false
+  }
+}
+
+function inspectHalfLife2VrPayloadDirectory(commonPath) {
+  const commonEntries = fs.readdirSync(commonPath, { withFileTypes: true })
+  const payloadDirs = []
+
+  for (const dirName of HALF_LIFE_2_VR_PAYLOAD_DIRS) {
+    const payloadEntry = commonEntries.find(
+      (entry) => entry.isDirectory() && entry.name.toLowerCase() === dirName
+    )
+    if (!payloadEntry) return null
+
+    const payloadPath = path.join(commonPath, payloadEntry.name)
+    const stats = getHalfLife2VrPayloadStats(payloadPath)
+    if (stats.fileCount === 0) return null
+
+    payloadDirs.push({
+      name: dirName,
+      path: payloadPath,
+      size: stats.size,
+      fileCount: stats.fileCount
+    })
+  }
+
+  return {
+    commonPath,
+    payloadDirs,
+    payloadSize: payloadDirs.reduce((sum, payloadDir) => sum + payloadDir.size, 0),
+    payloadFileCount: payloadDirs.reduce((sum, payloadDir) => sum + payloadDir.fileCount, 0)
+  }
+}
+
+function inspectHalfLife2VrDirectory(rootPath) {
+  const entries = fs.readdirSync(rootPath, { withFileTypes: true })
+  const installEntry = entries.find((entry) => entry.name.toLowerCase() === 'install.txt')
+  const apkEntry = entries.find((entry) => entry.name.toLowerCase() === HALF_LIFE_2_VR_APK_NAME)
+  const commonEntry = entries.find(
+    (entry) => entry.isDirectory() && entry.name.toLowerCase() === 'common'
+  )
+
+  if (
+    !installEntry ||
+    installEntry.isDirectory() ||
+    !apkEntry ||
+    apkEntry.isDirectory() ||
+    !commonEntry
+  ) {
+    return null
+  }
+
+  const installFilePath = path.join(rootPath, installEntry.name)
+  if (!hasHalfLife2VrInstallInstructions(installFilePath)) return null
+
+  const apkPath = path.join(rootPath, apkEntry.name)
+  const commonPath = path.join(rootPath, commonEntry.name)
+  const payload = inspectHalfLife2VrPayloadDirectory(commonPath)
+  if (!payload) return null
+
+  const apkSize = fs.statSync(apkPath).size
+
+  return {
+    kind: 'folder',
+    rootPath,
+    installFilePath,
+    apkPath,
+    apkName: apkEntry.name,
+    apkSize,
+    ...payload
+  }
+}
+
+function inspectHalfLife2VrArchiveScaffold(rootPath) {
+  const entries = fs.readdirSync(rootPath, { withFileTypes: true })
+  const installEntry = entries.find((entry) => entry.name.toLowerCase() === 'install.txt')
+  const apkEntry = entries.find((entry) => entry.name.toLowerCase() === HALF_LIFE_2_VR_APK_NAME)
+  const dataArchiveEntry = entries.find(
+    (entry) => !entry.isDirectory() && entry.name.toLowerCase() === '_data.7z'
+  )
+
+  if (!installEntry || installEntry.isDirectory() || !apkEntry || apkEntry.isDirectory()) {
+    return null
+  }
+  if (
+    !dataArchiveEntry ||
+    !hasHalfLife2VrInstallInstructions(path.join(rootPath, installEntry.name))
+  ) {
+    return null
+  }
+
+  const apkPath = path.join(rootPath, apkEntry.name)
+  return {
+    kind: 'nested-archive',
+    rootPath,
+    installFilePath: path.join(rootPath, installEntry.name),
+    apkPath,
+    apkName: apkEntry.name,
+    apkSize: fs.statSync(apkPath).size,
+    dataArchivePath: path.join(rootPath, dataArchiveEntry.name),
+    dataArchiveName: dataArchiveEntry.name,
+    dataArchiveSize: fs.statSync(path.join(rootPath, dataArchiveEntry.name)).size,
+    commonPath: null,
+    payloadDirs: [],
+    payloadSize: 0,
+    payloadFileCount: 0
+  }
+}
+
+function findHalfLife2VrPayloadStructure(searchPath) {
+  if (!searchPath || !fs.existsSync(searchPath)) return null
+
+  const queue = [{ path: path.resolve(searchPath), depth: 0 }]
+  const visited = new Set()
+
+  while (queue.length > 0) {
+    const current = queue.shift()
+    if (visited.has(current.path)) continue
+    visited.add(current.path)
+
+    try {
+      if (
+        fs.statSync(current.path).isDirectory() &&
+        path.basename(current.path).toLowerCase() === 'common'
+      ) {
+        const payload = inspectHalfLife2VrPayloadDirectory(current.path)
+        if (payload) return payload
+      }
+    } catch {
+      // Ignore inaccessible branches and continue looking for the payload.
+    }
+
+    if (current.depth >= 6) continue
+
+    try {
+      const entries = fs.readdirSync(current.path, { withFileTypes: true })
+      for (const entry of entries) {
+        if (!entry.isDirectory() || entry.name.startsWith('.')) continue
+        queue.push({
+          path: path.join(current.path, entry.name),
+          depth: current.depth + 1
+        })
+      }
+    } catch {
+      // Ignore inaccessible branches and continue looking for the payload.
+    }
+  }
+
+  return null
+}
+
+function findHalfLife2VrStructure(searchPath) {
+  if (!searchPath || !fs.existsSync(searchPath)) return null
+
+  const queue = [{ path: path.resolve(searchPath), depth: 0 }]
+  const visited = new Set()
+
+  while (queue.length > 0) {
+    const current = queue.shift()
+    if (visited.has(current.path)) continue
+    visited.add(current.path)
+
+    let candidate = null
+    try {
+      if (fs.statSync(current.path).isDirectory()) {
+        candidate = inspectHalfLife2VrDirectory(current.path)
+      }
+    } catch {
+      candidate = null
+    }
+    if (candidate) return candidate
+
+    try {
+      candidate = inspectHalfLife2VrArchiveScaffold(current.path)
+    } catch {
+      candidate = null
+    }
+    if (candidate) return candidate
+
+    if (current.depth >= 6) continue
+
+    try {
+      const entries = fs.readdirSync(current.path, { withFileTypes: true })
+      for (const entry of entries) {
+        if (!entry.isDirectory() || entry.name.startsWith('.')) continue
+        queue.push({
+          path: path.join(current.path, entry.name),
+          depth: current.depth + 1
+        })
+      }
+    } catch {
+      // Ignore inaccessible branches and continue looking for the marker.
+    }
+  }
+
+  return null
+}
+
+function detectHalfLife2VrArchiveEntries(entries) {
+  const normalizedEntries = entries
+    .map((entry) => ({ path: getArchiveEntryPath(entry), size: Number(entry?.size || 0) }))
+    .filter((entry) => entry.path)
+  const installRoots = new Map()
+
+  for (const entry of normalizedEntries) {
+    const parts = entry.path.split('/')
+    if (parts.at(-1)?.toLowerCase() !== 'install.txt') continue
+
+    const rootParts = parts.slice(0, -1)
+    const rootKey = rootParts.map((part) => part.toLowerCase()).join('/')
+    if (!installRoots.has(rootKey)) installRoots.set(rootKey, rootParts)
+  }
+
+  for (const rootParts of installRoots.values()) {
+    const apkEntry = normalizedEntries.find((entry) => {
+      const parts = entry.path.split('/')
+      return (
+        parts.at(-1)?.toLowerCase() === HALF_LIFE_2_VR_APK_NAME &&
+        archivePathStartsWith(parts, rootParts) &&
+        parts.length === rootParts.length + 1
+      )
+    })
+    if (!apkEntry) continue
+
+    const dataArchiveEntry = normalizedEntries.find((entry) => {
+      const parts = entry.path.split('/')
+      return (
+        parts.at(-1)?.toLowerCase() === '_data.7z' &&
+        archivePathStartsWith(parts, rootParts) &&
+        parts.length === rootParts.length + 1
+      )
+    })
+    if (dataArchiveEntry) {
+      return {
+        kind: 'nested-archive',
+        rootPath: rootParts.join('/'),
+        installFilePath: [...rootParts, 'install.txt'].filter(Boolean).join('/'),
+        apkPath: apkEntry.path,
+        apkName: HALF_LIFE_2_VR_APK_NAME,
+        apkSize: apkEntry.size,
+        dataArchivePath: dataArchiveEntry.path,
+        dataArchiveName: '_data.7z',
+        dataArchiveSize: dataArchiveEntry.size,
+        commonPath: null,
+        payloadDirs: [],
+        payloadSize: dataArchiveEntry.size,
+        payloadFileCount: 0
+      }
+    }
+
+    const payloadDirs = []
+    let isComplete = true
+    for (const dirName of HALF_LIFE_2_VR_PAYLOAD_DIRS) {
+      const payloadPrefix = [...rootParts, 'common', dirName]
+      const payloadEntries = normalizedEntries.filter((entry) => {
+        const parts = entry.path.split('/')
+        return (
+          archivePathStartsWith(parts, payloadPrefix) &&
+          parts.length > payloadPrefix.length &&
+          isObbPayloadFile(parts.at(-1))
+        )
+      })
+
+      if (payloadEntries.length === 0) {
+        isComplete = false
+        break
+      }
+
+      payloadDirs.push({
+        name: dirName,
+        relativePath: [...rootParts, 'common', dirName].join('/'),
+        size: payloadEntries.reduce((sum, entry) => sum + entry.size, 0),
+        fileCount: payloadEntries.length
+      })
+    }
+    if (!isComplete) continue
+
+    return {
+      kind: 'archive',
+      rootPath: rootParts.join('/'),
+      installFilePath: [...rootParts, 'install.txt'].filter(Boolean).join('/'),
+      apkPath: apkEntry.path,
+      apkName: HALF_LIFE_2_VR_APK_NAME,
+      apkSize: apkEntry.size,
+      commonPath: [...rootParts, 'common'].filter(Boolean).join('/'),
+      payloadDirs,
+      payloadSize: payloadDirs.reduce((sum, payloadDir) => sum + payloadDir.size, 0),
+      payloadFileCount: payloadDirs.reduce((sum, payloadDir) => sum + payloadDir.fileCount, 0)
+    }
+  }
+
+  return null
+}
+
+function applyHalfLife2VrScanResult(result, structure) {
+  result.hasApk = true
+  result.hasObb = false
+  result.apkName = structure.apkName
+  result.apkSize = structure.apkSize
+  result.obbFolder = null
+  result.obbSize = 0
+  result.obbFiles = []
+  result.installMethod = HALF_LIFE_2_VR_INSTALL_METHOD
+  result.specialInstall = HALF_LIFE_2_VR_INSTALL_METHOD
+  result.specialInstallData = {
+    packageName: HALF_LIFE_2_VR_PACKAGE_NAME,
+    apkName: structure.apkName,
+    payloadRoot: 'common',
+    targetPath: HALF_LIFE_2_VR_REMOTE_COMMON_PATH,
+    payloadArchiveName: structure.dataArchiveName || null,
+    payloadArchiveSize: structure.dataArchiveSize || 0,
+    payloadDirs: structure.payloadDirs.map(({ name, size, fileCount }) => ({
+      name,
+      size,
+      fileCount
+    })),
+    payloadSize: structure.payloadSize,
+    payloadFileCount: structure.payloadFileCount
+  }
+}
+
 function getPayloadFilesInDirectory(dir) {
   return getAllFilesRelative(dir).filter((fileObj) => isObbPayloadFile(fileObj.name))
 }
@@ -1825,11 +2200,15 @@ async function scanRar(rarPath) {
       hasApk: false,
       hasObb: false,
       apkName: null,
+      apkSize: 0,
       obbFolder: null,
       obbSize: 0,
       obbFiles: [],
       manifestPath: null,
-      manifestData: null
+      manifestData: null,
+      installMethod: null,
+      specialInstall: null,
+      specialInstallData: null
     }
 
     // Use the technical listing so the confirmation modal can show the real
@@ -1917,6 +2296,12 @@ async function scanRar(rarPath) {
         }
       }
 
+      const halfLife2VrStructure = detectHalfLife2VrArchiveEntries(archiveEntries)
+      if (halfLife2VrStructure) {
+        applyHalfLife2VrScanResult(result, halfLife2VrStructure)
+        return resolve(result)
+      }
+
       if (result.apkName) {
         const packageName = getPackageNameForApk(result.apkName, result.manifestData)
         result.obbFolder = findObbFolderFromArchiveEntries(lines, packageName)
@@ -1959,11 +2344,15 @@ async function scan7z(archivePath) {
       hasApk: false,
       hasObb: false,
       apkName: null,
+      apkSize: 0,
       obbFolder: null,
       obbSize: 0,
       obbFiles: [],
       manifestPath: null,
-      manifestData: null
+      manifestData: null,
+      installMethod: null,
+      specialInstall: null,
+      specialInstallData: null
     }
 
     // Use raw spawn with -slt (technical listing) to get file sizes
@@ -2039,6 +2428,12 @@ async function scan7z(archivePath) {
         } catch (e) {
           console.error('[scan7z] Failed to read manifest:', e)
         }
+      }
+
+      const halfLife2VrStructure = detectHalfLife2VrArchiveEntries(allEntries)
+      if (halfLife2VrStructure) {
+        applyHalfLife2VrScanResult(result, halfLife2VrStructure)
+        return resolve(result)
       }
 
       if (result.apkName) {
@@ -2169,7 +2564,7 @@ async function extractRar(rarPath, targetDir, onProgress) {
 }
 
 // Helper: Extract Archive with Progress using 7-zip (for ZIP files)
-async function extract7z(archivePath, targetDir, onProgress) {
+async function extract7z(archivePath, targetDir, onProgress, { extractAll = false } = {}) {
   fs.ensureDirSync(targetDir)
 
   // Get ZIP password from build-time env (obfuscated in compiled binary)
@@ -2198,7 +2593,7 @@ async function extract7z(archivePath, targetDir, onProgress) {
       if (!fileName) return
 
       const lowerName = fileName.toLowerCase()
-      if (lowerName.endsWith('.apk') || lowerName.endsWith('.obb')) {
+      if (extractAll || lowerName.endsWith('.apk') || lowerName.endsWith('.obb')) {
         totalFiles++
         filesToExtract.push(fileName)
       }
@@ -2709,6 +3104,81 @@ async function pushObbDirectory(deviceFlag, obbPath, packageName, sendProgress) 
   return { packageName: obbPackageName, fileCount: obbFiles.length }
 }
 
+async function installHalfLife2VrApk(deviceFlag, apkPath) {
+  await validateLocalApkFile(apkPath)
+
+  try {
+    return await runAdbCommand([...deviceFlag, 'install', '-r', '-g', '--no-incremental', apkPath])
+  } catch (error) {
+    if (isNoIncrementalUnsupported(error)) {
+      return await runAdbCommand([...deviceFlag, 'install', '-r', '-g', apkPath])
+    }
+    throw getReadableInstallError(error)
+  }
+}
+
+async function installHalfLife2VrStructure(deviceFlag, structure, sendProgress) {
+  const payloadDirs = structure?.payloadDirs || []
+  const hasCompletePayload =
+    payloadDirs.length === HALF_LIFE_2_VR_PAYLOAD_DIRS.length &&
+    HALF_LIFE_2_VR_PAYLOAD_DIRS.every((dirName, index) => {
+      const payloadDir = payloadDirs[index]
+      return (
+        payloadDir?.name === dirName &&
+        payloadDir.path &&
+        fs.existsSync(payloadDir.path) &&
+        fs.statSync(payloadDir.path).isDirectory()
+      )
+    })
+
+  if (!structure?.apkPath || !structure?.commonPath || !hasCompletePayload) {
+    throw new Error(
+      'Struktur Half-Life 2 VR tidak lengkap. Pastikan install.txt, APK, dan common/hl2, common/platform, common/episodic, common/ep2 tersedia.'
+    )
+  }
+
+  sendProgress('PREPARING_HL2VR', 0, 'progress_preparing_half_life_2_vr')
+  const remoteCommonPath = HALF_LIFE_2_VR_REMOTE_COMMON_PATH
+
+  for (const dirName of ['', ...HALF_LIFE_2_VR_PAYLOAD_DIRS]) {
+    if (installationState.isCancelled) throw new Error('Installation cancelled')
+    const remotePath = dirName ? `${remoteCommonPath}/${dirName}` : remoteCommonPath
+    await runAdbCommand([...deviceFlag, 'shell', 'mkdir', '-p', remotePath])
+  }
+  sendProgress('PREPARING_HL2VR', 100, 'progress_prepared_half_life_2_vr')
+
+  sendProgress('INSTALLING_APK', 0, 'progress_installing_half_life_2_vr')
+  await installHalfLife2VrApk(deviceFlag, structure.apkPath)
+  sendProgress('INSTALLING_APK', 100, 'progress_installing_half_life_2_vr')
+
+  sendProgress('CONFIGURING_HL2VR', 0, 'progress_granting_half_life_2_vr')
+  await runAdbCommand([
+    ...deviceFlag,
+    'shell',
+    'appops',
+    'set',
+    '--uid',
+    HALF_LIFE_2_VR_PACKAGE_NAME,
+    'MANAGE_EXTERNAL_STORAGE',
+    'allow'
+  ])
+  sendProgress('CONFIGURING_HL2VR', 100, 'progress_granted_half_life_2_vr')
+
+  sendProgress('PUSHING_HL2VR', 0, 'progress_pushing_half_life_2_vr')
+  for (let index = 0; index < payloadDirs.length; index++) {
+    if (installationState.isCancelled) throw new Error('Installation cancelled')
+
+    const payloadDir = payloadDirs[index]
+    const startPercent = Math.round((index / payloadDirs.length) * 100)
+    sendProgress('PUSHING_HL2VR', startPercent, `Copying SourceVR data: ${payloadDir.name}`)
+    await runAdbCommand([...deviceFlag, 'push', payloadDir.path, `${remoteCommonPath}/`])
+    const endPercent = Math.round(((index + 1) / payloadDirs.length) * 100)
+    sendProgress('PUSHING_HL2VR', endPercent, `Copied SourceVR data: ${payloadDir.name}`)
+  }
+
+  sendProgress('PUSHING_HL2VR', 100, 'progress_half_life_2_vr_complete')
+}
+
 // IPC: Install Game
 ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) => {
   // Reset cancellation state at start
@@ -3004,10 +3474,19 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
     obbSize: 0,
     obbFiles: [],
     folderPath: folderPath,
-    manifestData: null
+    manifestData: null,
+    installMethod: null,
+    specialInstall: null,
+    specialInstallData: null
   }
 
   try {
+    const halfLife2VrStructure = findHalfLife2VrStructure(folderPath)
+    if (halfLife2VrStructure) {
+      applyHalfLife2VrScanResult(result, halfLife2VrStructure)
+      return result
+    }
+
     // Recursive function to find APK
     const findApk = (dir) => {
       const entries = fs.readdirSync(dir, { withFileTypes: true })
@@ -3126,6 +3605,131 @@ ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSe
     throw new Error(msg)
   }
 })
+
+// IPC: Install Half-Life 2 VR / SourceVR release using install.txt's layout.
+ipcMain.handle(
+  'install-half-life-2-vr',
+  async (event, { sourcePath, sourceType = 'archive', deviceSerial }) => {
+    resetInstallationState()
+
+    const deviceFlag = deviceSerial ? ['-s', deviceSerial] : []
+    let tempDir = null
+
+    const sendProgress = (step, percent, detail) => {
+      if (installationState.isCancelled) return
+      event.sender.send('install-progress', { step, percent, detail })
+    }
+
+    try {
+      let structure = null
+
+      if (sourceType === 'folder') {
+        structure = findHalfLife2VrStructure(sourcePath)
+      } else {
+        const resolvedSourcePath = resolveExistingPath(sourcePath)
+        if (!resolvedSourcePath) {
+          throw new Error('File archive Half-Life 2 VR tidak ditemukan. Coba pilih ulang file ZIP.')
+        }
+
+        const lowerSourcePath = resolvedSourcePath.toLowerCase()
+        if (
+          !lowerSourcePath.endsWith('.zip') &&
+          !lowerSourcePath.endsWith('.rar') &&
+          !lowerSourcePath.endsWith('.7z')
+        ) {
+          throw new Error('Format Half-Life 2 VR tidak didukung. Gunakan ZIP, RAR, atau 7z.')
+        }
+
+        let extractBasePath = os.tmpdir()
+        try {
+          const savedPath = await event.sender.executeJavaScript(
+            'localStorage.getItem("extractPath")'
+          )
+          if (savedPath) extractBasePath = savedPath
+        } catch (error) {
+          console.warn('Could not get extract path from localStorage:', error.message)
+        }
+
+        tempDir = path.join(extractBasePath, 'hypertopia_install_hl2vr_' + Date.now())
+        installationState.tempDir = tempDir
+        fs.ensureDirSync(tempDir)
+        sendProgress('EXTRACTING', 0, 'progress_extracting_half_life_2_vr')
+
+        if (lowerSourcePath.endsWith('.rar')) {
+          await extractRar(resolvedSourcePath, tempDir, (current, total, fileName) => {
+            const percent = total > 0 ? Math.floor((current / total) * 100) : 0
+            sendProgress('EXTRACTING', percent, `Extracting: ${fileName}`)
+          })
+        } else {
+          await extract7z(resolvedSourcePath, tempDir, (current, total, fileName) => {
+            const percent = total > 0 ? Math.floor((current / total) * 100) : 0
+            sendProgress('EXTRACTING', percent, `Extracting: ${fileName}`)
+          })
+        }
+
+        structure = findHalfLife2VrStructure(tempDir)
+      }
+
+      if (structure?.kind === 'nested-archive') {
+        if (!tempDir) {
+          tempDir = path.join(os.tmpdir(), 'hypertopia_install_hl2vr_' + Date.now())
+          installationState.tempDir = tempDir
+          fs.ensureDirSync(tempDir)
+        }
+
+        sendProgress('EXTRACTING', 0, 'progress_extracting_half_life_2_vr')
+        await extract7z(
+          structure.dataArchivePath,
+          tempDir,
+          (current, total, fileName) => {
+            const percent = total > 0 ? Math.floor((current / total) * 100) : 0
+            sendProgress('EXTRACTING', percent, `Extracting SourceVR data: ${fileName}`)
+          },
+          { extractAll: true }
+        )
+
+        const payloadStructure = findHalfLife2VrPayloadStructure(tempDir)
+        if (!payloadStructure) {
+          throw new Error(
+            'Arsip data _data.7z tidak berisi common/hl2, common/platform, common/episodic, dan common/ep2.'
+          )
+        }
+        structure = { ...structure, ...payloadStructure }
+      }
+
+      if (!structure) {
+        throw new Error(
+          'Struktur Half-Life 2 VR tidak ditemukan. Pastikan ZIP/folder berisi install.txt, ' +
+            `${HALF_LIFE_2_VR_APK_NAME}, dan common/hl2, common/platform, common/episodic, common/ep2.`
+        )
+      }
+
+      await installHalfLife2VrStructure(deviceFlag, structure, sendProgress)
+      sendProgress('COMPLETED', 100, 'progress_finished')
+    } catch (err) {
+      console.error('[Half-Life 2 VR Install]', err)
+      sendProgress('ERROR', 0, err.message)
+      throw err
+    } finally {
+      if (tempDir) {
+        sendProgress('CLEANUP', 0, 'progress_cleanup')
+        try {
+          await fs.remove(tempDir)
+        } catch (cleanupErr) {
+          console.warn(
+            `[Half-Life 2 VR Cleanup] Failed to remove temp folder: ${cleanupErr.message}`
+          )
+          setTimeout(() => {
+            fs.remove(tempDir).catch((err) =>
+              console.warn(`[Half-Life 2 VR Cleanup] Delayed cleanup failed: ${err.message}`)
+            )
+          }, 1000)
+        }
+      }
+      installationState.tempDir = null
+    }
+  }
+)
 
 // IPC: List OBB Folders
 ipcMain.handle('list-obb', async (event, deviceSerial) => {
