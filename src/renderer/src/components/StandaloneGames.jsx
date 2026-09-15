@@ -10,6 +10,7 @@ import StandaloneGameDetailPage from './StandaloneGameDetailPage'
 import RequestGameModal from './RequestGameModal'
 import RequestGameList from './RequestGameList'
 import coverImages from '../utils/coverImages'
+import { getStandaloneCoverUrl } from '../utils/standaloneGameMedia'
 
 // Helper function to compare versions (from highest to lowest)
 const compareVersions = (versionA, versionB) => {
@@ -702,19 +703,8 @@ const formatDownloadCount = (count) => {
   return count.toString()
 }
 
-// Deterministic gradient based on game title — used as cover placeholder
-const PLACEHOLDER_GRADIENTS = [
-  ['#1a237e', '#4527a0'],
-  ['#4a148c', '#7b1fa2'],
-  ['#880e4f', '#c2185b'],
-  ['#bf360c', '#e64a19'],
-  ['#1b5e20', '#388e3c'],
-  ['#006064', '#0097a7'],
-  ['#0d47a1', '#1976d2'],
-  ['#37474f', '#546e7a'],
-  ['#4e342e', '#6d4c41'],
-  ['#212121', '#455a64']
-]
+// Keep the empty-cover treatment consistent with the public web catalog.
+const EMPTY_COVER_BACKGROUND = 'linear-gradient(145deg, #0b70d7 0%, #0047a3 100%)'
 function StatusBadge({ game, t }) {
   const [now] = useState(() => Date.now())
   const gameStatus = game?.gameStatus || ''
@@ -818,19 +808,14 @@ DeviceBadges.propTypes = {
   t: PropTypes.func.isRequired
 }
 
-function getPlaceholderStyle(title) {
-  let hash = 0
-  for (let i = 0; i < title.length; i++) {
-    hash = (hash * 31 + title.charCodeAt(i)) & 0xffffffff
-  }
-  const [from, to] = PLACEHOLDER_GRADIENTS[Math.abs(hash) % PLACEHOLDER_GRADIENTS.length]
-  return { background: `linear-gradient(145deg, ${from} 0%, ${to} 100%)` }
+function getPlaceholderStyle() {
+  return { background: EMPTY_COVER_BACKGROUND }
 }
 
 function GameCard({ game, selectedDevice, viewMode, onClick }) {
   const { t } = useLanguage()
   const { downloadInfo } = useDownload()
-  const [coverUrl, setCoverUrl] = useState(null)
+  const [coverUrl, setCoverUrl] = useState(() => getStandaloneCoverUrl(game))
   const [loadingImage, setLoadingImage] = useState(true)
 
   const gameTitle = game.gameTitle || game.name || game.id?.replace(/!/g, '') || 'Unknown Game'
@@ -871,11 +856,20 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
     </span>
   )
 
-  // Fetch cover image from Firebase Storage only
+  // Prefer the mirrored Meta cover already returned by the public catalog.
+  // The generated cover lookup remains a fallback for older games.
   useEffect(() => {
     let mounted = true
     const fetchCover = async () => {
       setLoadingImage(true)
+      const directCoverUrl = getStandaloneCoverUrl(game)
+      if (directCoverUrl) {
+        setCoverUrl(directCoverUrl)
+        setLoadingImage(false)
+        return
+      }
+
+      setCoverUrl(null)
       try {
         const url = await coverImages.getCoverUrl(gameTitle)
         if (mounted && url) {
@@ -890,7 +884,7 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
     return () => {
       mounted = false
     }
-  }, [gameTitle])
+  }, [game, gameTitle])
 
   // Get version display text - sorted from highest to lowest
   const getVersionDisplay = () => {
@@ -958,6 +952,7 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
             <img
               src={coverUrl}
               alt={gameTitle}
+              onError={() => setCoverUrl(null)}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           )}
@@ -1043,32 +1038,24 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
         )}
 
         {/* Placeholder when no image available */}
-        {!loadingImage && !coverUrl && (
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
-            style={getPlaceholderStyle(gameTitle)}
-          >
-            {/* Giant initial as background texture */}
-            <span className="absolute text-[180px] font-black text-white/5 select-none leading-none tracking-tight">
-              {gameTitle.charAt(0).toUpperCase()}
-            </span>
-            {/* Centered icon + label */}
-            <div className="relative z-10 flex flex-col items-center gap-2">
-              <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center backdrop-blur-sm">
-                <Icon icon="tabler:device-vision-pro" className="w-9 h-9 text-white/75" />
+          {!loadingImage && !coverUrl && (
+            <div
+              data-testid="standalone-game-card-cover-fallback"
+              className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
+              style={getPlaceholderStyle(gameTitle)}
+            >
+              <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-white/10 shadow-inner backdrop-blur-sm">
+                <Icon icon="tabler:device-vision-pro" className="h-9 w-9 text-white/75" />
               </div>
-              <span className="text-white/40 text-[10px] font-medium px-4 text-center line-clamp-2 max-w-[140px] leading-tight">
-                {gameTitle}
-              </span>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Actual image when URL present */}
         {coverUrl && (
           <img
             src={coverUrl}
             alt={gameTitle}
+            onError={() => setCoverUrl(null)}
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
           />
         )}
@@ -1164,6 +1151,14 @@ GameCard.propTypes = {
     gameVersion: PropTypes.string,
     gameStatus: PropTypes.string,
     photoUrl: PropTypes.string,
+    iconUrl: PropTypes.string,
+    metaStore: PropTypes.shape({
+      media: PropTypes.shape({
+        coverUrl: PropTypes.string,
+        posterUrl: PropTypes.string,
+        screenshotUrls: PropTypes.arrayOf(PropTypes.string)
+      })
+    }),
     downloadCount: PropTypes.number,
     compatibilityReviewSummary: PropTypes.shape({
       reviewCount: PropTypes.number,

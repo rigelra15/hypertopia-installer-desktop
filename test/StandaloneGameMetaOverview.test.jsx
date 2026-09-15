@@ -30,6 +30,22 @@ describe('StandaloneGameMetaOverview', () => {
     expect(screen.getByText('3.1 (7 ratings)')).toBeInTheDocument()
     expect(screen.getByText('A mixed reality game.')).toBeInTheDocument()
     expect(screen.getByText('534.2 MB')).toBeInTheDocument()
-    expect(screen.getByText('18+')).toBeInTheDocument()
+    expect(screen.getByAltText('Rating IARC 18+')).toBeInTheDocument()
+  })
+
+  it('renders Quest support labels without repeating the Meta brand', () => {
+    render(
+      <StandaloneGameMetaOverview
+        game={game}
+        questSupport={[
+          { key: 'supportMetaQuest2', label: 'Quest 2', isSelected: false },
+          { key: 'supportMetaQuest3', label: 'Quest 3', isSelected: true }
+        ]}
+      />
+    )
+
+    expect(screen.getByText('Quest 2')).toBeInTheDocument()
+    expect(screen.getByText('Quest 3')).toBeInTheDocument()
+    expect(screen.queryByText('Meta Quest 2', { exact: true })).not.toBeInTheDocument()
   })
 })

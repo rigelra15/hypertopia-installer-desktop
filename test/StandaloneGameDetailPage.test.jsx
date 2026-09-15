@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { fetchStandaloneGame } = vi.hoisted(() => ({
@@ -34,17 +34,32 @@ describe('StandaloneGameDetailPage', () => {
     render(<StandaloneGameDetailPage game={listGame} onBack={onBack} />)
 
     expect(screen.getByTestId('standalone-detail-loading')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByTestId('page-detail-content')).toHaveTextContent(fullGame.gameTitle))
+    await waitFor(() =>
+      expect(screen.getByTestId('page-detail-content')).toHaveTextContent(fullGame.gameTitle)
+    )
     expect(screen.getByTestId('standalone-detail-page')).toHaveClass('standalone-detail-page')
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(fullGame.gameTitle)
     expect(fetchStandaloneGame).toHaveBeenCalledWith('click-clack')
 
-    fireEvent.click(screen.getByRole('button', { name: /kembali ke game standalone/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Kembali' }))
     expect(onBack).toHaveBeenCalledOnce()
+    expect(screen.getByTestId('standalone-detail-header-actions')).toBeInTheDocument()
+  })
+
+  it('keeps the loading header in the same shell as the loaded detail header', () => {
+    fetchStandaloneGame.mockReturnValue(new Promise(() => {}))
+    render(<StandaloneGameDetailPage game={listGame} onBack={vi.fn()} />)
+
+    const loading = screen.getByTestId('standalone-detail-loading')
+    expect(loading.querySelector('header')).toHaveClass('standalone-detail-page__header')
+    expect(within(loading).getByRole('button', { name: 'Kembali' })).toBeInTheDocument()
+    expect(within(loading).getByRole('heading', { level: 1 })).toHaveTextContent('List title')
   })
 
   it('shows an error and retries the detail fetch', async () => {
-    fetchStandaloneGame.mockRejectedValueOnce(new Error('network down')).mockResolvedValueOnce(fullGame)
+    fetchStandaloneGame
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce(fullGame)
     render(<StandaloneGameDetailPage game={listGame} onBack={vi.fn()} />)
 
     await waitFor(() => expect(screen.getByTestId('standalone-detail-error')).toBeInTheDocument())

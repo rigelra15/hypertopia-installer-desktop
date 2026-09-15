@@ -51,10 +51,10 @@ export default function StandaloneGameDetailPage({
     return (
       <div
         data-testid="standalone-detail-loading"
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white dark:bg-[#111]"
+        className="standalone-detail-page standalone-detail-page--desktop"
       >
-        <DetailPageHeader title={game?.gameTitle || game?.name || 'Game'} onBack={onBack} />
-        <div className="mx-auto w-full max-w-7xl space-y-5 p-6">
+        <DetailPageHeader title={game?.gameTitle || game?.name || 'Game'} onBack={onBack} loading />
+        <div className="standalone-detail-page__inner space-y-5">
           <div className="h-72 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/5" />
           <div className="h-8 w-72 animate-pulse rounded-lg bg-gray-100 dark:bg-white/5" />
           <div className="h-28 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/5" />
@@ -67,9 +67,9 @@ export default function StandaloneGameDetailPage({
     return (
       <div
         data-testid="standalone-detail-error"
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white dark:bg-[#111]"
+        className="standalone-detail-page standalone-detail-page--desktop"
       >
-        <DetailPageHeader title={game?.gameTitle || game?.name || 'Game'} onBack={onBack} />
+        <DetailPageHeader title={game?.gameTitle || game?.name || 'Game'} onBack={onBack} loading />
         <div className="flex flex-1 items-center justify-center p-6">
           <div className="max-w-md text-center">
             <Icon icon="mdi:cloud-alert-outline" className="mx-auto h-12 w-12 text-red-500" />
@@ -94,26 +94,15 @@ export default function StandaloneGameDetailPage({
   }
 
   return (
-    <div data-testid="standalone-detail-page" className="standalone-detail-page standalone-detail-page--desktop">
-      <header className="standalone-detail-page__header">
-        <div className="standalone-detail-page__header-inner">
-          <div className="standalone-detail-page__header-row">
-            <div className="standalone-detail-page__header-copy">
-              <button
-                type="button"
-                className="standalone-detail-page__header-link"
-                onClick={onBack}
-              >
-                <Icon icon="mdi:arrow-left" aria-hidden="true" />
-                <span>Kembali ke game standalone</span>
-              </button>
-              <h1 className="standalone-detail-page__header-title">
-                {detailGame?.gameTitle || detailGame?.name || 'Game'}
-              </h1>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div
+      data-testid="standalone-detail-page"
+      className="standalone-detail-page standalone-detail-page--desktop"
+    >
+      <DetailPageHeader
+        title={detailGame?.gameTitle || detailGame?.name || 'Game'}
+        onBack={onBack}
+        headerActionsTargetId="standalone-detail-header-actions"
+      />
       <div className="standalone-detail-page__inner">
         <GameDetailModal
           isOpen
@@ -122,28 +111,38 @@ export default function StandaloneGameDetailPage({
           game={detailGame}
           selectedDevice={selectedDevice}
           connectedDevice={connectedDevice}
+          headerActionsTargetId="standalone-detail-header-actions"
         />
       </div>
     </div>
   )
 }
 
-function DetailPageHeader({ title, onBack }) {
+function DetailPageHeader({ title, onBack, loading = false, headerActionsTargetId = null }) {
   return (
-    <header className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-6 py-3 dark:border-white/10 dark:bg-[#111]">
-      <button
-        type="button"
-        aria-label="Back to standalone games"
-        onClick={onBack}
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0081FB] dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
-      >
-        <Icon icon="mdi:arrow-left" className="h-5 w-5" />
-      </button>
-      <div className="min-w-0">
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-white/40">
-          Standalone game
-        </p>
-        <h1 className="truncate text-base font-semibold text-gray-900 dark:text-white">{title}</h1>
+    <header className="standalone-detail-page__header">
+      <div className="standalone-detail-page__header-inner">
+        <div className="standalone-detail-page__header-row">
+          <div className="standalone-detail-page__header-copy">
+            <button
+              type="button"
+              aria-label="Kembali"
+              className="standalone-detail-page__header-link"
+              onClick={onBack}
+            >
+              <Icon icon="mdi:arrow-left" aria-hidden="true" />
+              <span>Kembali</span>
+            </button>
+            <h1 className="standalone-detail-page__header-title">{title}</h1>
+          </div>
+          {headerActionsTargetId ? (
+            <div id={headerActionsTargetId} data-testid="standalone-detail-header-actions" />
+          ) : (
+            <div className="standalone-detail-header-actions" aria-hidden="true">
+              {loading && <span className="standalone-detail-header-skeleton" />}
+            </div>
+          )}
+        </div>
       </div>
     </header>
   )
@@ -158,5 +157,7 @@ StandaloneGameDetailPage.propTypes = {
 
 DetailPageHeader.propTypes = {
   title: PropTypes.string.isRequired,
-  onBack: PropTypes.func.isRequired
+  onBack: PropTypes.func.isRequired,
+  loading: PropTypes.bool,
+  headerActionsTargetId: PropTypes.string
 }

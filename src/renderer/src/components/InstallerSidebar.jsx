@@ -512,7 +512,7 @@ export function InstallerSidebar({
 
   return (
     <div
-      className={`relative flex h-full flex-col bg-white dark:bg-[#0a0a0a] font-['Poppins'] text-gray-900 dark:text-white transition-all duration-300 ${
+      className={`relative flex h-full flex-col border-r border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0a] font-['Poppins'] text-gray-900 dark:text-white transition-all duration-300 ${
         isCollapsed ? 'w-16' : 'w-full'
       }`}
     >

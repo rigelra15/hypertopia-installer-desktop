@@ -3,6 +3,31 @@ const asStrings = (value) =>
     .map((item) => (typeof item === 'string' ? item.trim() : ''))
     .filter(Boolean)
 
+const asHttpUrl = (value) => {
+  if (typeof value !== 'string' || !value.trim()) return null
+
+  try {
+    const url = new URL(value.trim())
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+export function getStandaloneCoverUrl(game = {}) {
+  const meta = game.metaStore?.media || {}
+  const candidates = [
+    meta.coverUrl,
+    meta.posterUrl,
+    ...asStrings(meta.screenshotUrls),
+    game.photoUrl,
+    game.iconUrl
+  ]
+
+  return candidates.map(asHttpUrl).find(Boolean) || null
+}
+
 export function getStandaloneMedia(game = {}) {
   const meta = game.metaStore?.media || {}
   const legacyCover = game.photoUrl || game.iconUrl || ''
@@ -16,9 +41,12 @@ export function getStandaloneMedia(game = {}) {
     items.push(item)
   }
 
-  const metaVideos = asStrings(meta.videoUrls)
-  const videoUrls = metaVideos.length
-    ? metaVideos
+  // The API keeps every mirrored Meta video in videoUrls because the remaining
+  // clips belong to descriptionHtml. The public detail layout has one hero
+  // video; rich-description videos are rendered by StandaloneGameDescription.
+  const heroVideoUrl = asStrings(meta.videoUrls)[0]
+  const videoUrls = heroVideoUrl
+    ? [heroVideoUrl]
     : typeof game.videoUrlMetaStore === 'string' && game.videoUrlMetaStore.trim()
       ? [game.videoUrlMetaStore.trim()]
       : []

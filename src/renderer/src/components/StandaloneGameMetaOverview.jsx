@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Icon } from '@iconify/react'
 import PropTypes from 'prop-types'
 
 const valueOrNull = (value) => {
@@ -11,6 +13,45 @@ const formatRating = (rating) => {
   if (!Number.isFinite(value)) return null
   const count = Number(rating?.count)
   return `${value.toFixed(1)}${Number.isFinite(count) ? ` (${count} ratings)` : ''}`
+}
+
+const IARC_RATING_ASSETS = {
+  '3+': 'https://globalratings.com/wp-content/uploads/2025/06/Generic_3_68.png',
+  '7+': 'https://globalratings.com/wp-content/uploads/2025/06/Generic_7_68.png',
+  '12+': 'https://globalratings.com/wp-content/uploads/2025/06/Generic_12_68.png',
+  '16+': 'https://globalratings.com/wp-content/uploads/2025/06/Generic_16_68.png',
+  '18+': 'https://globalratings.com/wp-content/uploads/2025/06/Generic_18_68.png'
+}
+
+const getIarcRating = (value) => {
+  const match = valueOrNull(value)?.match(/^(?:IARC(?:\s+Generic)?\s*)?(3|7|12|16|18)\s*\+$/i)
+  if (!match) return null
+  const label = `${match[1]}+`
+  return IARC_RATING_ASSETS[label] ? { label, src: IARC_RATING_ASSETS[label] } : null
+}
+
+function AgeRatingValue({ value }) {
+  const badge = getIarcRating(value)
+  const [imageFailed, setImageFailed] = useState(false)
+
+  if (!badge || imageFailed) return <span>{value}</span>
+
+  return (
+    <span className="standalone-detail-age-rating" title={`Rating IARC ${badge.label}`}>
+      <img
+        src={badge.src}
+        alt={`Rating IARC ${badge.label}`}
+        width="36"
+        height="44"
+        loading="lazy"
+        onError={() => setImageFailed(true)}
+      />
+    </span>
+  )
+}
+
+AgeRatingValue.propTypes = {
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired
 }
 
 export function StandaloneGameMetaIdentity({ game }) {
@@ -47,7 +88,7 @@ export function StandaloneGameMetaIdentity({ game }) {
   )
 }
 
-export default function StandaloneGameMetaOverview({ game, showDescription = true }) {
+export default function StandaloneGameMetaOverview({ game, showDescription = true, questSupport = [] }) {
   const meta = game?.metaStore
   if (!meta) return null
 
@@ -60,6 +101,7 @@ export default function StandaloneGameMetaOverview({ game, showDescription = tru
     ['Bahasa', Array.isArray(meta.languages) ? meta.languages.join(', ') : null],
     ['Ukuran unduhan', game.gameSize]
   ].filter(([, value]) => valueOrNull(value))
+  const categories = Array.isArray(meta.categories) ? meta.categories.filter(Boolean) : []
 
   return (
     <section data-testid="standalone-meta-overview" className="standalone-detail-meta-overview">
@@ -71,14 +113,43 @@ export default function StandaloneGameMetaOverview({ game, showDescription = tru
           </p>
         </div>
       )}
-      {fields.length > 0 && (
+      {(fields.length > 0 || categories.length > 0 || questSupport.length > 0) && (
         <div className="standalone-detail-bento">
           {fields.map(([label, value]) => (
             <dl className="standalone-detail-bento-card" key={label}>
               <dt>{label}</dt>
-              <dd>{value}</dd>
+              <dd>{label === 'Rating usia' ? <AgeRatingValue value={value} /> : value}</dd>
             </dl>
           ))}
+          {categories.length > 0 && (
+            <div className="standalone-detail-bento-card standalone-detail-bento-card--wide">
+              <h3>Kategori</h3>
+              <div className="standalone-detail-tags">
+                {categories.map((category) => <span key={category}>{category}</span>)}
+              </div>
+            </div>
+          )}
+          {questSupport.length > 0 && (
+            <div
+              className="standalone-detail-bento-card standalone-detail-bento-card--wide"
+              data-testid="standalone-detail-quest-support-card"
+            >
+              <h3>Dukungan Quest</h3>
+              <div className="standalone-detail-tags standalone-detail-tags--quest">
+                {questSupport.map(({ key, label, isSelected }) => (
+                  <span
+                    key={key}
+                    className={isSelected ? 'standalone-detail-tags__item--preferred' : undefined}
+                    title={isSelected ? `Perangkat pilihan: ${label}` : label}
+                  >
+                    <Icon icon="ri:meta-line" width="14" aria-hidden="true" />
+                    <span>{label}</span>
+                    {isSelected && <Icon icon="mdi:check" width="14" aria-hidden="true" />}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>
@@ -88,4 +159,14 @@ export default function StandaloneGameMetaOverview({ game, showDescription = tru
 const gamePropType = PropTypes.object.isRequired
 
 StandaloneGameMetaIdentity.propTypes = { game: gamePropType }
-StandaloneGameMetaOverview.propTypes = { game: gamePropType, showDescription: PropTypes.bool }
+StandaloneGameMetaOverview.propTypes = {
+  game: gamePropType,
+  showDescription: PropTypes.bool,
+  questSupport: PropTypes.arrayOf(
+    PropTypes.shape({
+      key: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      isSelected: PropTypes.bool
+    })
+  )
+}

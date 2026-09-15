@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { Icon } from '@iconify/react'
 import { getMediaPoster, getStandaloneMedia } from '../utils/standaloneGameMedia'
+import StandaloneGameDescription from './StandaloneGameDescription'
 
 const formatVideoTime = (seconds) => {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
@@ -23,7 +24,15 @@ const formatStatCount = (value) => {
   return String(count)
 }
 
-export default function StandaloneGameMedia({ game, description }) {
+export default function StandaloneGameMedia({
+  game,
+  description,
+  descriptionHtml,
+  isLiked = false,
+  favoriteCount: favoriteCountProp,
+  onFavoriteToggle,
+  isFavoritePending = false
+}) {
   const media = useMemo(() => getStandaloneMedia(game), [game])
   const [activeIndex, setActiveIndex] = useState(0)
   const [videoStarted, setVideoStarted] = useState(false)
@@ -41,7 +50,10 @@ export default function StandaloneGameMedia({ game, description }) {
   const videoRef = useRef(null)
   const youtubeRef = useRef(null)
   const ratingScore = getRatingScore(game)
-  const favoriteCount = Math.max(0, Number(game?.likedCount) || 0)
+  const favoriteCount = Math.max(
+    0,
+    Number(favoriteCountProp ?? game?.likedCount) || 0
+  )
   const gameTitle = game.gameTitle || game.name || 'Game'
   const shouldShowVideoControls =
     !videoStarted || isVideoPointerInside || isVideoControlsFocused || isVideoEnded
@@ -382,15 +394,21 @@ export default function StandaloneGameMedia({ game, description }) {
               </span>
             </span>
           )}
-          <span
-            className="standalone-detail-hero-stat standalone-detail-hero-stat--favorite"
-            aria-label={`${favoriteCount} favorites`}
+          <button
+            type="button"
+            onClick={onFavoriteToggle}
+            disabled={isFavoritePending}
+            className={`standalone-detail-hero-stat standalone-detail-hero-stat--favorite ${isLiked ? 'standalone-detail-hero-stat--liked' : ''}`}
+            aria-label={isLiked ? 'Remove game from favorites' : 'Save game to favorites'}
+            title={isLiked ? 'Remove game from favorites' : 'Save game to favorites'}
+            aria-pressed={isLiked}
+            aria-busy={isFavoritePending}
           >
             <span className="standalone-detail-hero-stat__content">
-              <Icon icon={favoriteCount > 0 ? 'mdi:heart' : 'mdi:heart-outline'} aria-hidden="true" />
+              <Icon icon={isLiked ? 'mdi:heart' : 'mdi:heart-outline'} aria-hidden="true" />
               <span data-testid="standalone-favorite-count">{formatStatCount(favoriteCount)}</span>
             </span>
-          </span>
+          </button>
         </div>
       </div>
 
@@ -405,12 +423,17 @@ export default function StandaloneGameMedia({ game, description }) {
             {media.map((item, index) => {
               const thumbnail = item.kind === 'video' ? getMediaPoster(item, game) : item.url
               const selected = activeIndex === index
+              const screenshotNumber = media
+                .slice(0, index + 1)
+                .filter((entry) => entry.kind === 'image')
+                .length
               return (
                 <button
                   key={`${item.kind}-${item.url}`}
                   type="button"
                   role="listitem"
-                  aria-label={item.kind === 'video' ? 'Video preview' : `Screenshot ${index + 1}`}
+                  data-testid={item.kind === 'video' ? 'standalone-media-video-thumb' : undefined}
+                  aria-label={item.kind === 'video' ? 'Video preview' : `Screenshot ${screenshotNumber}`}
                   aria-pressed={selected}
                   onClick={() => selectMedia(index)}
                   className={`standalone-detail-gallery__item ${selected ? 'is-active' : ''}`}
@@ -429,17 +452,23 @@ export default function StandaloneGameMedia({ game, description }) {
         </div>
       )}
 
-      {description && (
-        <section className="standalone-detail-copy" aria-labelledby="standalone-description-heading">
-          <h2 id="standalone-description-heading">Deskripsi</h2>
+      {descriptionHtml ? (
+        <StandaloneGameDescription html={descriptionHtml} />
+      ) : description ? (
+        <section className="standalone-detail-copy" aria-label="Deskripsi">
           <p>{description}</p>
         </section>
-      )}
+      ) : null}
     </section>
   )
 }
 
 StandaloneGameMedia.propTypes = {
   game: PropTypes.object.isRequired,
-  description: PropTypes.string
+  description: PropTypes.string,
+  descriptionHtml: PropTypes.string,
+  isLiked: PropTypes.bool,
+  favoriteCount: PropTypes.number,
+  onFavoriteToggle: PropTypes.func,
+  isFavoritePending: PropTypes.bool
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
@@ -11,12 +12,14 @@ import coverImages from '../utils/coverImages'
 import { Tooltip } from './Tooltip'
 import UpdateGameDialog from './UpdateGameDialog'
 import ReportGameDialog from './ReportGameDialog'
-import CompatibilityReviewDialog from './CompatibilityReviewDialog'
 import StandaloneGameMedia from './StandaloneGameMedia'
 import StandaloneGameMetaOverview, {
   StandaloneGameMetaIdentity
 } from './StandaloneGameMetaOverview'
 import { apiFetch } from '../utils/apiClient'
+
+const FIREBASE_DB_URL =
+  'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
 
 // Helper function to compare versions (from highest to lowest)
 const compareVersions = (versionA, versionB) => {
@@ -88,6 +91,19 @@ const getDownloadPartCount = (version) => {
   return 1
 }
 
+const getDownloadSize = (game, version) => {
+  const candidates = [
+    version?.downloadSize,
+    version?.fileSize,
+    version?.size,
+    game?.downloadSize,
+    game?.gameSize,
+    game?.fileSize
+  ]
+
+  return candidates.find((value) => typeof value === 'string' && value.trim())?.trim() || ''
+}
+
 // Helper function to get Quest model info
 const getQuestInfo = (questKey) => {
   const questMap = {
@@ -111,7 +127,8 @@ export default function GameDetailModal({
   game: gameProp,
   selectedDevice,
   connectedDevice,
-  presentation = 'modal'
+  presentation = 'modal',
+  headerActionsTargetId
 }) {
   const isPage = presentation === 'page'
   const { t } = useLanguage()
@@ -177,7 +194,18 @@ export default function GameDetailModal({
   // Update and Report dialog state
   const [showUpdateDialog, setShowUpdateDialog] = useState(false)
   const [showReportDialog, setShowReportDialog] = useState(false)
-  const [showCompatibilityReviews, setShowCompatibilityReviews] = useState(false)
+  const [headerActionsTarget, setHeaderActionsTarget] = useState(null)
+
+  useEffect(() => {
+    if (!isPage || !headerActionsTargetId || typeof document === 'undefined') {
+      setHeaderActionsTarget(null)
+      return undefined
+    }
+
+    const target = document.getElementById(headerActionsTargetId)
+    setHeaderActionsTarget(target)
+    return () => setHeaderActionsTarget(null)
+  }, [headerActionsTargetId, isPage])
 
   // Safely extract game properties with fallbacks (must be before state that uses them)
   const gameTitle = game?.gameTitle || game?.name || game?.id?.replace(/!/g, '') || 'Unknown Game'
@@ -208,6 +236,70 @@ export default function GameDetailModal({
   // Local download count state for UI updates
   const [localDownloadCount, setLocalDownloadCount] = useState(game?.downloadCount || 0)
   const [localVersions, setLocalVersions] = useState(versions)
+  const [isLiked, setIsLiked] = useState(false)
+  const [localLikedCount, setLocalLikedCount] = useState(Number(game?.likedCount) || 0)
+  const [isFavoritePending, setIsFavoritePending] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen || !game || !gameTitle || !user?.uid) {
+      setIsLiked(false)
+      return undefined
+    }
+
+    let mounted = true
+    const favoriteUrl = `${FIREBASE_DB_URL}/usersData/likedGames/${encodeURIComponent(user.uid)}/${encodeURIComponent(gameTitle)}.json`
+
+    fetch(favoriteUrl)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Favorite lookup failed (${response.status})`)
+        return response.json()
+      })
+      .then((value) => {
+        if (!mounted) return
+        const liked = value !== null && value !== undefined
+        setIsLiked(liked)
+        if (liked) setLocalLikedCount((count) => Math.max(count, 1))
+      })
+      .catch((error) => console.warn('Could not check favorite game:', error))
+
+    return () => {
+      mounted = false
+    }
+  }, [game, gameTitle, isOpen, user?.uid])
+
+  const handleFavoriteToggle = async () => {
+    if (!user?.uid) {
+      toast.error('Silakan login terlebih dahulu!')
+      return
+    }
+    if (isFavoritePending) return
+
+    const favoriteUrl = `${FIREBASE_DB_URL}/usersData/likedGames/${encodeURIComponent(user.uid)}/${encodeURIComponent(gameTitle)}.json`
+    setIsFavoritePending(true)
+    try {
+      const response = await fetch(favoriteUrl, {
+        method: isLiked ? 'DELETE' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: isLiked ? undefined : JSON.stringify(game)
+      })
+      if (!response.ok) throw new Error(`Favorite update failed (${response.status})`)
+
+      if (isLiked) {
+        setIsLiked(false)
+        setLocalLikedCount((count) => Math.max(0, count - 1))
+        toast.success('Dihapus dari game favorit.')
+      } else {
+        setIsLiked(true)
+        setLocalLikedCount((count) => count + 1)
+        toast.success('Ditambahkan ke game favorit.')
+      }
+    } catch (error) {
+      console.error('Could not update favorite game:', error)
+      toast.error('Gagal memperbarui favorit.')
+    } finally {
+      setIsFavoritePending(false)
+    }
+  }
 
   // Fetch cover image
   useEffect(() => {
@@ -276,6 +368,9 @@ export default function GameDetailModal({
     setResolvedDownloadLinks(null)
     // Sync local download count with game data
     setLocalDownloadCount(game?.downloadCount || 0)
+    setIsLiked(false)
+    setLocalLikedCount(Number(game?.likedCount) || 0)
+    setIsFavoritePending(false)
     setLocalVersions(versions)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game, initialSelectedVersion])
@@ -600,6 +695,50 @@ export default function GameDetailModal({
     return Object.entries(game).filter(([k, v]) => k.startsWith('supportMetaQuest') && v)
   }
 
+  const getQuestSupportItems = () => {
+    const deviceToKeyMap = {
+      quest1: 'supportMetaQuest1',
+      quest2: 'supportMetaQuest2',
+      quest3: 'supportMetaQuest3',
+      quest3s: 'supportMetaQuest3S',
+      questPro: 'supportMetaQuestPro'
+    }
+    const selectedKey = selectedDevice ? deviceToKeyMap[selectedDevice] : null
+
+    return getSupportedDevices().map(([quest]) => ({
+      key: quest,
+      label: getQuestInfo(quest).fullName.replace(/^Meta\s+/i, ''),
+      isSelected: quest === selectedKey
+    }))
+  }
+
+  const renderQuestSupport = () => {
+    const devices = getQuestSupportItems()
+    if (devices.length === 0) return null
+
+    return (
+      <section className="standalone-detail-quest-support-card">
+        <h3 className="standalone-detail-page__support-label">Dukungan Quest</h3>
+        <div className="standalone-detail-page__support-list flex gap-2 items-center flex-wrap pb-1">
+          {devices.map(({ key, label, isSelected }) => {
+            return (
+              <div
+                key={key}
+                className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold border ${
+                  isSelected
+                    ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30'
+                    : 'bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-white/60 border-gray-200 dark:border-white/10'
+                }`}
+              >
+                {label}
+              </div>
+            )
+          })}
+        </div>
+      </section>
+    )
+  }
+
   // Format bytes helper
   const formatBytes = (bytes) => {
     if (bytes === 0) return '0 B'
@@ -844,1149 +983,1184 @@ export default function GameDetailModal({
 
   const currentVersion = getCurrentVersion()
   const currentVersionPartCount = getDownloadPartCount(currentVersion)
+  const headerDownloadSize = getDownloadSize(game, currentVersion)
+  const canUseHeaderActions = Boolean(user && canAccessDownload && gameStatus !== 'coming_soon')
+
+  const headerActions = (
+    <div className="standalone-detail-header-actions" aria-label="Game actions">
+      <select
+        className="standalone-detail-header-version"
+        aria-label="Versi game"
+        value={String(selectedVersion)}
+        onChange={(event) => setSelectedVersion(Number(event.target.value))}
+        disabled={isDownloading || isInstalling}
+      >
+        {(versions.length > 0 ? versions : [{ version: gameVersion }])
+          .map((version, originalIndex) => ({ ...version, originalIndex }))
+          .sort((a, b) => compareVersions(a.version, b.version))
+          .map((version) => (
+            <option key={version.originalIndex} value={String(version.originalIndex)}>
+              {version.version || gameVersion}
+            </option>
+          ))}
+      </select>
+      <button
+        type="button"
+        className="standalone-detail-header-action standalone-detail-header-action--download"
+        aria-label={headerDownloadSize ? `Unduh ${headerDownloadSize}` : 'Unduh'}
+        title={headerDownloadSize ? `Unduh ${headerDownloadSize}` : 'Unduh'}
+        onClick={connectedDevice ? handleDownloadAndInstall : handleDownload}
+        disabled={
+          !canUseHeaderActions || currentVersionPartCount === 0 || isDownloading || isInstalling
+        }
+      >
+        <Icon icon={connectedDevice ? 'bi:headset-vr' : 'mdi:download'} aria-hidden="true" />
+        {headerDownloadSize && <span>{headerDownloadSize}</span>}
+      </button>
+      <button
+        type="button"
+        className="standalone-detail-header-action standalone-detail-header-action--update"
+        aria-label="Request Update"
+        title="Request Update"
+        onClick={() => setShowUpdateDialog(true)}
+        disabled={!canUseHeaderActions}
+      >
+        <Icon icon="mdi:update" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="standalone-detail-header-action standalone-detail-header-action--report"
+        aria-label="Lapor Masalah"
+        title="Lapor Masalah"
+        onClick={() => setShowReportDialog(true)}
+        disabled={!canUseHeaderActions}
+      >
+        <Icon icon="mdi:alert-circle" aria-hidden="true" />
+      </button>
+    </div>
+  )
 
   return (
-    <AnimatePresence
-      onExitComplete={() => {
-        if (!isOpen && !gameProp) setRenderedGame(null)
-      }}
-    >
-      {isOpen && (
-        <motion.div
-          className={
-            isPage
-              ? 'standalone-detail-shell relative min-h-full w-full'
-              : 'fixed inset-0 z-50 overflow-y-auto'
-          }
-          initial={false}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <div
+    <>
+      {headerActionsTarget && isOpen && isPage
+        ? createPortal(headerActions, headerActionsTarget)
+        : null}
+      <AnimatePresence
+        onExitComplete={() => {
+          if (!isOpen && !gameProp) setRenderedGame(null)
+        }}
+      >
+        {isOpen && (
+          <motion.div
             className={
               isPage
-                ? 'standalone-detail-frame min-h-full w-full'
-                : 'flex min-h-full items-center justify-center p-4'
+                ? 'standalone-detail-shell relative min-h-full w-full'
+                : 'fixed inset-0 z-50 overflow-y-auto'
             }
+            initial={false}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
           >
-            {/* Backdrop */}
-            {!isPage && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={onClose}
-                className="fixed inset-0 bg-black/80"
-              />
-            )}
-
-            {/* Modal Content */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            <div
               className={
                 isPage
-                  ? 'standalone-detail-panel relative w-full overflow-visible bg-white dark:bg-[#111]'
-                  : 'relative w-full max-w-2xl overflow-visible rounded-2xl bg-white shadow-2xl dark:bg-[#111]'
+                  ? 'standalone-detail-frame min-h-full w-full'
+                  : 'flex min-h-full items-center justify-center p-4'
               }
             >
-              {/* Header / Image Area with Ambient Glow */}
-              <div
-                className={
-                  isPage
-                    ? 'standalone-detail-media shrink-0'
-                    : 'shrink-0 px-4 pb-2 pt-4'
-                }
-                style={{ overflow: 'visible' }}
-              >
-                <div className="relative" style={{ overflow: 'visible' }}>
-                  {isPage ? (
-                    <StandaloneGameMedia
-                      key={game?.id || gameTitle}
-                      game={game}
-                      description={game?.metaStore?.description}
-                    />
-                  ) : (
-                    <>
-                  {/* Ambient bloom - dynamic video or blurred image behind cover/video */}
-                  {game?.videoIdYouTube ? (
-                    <div
-                      className="absolute pointer-events-none select-none overflow-hidden"
-                      style={{
-                        top: '-10%',
-                        left: '-10%',
-                        right: '-10%',
-                        bottom: '-10%',
-                        width: '120%',
-                        height: '120%',
-                        filter: 'blur(40px) brightness(0.8)',
-                        opacity: 0.8,
-                        zIndex: 0
-                      }}
-                    >
-                      <iframe
-                        ref={glowRef}
-                        src={`https://www.youtube.com/embed/${game.videoIdYouTube}?autoplay=0&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${game.videoIdYouTube}&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.protocol === 'file:' ? 'https://hypertopia.web.id' : window.location.origin)}`}
-                        className="w-full h-full scale-110"
-                        style={{ pointerEvents: 'none' }}
-                      />
-                    </div>
-                  ) : (
-                    (game?.videoIdYouTube || coverUrl) && (
-                      <motion.img
-                        src={
-                          game?.videoIdYouTube
-                            ? `https://img.youtube.com/vi/${game.videoIdYouTube}/maxresdefault.jpg`
-                            : coverUrl
-                        }
-                        onError={(e) => {
-                          if (game?.videoIdYouTube && e.target.src.includes('maxresdefault')) {
-                            e.target.src = `https://img.youtube.com/vi/${game.videoIdYouTube}/hqdefault.jpg`
-                          } else if (coverUrl) {
-                            e.target.src = coverUrl
-                          }
-                        }}
-                        alt=""
-                        aria-hidden="true"
-                        className="absolute rounded-2xl object-cover pointer-events-none select-none"
-                        animate={{
-                          scale: [1, 1.07, 1.03, 1.08, 1],
-                          x: [0, 10, -8, 6, 0],
-                          y: [0, -8, 6, -5, 0],
-                          opacity: [0.72, 0.88, 0.68, 0.85, 0.72]
-                        }}
-                        transition={{
-                          duration: 9,
-                          ease: 'easeInOut',
-                          repeat: Infinity,
-                          repeatType: 'loop'
-                        }}
-                        style={{
-                          top: '-8px',
-                          left: '0px',
-                          right: '0px',
-                          bottom: '-8px',
-                          width: 'calc(100% + 32px)',
-                          height: 'calc(100% + 20px)',
-                          filter: 'blur(24px) brightness(0.7)',
-                          zIndex: 0
-                        }}
-                      />
-                    )
-                  )}
-
-                  <div
-                    className="relative aspect-video w-full rounded-2xl overflow-hidden"
-                    style={{ zIndex: 1 }}
-                  >
-                    {game?.videoIdYouTube ? (
-                      <>
-                        {/* YouTube iframe */}
-                        <iframe
-                          ref={iframeRef}
-                          key={game.videoIdYouTube}
-                          src={`https://www.youtube.com/embed/${game.videoIdYouTube}?autoplay=0&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${game.videoIdYouTube}&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.protocol === 'file:' ? 'https://hypertopia.web.id' : window.location.origin)}`}
-                          title={gameTitle}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          className="w-full h-full border-0"
-                        />
-                        {/* Poster overlay covers iframe for first 2 seconds */}
-                        {!videoReady && (
-                          <div className="absolute inset-0">
-                            {coverUrl ? (
-                              <img
-                                src={coverUrl}
-                                alt={gameTitle}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gray-900 dark:bg-[#0a0a0a] flex items-center justify-center">
-                                <div className="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    ) : coverUrl ? (
-                      <img src={coverUrl} alt={gameTitle} className="w-full h-full object-cover" />
-                    ) : loadingImage ? (
-                      <div className="w-full h-full bg-gray-100 dark:bg-[#0a0a0a] flex items-center justify-center">
-                        <div className="w-10 h-10 border-3 border-gray-200 dark:border-white/10 border-t-[#0081FB] rounded-full animate-spin" />
-                      </div>
-                    ) : (
-                      <div className="w-full h-full bg-gray-100 dark:bg-[#1a1a1a] flex flex-col items-center justify-center">
-                        <Icon
-                          icon="mdi:image-off"
-                          className="w-16 h-16 text-gray-300 dark:text-white/20"
-                        />
-                        <span className="text-gray-400 dark:text-white/30 text-sm mt-2">
-                          No Cover Image
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Gradient overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-
-                    {/* Close button */}
-                    <button
-                      onClick={onClose}
-                      className="absolute top-3 right-3 p-2 bg-black/40 hover:bg-black/60 text-white rounded-full transition-colors z-10"
-                    >
-                      <Icon icon="mdi:close" className="w-5 h-5" />
-                    </button>
-
-                    {/* v76+ Badge - top left of cover */}
-                    {currentVersion.isSupportedV76 && (
-                      <div className="absolute top-3 left-3 group z-10">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-500 text-white text-sm font-bold rounded-lg shadow-md cursor-help">
-                          <Icon icon="mdi:alert-circle" className="w-3.5 h-3.5" />
-                          <span>v76+</span>
-                        </div>
-                        {/* Tooltip */}
-                        <div className="absolute top-full left-0 mt-2 w-56 px-3 py-2.5 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-30">
-                          <p className="text-xs text-gray-800 dark:text-white font-semibold mb-1">
-                            {t('v76_tooltip_title') || 'Requires Firmware v76+'}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-white/50 leading-relaxed">
-                            {t('v76_tooltip_desc') ||
-                              'This game requires Quest firmware version 76 or higher to play.'}
-                          </p>
-                          <div className="absolute bottom-full left-3 w-2 h-2 bg-white dark:bg-[#1a1a1a] border-t border-l border-gray-200 dark:border-white/10 rotate-45 translate-y-1" />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Video controls - bottom right */}
-                    {game?.videoIdYouTube && videoReady && (
-                      <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2">
-                        <Tooltip content={t('video_restart')} side="left">
-                          <button
-                            onClick={() => {
-                              postYTCommand('seekTo', [0, true])
-                              postYTCommand('playVideo')
-                              setIsPlaying(true)
-                            }}
-                            className="w-9 h-9 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white transition-all duration-200"
-                          >
-                            <Icon icon="mdi:restart" className="w-4 h-4" />
-                          </button>
-                        </Tooltip>
-
-                        <Tooltip
-                          content={isPlaying ? t('video_pause') : t('video_play')}
-                          side="left"
-                        >
-                          <button
-                            onClick={() => {
-                              postYTCommand(isPlaying ? 'pauseVideo' : 'playVideo')
-                              setIsPlaying((p) => !p)
-                            }}
-                            className="w-9 h-9 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white transition-all duration-200"
-                          >
-                            <Icon icon={isPlaying ? 'mdi:pause' : 'mdi:play'} className="w-4 h-4" />
-                          </button>
-                        </Tooltip>
-
-                        <div className="flex items-center group/volume h-9">
-                          <div
-                            className={`flex items-center transition-all duration-500 rounded-full ${
-                              !isMuted
-                                ? 'hover:bg-black/60 hover:backdrop-blur-md hover:pr-3 hover:gap-2'
-                                : ''
-                            }`}
-                          >
-                            <Tooltip
-                              content={isMuted ? t('video_unmute') : t('video_mute')}
-                              side="left"
-                            >
-                              <button
-                                onClick={() => {
-                                  postYTCommand(isMuted ? 'unMute' : 'mute')
-                                  if (isMuted) postYTCommand('setVolume', [volume])
-                                  setIsMuted((p) => !p)
-                                }}
-                                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 outline-none focus:outline-none ${
-                                  isMuted
-                                    ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg'
-                                    : 'bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white group-hover/volume:bg-transparent group-hover/volume:backdrop-blur-none'
-                                }`}
-                              >
-                                <Icon
-                                  icon={isMuted ? 'mdi:volume-off' : 'mdi:volume-high'}
-                                  className="w-5 h-5"
-                                />
-                              </button>
-                            </Tooltip>
-
-                            {!isMuted && (
-                              <div className="flex items-center gap-2 max-w-0 opacity-0 group-hover/volume:max-w-[200px] group-hover/volume:opacity-100 transition-all duration-500 overflow-hidden">
-                                <div className="relative flex items-center">
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    value={volume}
-                                    onChange={(e) => {
-                                      const val = parseInt(e.target.value)
-                                      setVolume(val)
-                                      postYTCommand('setVolume', [val])
-                                    }}
-                                    className="w-20 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white hover:bg-white/40 transition-colors outline-none focus:outline-none"
-                                    style={{
-                                      background: `linear-gradient(to right, white ${volume}%, rgba(255, 255, 255, 0.3) ${volume}%)`
-                                    }}
-                                  />
-                                </div>
-                                <span className="text-[10px] font-bold text-white min-w-[24px] tabular-nums">
-                                  {volume}%
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className={isPage ? 'standalone-detail-info-column' : undefined}>
-                {/* Title & Badges */}
-                <div
-                  className={
-                    isPage
-                      ? 'standalone-detail-title shrink-0 px-0 pt-0'
-                      : 'shrink-0 px-6 pb-0 pt-4'
-                  }
-                >
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  {gameTitle}
-                </h2>
-                {isPage && <StandaloneGameMetaIdentity game={game} />}
-                {/* Device Support Badges */}
-                {isPage && <h3 className="standalone-detail-page__support-label">Dukungan Quest</h3>}
-                <div className="standalone-detail-page__support-list flex gap-2 items-center flex-wrap pb-1">
-                  {(() => {
-                    const deviceToKeyMap = {
-                      quest1: 'supportMetaQuest1',
-                      quest2: 'supportMetaQuest2',
-                      quest3: 'supportMetaQuest3',
-                      quest3s: 'supportMetaQuest3S',
-                      questPro: 'supportMetaQuestPro'
-                    }
-                    const selectedKey = selectedDevice ? deviceToKeyMap[selectedDevice] : null
-                    return getSupportedDevices().map(([quest]) => {
-                      const questInfo = getQuestInfo(quest)
-                      const isSelected = quest === selectedKey
-                      return (
-                        <div
-                          key={quest}
-                          className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold border ${
-                            isSelected
-                              ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30'
-                              : 'bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-white/60 border-gray-200 dark:border-white/10'
-                          }`}
-                        >
-                          {questInfo.fullName}
-                        </div>
-                      )
-                    })
-                  })()}
-                </div>
-                <section className="standalone-detail-review-card" aria-labelledby="desktop-compatibility-review-title">
-                  <div className="standalone-detail-review-card__copy">
-                    <div className="standalone-detail-review-card__heading">
-                      <Icon icon="ri:meta-line" aria-hidden="true" />
-                      <h3 id="desktop-compatibility-review-title">Review Kompatibilitas</h3>
-                    </div>
-                    {game?.compatibilityReviewSummary?.reviewCount ? (
-                      <p className="standalone-detail-review-card__rating">
-                        <span aria-hidden="true">★</span>
-                        <strong>{Number(game.compatibilityReviewSummary.averageRating || 0).toFixed(1)}</strong>
-                        <span>({game.compatibilityReviewSummary.reviewCount} review)</span>
-                      </p>
-                    ) : (
-                      <p className="standalone-detail-review-card__empty">Belum ada review</p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowCompatibilityReviews(true)}
-                    className="standalone-detail-review-card__button"
-                  >
-                    Lihat review
-                  </button>
-                </section>
-                </div>
-
-                {/* Content Body */}
-                <div className={isPage ? 'standalone-detail-body p-0' : 'p-6'}>
-                {isPage && <StandaloneGameMetaOverview game={game} showDescription={false} />}
-                {/* Main actions area */}
-                {user && canAccessDownload ? (
-                  <div className="standalone-detail-download-actions space-y-4">
-                    {/* Version selector */}
-                    {(versions.length > 0 || gameVersion) && (
-                      <div className="relative version-selector">
-                        <label className="block text-sm font-medium text-gray-500 dark:text-white/50 mb-2">
-                          {t('select_version') || 'Select Version'}
-                        </label>
-                        <button
-                          onClick={() => setShowVersionSelector(!showVersionSelector)}
-                          className="w-full h-12 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between px-4 rounded-xl border border-gray-200 dark:border-white/10"
-                        >
-                          <span className="font-semibold text-gray-900 dark:text-white">
-                            {currentVersion.version || gameVersion}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-600 dark:text-white/50 font-medium flex items-center gap-1">
-                              <Icon icon="mdi:download" className="w-3.5 h-3.5" />
-                              {formatDownloadCount(currentVersion.downloadCount || 0)}
-                            </span>
-                            {currentVersion.isSupportedV76 && (
-                              <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full font-bold">
-                                v76+
-                              </span>
-                            )}
-                            {currentVersion.mixedReality === 'yes' && (
-                              <span className="text-xs bg-[#0081FB] text-white px-2 py-0.5 rounded-full font-bold">
-                                MR
-                              </span>
-                            )}
-                            <Icon
-                              icon="heroicons:chevron-down"
-                              className={`w-5 h-5 text-gray-400 dark:text-white/50 transition-transform ${showVersionSelector ? 'rotate-180' : ''}`}
-                            />
-                          </div>
-                        </button>
-
-                        {/* Version dropdown */}
-                        <AnimatePresence>
-                          {showVersionSelector && versions.length > 0 && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-20 overflow-hidden max-h-48 overflow-y-auto custom-scrollbar"
-                            >
-                              {[...versions]
-                                .map((version, originalIndex) => ({ ...version, originalIndex }))
-                                .sort((a, b) => compareVersions(a.version, b.version))
-                                .map((version) => (
-                                  <button
-                                    key={version.originalIndex}
-                                    onClick={() => {
-                                      setSelectedVersion(version.originalIndex)
-                                      setShowVersionSelector(false)
-                                    }}
-                                    className={`w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors flex justify-between items-center ${
-                                      version.originalIndex === selectedVersion
-                                        ? 'bg-[#0081FB]/10'
-                                        : ''
-                                    }`}
-                                  >
-                                    <span
-                                      className={`font-medium ${version.originalIndex === selectedVersion ? 'text-[#0081FB]' : 'text-gray-900 dark:text-white'}`}
-                                    >
-                                      {version.version}
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs text-gray-600 dark:text-white/50 font-medium flex items-center gap-1">
-                                        <Icon icon="mdi:download" className="w-3.5 h-3.5" />
-                                        {formatDownloadCount(version.downloadCount || 0)}
-                                      </span>
-                                      {version.isSupportedV76 && (
-                                        <span className="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                          v76+
-                                        </span>
-                                      )}
-                                      {version.originalIndex === selectedVersion && (
-                                        <Icon icon="mdi:check" className="w-4 h-4 text-[#0081FB]" />
-                                      )}
-                                    </div>
-                                  </button>
-                                ))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    )}
-
-                    {/* Download / Install buttons */}
-                    <div className="flex flex-col gap-3 mt-4">
-                      {gameStatus !== 'coming_soon' ? (
-                        <>
-                          {/* Multi-part games */}
-                          {currentVersionPartCount > 1 ? (
-                            areAllPartsDownloaded() ? (
-                              <button
-                                onClick={handleDeleteAllParts}
-                                disabled={isDownloading || isInstalling}
-                                className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
-                              >
-                                <Icon icon="mdi:delete-sweep" className="w-5 h-5" />
-                                {t('delete_all_files') || 'Delete All Downloaded Files'}
-                              </button>
-                            ) : (
-                              <button
-                                onClick={handleDownload}
-                                disabled={
-                                  currentVersionPartCount === 0 || isDownloading || isInstalling
-                                }
-                                className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex flex-col items-center justify-center gap-1"
-                              >
-                                {isDownloading ? (
-                                  <div className="flex items-center gap-2">
-                                    <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
-                                    {t('downloading') || 'Downloading...'}
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div className="flex items-center gap-2">
-                                      <Icon icon="mdi:download" className="w-5 h-5" />
-                                      {t('download') || 'Download'}
-                                    </div>
-                                    {areAnyPartsDownloaded() && (
-                                      <span className="text-xs text-white/90 font-normal">
-                                        {t('some_parts_downloaded') ||
-                                          'Some parts already downloaded'}
-                                      </span>
-                                    )}
-                                  </>
-                                )}
-                              </button>
-                            )
-                          ) : currentVersionPartCount === 1 && isFileDownloaded(null) ? (
-                            // Single file ALREADY downloaded → [Hapus File] + [Instal Game] in flex-row
-                            <div className="flex flex-row gap-3">
-                              <button
-                                onClick={() => handleDeleteFile(null)}
-                                disabled={
-                                  isDownloading || (showWidget && !downloadComplete) || isInstalling
-                                }
-                                className="flex-1 py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
-                              >
-                                <Icon icon="mdi:delete" className="w-5 h-5" />
-                                {t('delete_file') || 'Delete File'}
-                              </button>
-                              <button
-                                onClick={handleDownloadAndInstall}
-                                disabled={
-                                  !connectedDevice ||
-                                  currentVersionPartCount === 0 ||
-                                  isDownloading ||
-                                  isInstalling
-                                }
-                                className="flex-1 py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
-                              >
-                                {isInstalling ? (
-                                  <div className="flex items-center gap-2">
-                                    <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
-                                    {t('installing') || 'Installing...'}
-                                  </div>
-                                ) : (
-                                  <>
-                                    <Icon icon="bi:headset-vr" className="w-5 h-5" />
-                                    {t('install_game') || 'Install Game'}
-                                    {connectedDevice && deviceModel && (
-                                      <span className="text-xs bg-white/20 px-2 py-1 rounded">
-                                        {deviceModel}
-                                      </span>
-                                    )}
-                                    {!connectedDevice && (
-                                      <span className="text-[10px] opacity-60">
-                                        {t('no_device_connected') || 'No device'}
-                                      </span>
-                                    )}
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          ) : connectedDevice ? (
-                            // Single file NOT downloaded + device connected → [Unduh & Install]
-                            <button
-                              onClick={handleDownloadAndInstall}
-                              disabled={
-                                currentVersionPartCount === 0 || isDownloading || isInstalling
-                              }
-                              className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
-                            >
-                              {isInstalling ? (
-                                <div className="flex items-center gap-2">
-                                  <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
-                                  {t('installing') || 'Installing...'}
-                                </div>
-                              ) : isDownloading ? (
-                                <div className="flex items-center gap-2">
-                                  <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
-                                  {t('downloading') || 'Downloading...'}
-                                </div>
-                              ) : (
-                                <>
-                                  <Icon icon="bi:headset-vr" className="w-5 h-5" />
-                                  {t('download_and_install') || 'Download & Install to Quest'}
-                                  {deviceModel && (
-                                    <span className="text-xs bg-white/20 px-2 py-1 rounded">
-                                      {deviceModel}
-                                    </span>
-                                  )}
-                                </>
-                              )}
-                            </button>
-                          ) : (
-                            // Single file NOT downloaded + NO device → [Download] only
-                            <button
-                              onClick={handleDownload}
-                              disabled={
-                                currentVersionPartCount === 0 || isDownloading || isInstalling
-                              }
-                              className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
-                            >
-                              {isDownloading ? (
-                                <>
-                                  <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
-                                  {t('downloading') || 'Downloading...'}
-                                </>
-                              ) : (
-                                <>
-                                  <Icon icon="mdi:download" className="w-5 h-5" />
-                                  {t('download') || 'Download'}
-                                </>
-                              )}
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <button
-                          disabled
-                          className="w-full py-3.5 bg-gray-100 dark:bg-white/10 text-gray-400 dark:text-white/50 rounded-xl font-medium text-base cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                          <Icon icon="mdi:clock-outline" className="w-5 h-5" />
-                          {t('coming_soon') || 'Coming Soon'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-4 bg-gray-100 dark:bg-white/5 rounded-xl text-center text-gray-500 dark:text-white/50 text-sm">
-                    {!user
-                      ? t('login_required') || 'Please login to download'
-                      : t('not_eligible') || 'You are not eligible to access downloads'}
-                  </div>
-                )}
-
-                {/* Update & Report Buttons */}
-                {user && canAccessDownload && gameStatus !== 'coming_soon' && (
-                  <div className="standalone-detail-request-actions flex gap-2 mt-3">
-                    <button
-                      onClick={() => setShowUpdateDialog(true)}
-                      className="flex-1 py-2.5 px-4 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 border border-yellow-500/20"
-                    >
-                      <Icon icon="mdi:update" className="w-4 h-4" />
-                      {t('request_type_update') || 'Request Update'}
-                    </button>
-                    <button
-                      onClick={() => setShowReportDialog(true)}
-                      className="flex-1 py-2.5 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 border border-red-500/20"
-                    >
-                      <Icon icon="mdi:alert-circle" className="w-4 h-4" />
-                      {t('request_type_report') || 'Report Issue'}
-                    </button>
-                  </div>
-                )}
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Download Parts Modal */}
-            <AnimatePresence>
-              {showDownloadParts && (
+              {/* Backdrop */}
+              {!isPage && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-60 flex items-center justify-center p-4"
+                  onClick={onClose}
+                  className="fixed inset-0 bg-black/80"
+                />
+              )}
+
+              {/* Modal Content */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className={
+                  isPage
+                    ? 'standalone-detail-panel relative w-full overflow-visible bg-white dark:bg-[#111]'
+                    : 'relative w-full max-w-2xl overflow-visible rounded-2xl bg-white shadow-2xl dark:bg-[#111]'
+                }
+              >
+                {/* Header / Image Area with Ambient Glow */}
+                <div
+                  className={
+                    isPage ? 'standalone-detail-media shrink-0' : 'shrink-0 px-4 pb-2 pt-4'
+                  }
+                  style={{ overflow: 'visible' }}
                 >
-                  <div
-                    className="fixed inset-0 bg-black/60"
-                    onClick={() => setShowDownloadParts(false)}
-                  />
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
-                  >
-                    <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-white/10">
-                      <h3 className="font-bold text-lg text-gray-900 dark:text-white">
-                        {t('download_parts') || 'Download Parts'}
-                      </h3>
-                      <button
-                        onClick={() => setShowDownloadParts(false)}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors"
-                      >
-                        <Icon
-                          icon="mdi:close"
-                          className="w-5 h-5 text-gray-500 dark:text-white/60"
-                        />
-                      </button>
-                    </div>
-                    <div className="p-4 space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
-                      <p className="text-sm text-red-600 dark:text-red-400 mb-3">
-                        {t('download_all_parts_warning') ||
-                          'You must download all parts for the game to work!'}
-                      </p>
+                  <div className="relative" style={{ overflow: 'visible' }}>
+                    {isPage ? (
+                      <StandaloneGameMedia
+                        key={game?.id || gameTitle}
+                        game={game}
+                        description={game?.metaStore?.description}
+                        descriptionHtml={game?.metaStore?.descriptionHtml}
+                        isLiked={isLiked}
+                        favoriteCount={Math.max(localLikedCount, isLiked ? 1 : 0)}
+                        onFavoriteToggle={handleFavoriteToggle}
+                        isFavoritePending={isFavoritePending}
+                      />
+                    ) : (
+                      <>
+                        {/* Ambient bloom - dynamic video or blurred image behind cover/video */}
+                        {game?.videoIdYouTube ? (
+                          <div
+                            className="absolute pointer-events-none select-none overflow-hidden"
+                            style={{
+                              top: '-10%',
+                              left: '-10%',
+                              right: '-10%',
+                              bottom: '-10%',
+                              width: '120%',
+                              height: '120%',
+                              filter: 'blur(40px) brightness(0.8)',
+                              opacity: 0.8,
+                              zIndex: 0
+                            }}
+                          >
+                            <iframe
+                              ref={glowRef}
+                              src={`https://www.youtube.com/embed/${game.videoIdYouTube}?autoplay=0&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${game.videoIdYouTube}&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.protocol === 'file:' ? 'https://hypertopia.web.id' : window.location.origin)}`}
+                              className="w-full h-full scale-110"
+                              style={{ pointerEvents: 'none' }}
+                            />
+                          </div>
+                        ) : (
+                          (game?.videoIdYouTube || coverUrl) && (
+                            <motion.img
+                              src={
+                                game?.videoIdYouTube
+                                  ? `https://img.youtube.com/vi/${game.videoIdYouTube}/maxresdefault.jpg`
+                                  : coverUrl
+                              }
+                              onError={(e) => {
+                                if (
+                                  game?.videoIdYouTube &&
+                                  e.target.src.includes('maxresdefault')
+                                ) {
+                                  e.target.src = `https://img.youtube.com/vi/${game.videoIdYouTube}/hqdefault.jpg`
+                                } else if (coverUrl) {
+                                  e.target.src = coverUrl
+                                }
+                              }}
+                              alt=""
+                              aria-hidden="true"
+                              className="absolute rounded-2xl object-cover pointer-events-none select-none"
+                              animate={{
+                                scale: [1, 1.07, 1.03, 1.08, 1],
+                                x: [0, 10, -8, 6, 0],
+                                y: [0, -8, 6, -5, 0],
+                                opacity: [0.72, 0.88, 0.68, 0.85, 0.72]
+                              }}
+                              transition={{
+                                duration: 9,
+                                ease: 'easeInOut',
+                                repeat: Infinity,
+                                repeatType: 'loop'
+                              }}
+                              style={{
+                                top: '-8px',
+                                left: '0px',
+                                right: '0px',
+                                bottom: '-8px',
+                                width: 'calc(100% + 32px)',
+                                height: 'calc(100% + 20px)',
+                                filter: 'blur(24px) brightness(0.7)',
+                                zIndex: 0
+                              }}
+                            />
+                          )
+                        )}
 
-                      {/* Download Progress */}
-                      {isDownloading && (
-                        <div className="mb-4 p-3 rounded-xl border border-[#0081FB]/30 bg-[#0081FB]/5">
-                          <p className="text-sm text-gray-800 dark:text-white/80 mb-2 truncate">
-                            {downloadInfo.fileName}
-                          </p>
-
-                          {downloadInfo.status === 'downloading' && downloadInfo.totalBytes > 0 ? (
+                        <div
+                          className="relative aspect-video w-full rounded-2xl overflow-hidden"
+                          style={{ zIndex: 1 }}
+                        >
+                          {game?.videoIdYouTube ? (
                             <>
-                              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-white/50 mb-1">
-                                <span>
-                                  {formatBytes(downloadInfo.downloadedBytes)} /{' '}
-                                  {formatBytes(downloadInfo.totalBytes)}
-                                </span>
-                                <span>
-                                  {Math.round(
-                                    (downloadInfo.downloadedBytes / downloadInfo.totalBytes) * 100
-                                  )}
-                                  %
-                                </span>
-                              </div>
-                              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
-                                <div
-                                  className="h-full bg-linear-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
-                                  style={{
-                                    width: `${Math.min(100, (downloadInfo.downloadedBytes / downloadInfo.totalBytes) * 100)}%`
-                                  }}
-                                />
-                              </div>
-                              <div className="mt-2 flex items-center justify-between text-xs text-gray-400 dark:text-white/40">
-                                <span className="flex items-center gap-1">
-                                  <Icon icon="mdi:speedometer" className="h-3 w-3" />
-                                  {formatSpeed(downloadInfo.speed)}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Icon icon="mdi:clock-outline" className="h-3 w-3" />
-                                  {t('qgo_eta') || 'ETA'}:{' '}
-                                  {formatEta(
-                                    downloadInfo.totalBytes - downloadInfo.downloadedBytes,
-                                    downloadInfo.speed
-                                  )}
-                                </span>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="flex items-center justify-center py-2">
-                              <Icon
-                                icon="mdi:loading"
-                                className="h-6 w-6 animate-spin text-[#0081FB]"
+                              {/* YouTube iframe */}
+                              <iframe
+                                ref={iframeRef}
+                                key={game.videoIdYouTube}
+                                src={`https://www.youtube.com/embed/${game.videoIdYouTube}?autoplay=0&mute=1&controls=0&modestbranding=1&rel=0&loop=1&playlist=${game.videoIdYouTube}&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.protocol === 'file:' ? 'https://hypertopia.web.id' : window.location.origin)}`}
+                                title={gameTitle}
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                className="w-full h-full border-0"
                               />
-                              <span className="ml-2 text-sm text-gray-500 dark:text-white/60">
-                                {t('qgo_preparing') || 'Preparing...'}
+                              {/* Poster overlay covers iframe for first 2 seconds */}
+                              {!videoReady && (
+                                <div className="absolute inset-0">
+                                  {coverUrl ? (
+                                    <img
+                                      src={coverUrl}
+                                      alt={gameTitle}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gray-900 dark:bg-[#0a0a0a] flex items-center justify-center">
+                                      <div className="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </>
+                          ) : coverUrl ? (
+                            <img
+                              src={coverUrl}
+                              alt={gameTitle}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : loadingImage ? (
+                            <div className="w-full h-full bg-gray-100 dark:bg-[#0a0a0a] flex items-center justify-center">
+                              <div className="w-10 h-10 border-3 border-gray-200 dark:border-white/10 border-t-[#0081FB] rounded-full animate-spin" />
+                            </div>
+                          ) : (
+                            <div className="w-full h-full bg-gray-100 dark:bg-[#1a1a1a] flex flex-col items-center justify-center">
+                              <Icon
+                                icon="mdi:image-off"
+                                className="w-16 h-16 text-gray-300 dark:text-white/20"
+                              />
+                              <span className="text-gray-400 dark:text-white/30 text-sm mt-2">
+                                No Cover Image
                               </span>
                             </div>
                           )}
-                          {/* Cancel Download Button */}
+
+                          {/* Gradient overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+                          {/* Close button */}
+                          <button
+                            onClick={onClose}
+                            className="absolute top-3 right-3 p-2 bg-black/40 hover:bg-black/60 text-white rounded-full transition-colors z-10"
+                          >
+                            <Icon icon="mdi:close" className="w-5 h-5" />
+                          </button>
+
+                          {/* v76+ Badge - top left of cover */}
+                          {currentVersion.isSupportedV76 && (
+                            <div className="absolute top-3 left-3 group z-10">
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-500 text-white text-sm font-bold rounded-lg shadow-md cursor-help">
+                                <Icon icon="mdi:alert-circle" className="w-3.5 h-3.5" />
+                                <span>v76+</span>
+                              </div>
+                              {/* Tooltip */}
+                              <div className="absolute top-full left-0 mt-2 w-56 px-3 py-2.5 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-30">
+                                <p className="text-xs text-gray-800 dark:text-white font-semibold mb-1">
+                                  {t('v76_tooltip_title') || 'Requires Firmware v76+'}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-white/50 leading-relaxed">
+                                  {t('v76_tooltip_desc') ||
+                                    'This game requires Quest firmware version 76 or higher to play.'}
+                                </p>
+                                <div className="absolute bottom-full left-3 w-2 h-2 bg-white dark:bg-[#1a1a1a] border-t border-l border-gray-200 dark:border-white/10 rotate-45 translate-y-1" />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Video controls - bottom right */}
+                          {game?.videoIdYouTube && videoReady && (
+                            <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2">
+                              <Tooltip content={t('video_restart')} side="left">
+                                <button
+                                  onClick={() => {
+                                    postYTCommand('seekTo', [0, true])
+                                    postYTCommand('playVideo')
+                                    setIsPlaying(true)
+                                  }}
+                                  className="w-9 h-9 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white transition-all duration-200"
+                                >
+                                  <Icon icon="mdi:restart" className="w-4 h-4" />
+                                </button>
+                              </Tooltip>
+
+                              <Tooltip
+                                content={isPlaying ? t('video_pause') : t('video_play')}
+                                side="left"
+                              >
+                                <button
+                                  onClick={() => {
+                                    postYTCommand(isPlaying ? 'pauseVideo' : 'playVideo')
+                                    setIsPlaying((p) => !p)
+                                  }}
+                                  className="w-9 h-9 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white transition-all duration-200"
+                                >
+                                  <Icon
+                                    icon={isPlaying ? 'mdi:pause' : 'mdi:play'}
+                                    className="w-4 h-4"
+                                  />
+                                </button>
+                              </Tooltip>
+
+                              <div className="flex items-center group/volume h-9">
+                                <div
+                                  className={`flex items-center transition-all duration-500 rounded-full ${
+                                    !isMuted
+                                      ? 'hover:bg-black/60 hover:backdrop-blur-md hover:pr-3 hover:gap-2'
+                                      : ''
+                                  }`}
+                                >
+                                  <Tooltip
+                                    content={isMuted ? t('video_unmute') : t('video_mute')}
+                                    side="left"
+                                  >
+                                    <button
+                                      onClick={() => {
+                                        postYTCommand(isMuted ? 'unMute' : 'mute')
+                                        if (isMuted) postYTCommand('setVolume', [volume])
+                                        setIsMuted((p) => !p)
+                                      }}
+                                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 outline-none focus:outline-none ${
+                                        isMuted
+                                          ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg'
+                                          : 'bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white group-hover/volume:bg-transparent group-hover/volume:backdrop-blur-none'
+                                      }`}
+                                    >
+                                      <Icon
+                                        icon={isMuted ? 'mdi:volume-off' : 'mdi:volume-high'}
+                                        className="w-5 h-5"
+                                      />
+                                    </button>
+                                  </Tooltip>
+
+                                  {!isMuted && (
+                                    <div className="flex items-center gap-2 max-w-0 opacity-0 group-hover/volume:max-w-[200px] group-hover/volume:opacity-100 transition-all duration-500 overflow-hidden">
+                                      <div className="relative flex items-center">
+                                        <input
+                                          type="range"
+                                          min="0"
+                                          max="100"
+                                          value={volume}
+                                          onChange={(e) => {
+                                            const val = parseInt(e.target.value)
+                                            setVolume(val)
+                                            postYTCommand('setVolume', [val])
+                                          }}
+                                          className="w-20 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white hover:bg-white/40 transition-colors outline-none focus:outline-none"
+                                          style={{
+                                            background: `linear-gradient(to right, white ${volume}%, rgba(255, 255, 255, 0.3) ${volume}%)`
+                                          }}
+                                        />
+                                      </div>
+                                      <span className="text-[10px] font-bold text-white min-w-[24px] tabular-nums">
+                                        {volume}%
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div
+                  className={
+                    isPage
+                      ? 'standalone-detail-info-column standalone-detail-info-column--sticky'
+                      : undefined
+                  }
+                  data-testid={isPage ? 'standalone-detail-info-column' : undefined}
+                >
+                  {/* Title & Badges */}
+                  <div
+                    className={
+                      isPage
+                        ? 'standalone-detail-title shrink-0 px-0 pt-0'
+                        : 'shrink-0 px-6 pb-0 pt-4'
+                    }
+                  >
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                      {gameTitle}
+                    </h2>
+                    {isPage && <StandaloneGameMetaIdentity game={game} />}
+                    {!isPage && renderQuestSupport()}
+                  </div>
+
+                  {/* Content Body */}
+                  <div className={isPage ? 'standalone-detail-body p-0' : 'p-6'}>
+                    {isPage && (
+                      <>
+                        <StandaloneGameMetaOverview
+                          game={game}
+                          showDescription={false}
+                          questSupport={getQuestSupportItems()}
+                        />
+                      </>
+                    )}
+                    {/* Main actions area */}
+                    {user && canAccessDownload ? (
+                      <div className="standalone-detail-download-actions space-y-2">
+                        {/* Version selector */}
+                        {(versions.length > 0 || gameVersion) && (
+                          <div className="relative version-selector">
+                            <button
+                              aria-label={t('select_version') || 'Select Version'}
+                              onClick={() => setShowVersionSelector(!showVersionSelector)}
+                              className="w-full h-12 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors flex items-center justify-between px-4 rounded-xl border border-gray-200 dark:border-white/10"
+                            >
+                              <span className="font-semibold text-gray-900 dark:text-white">
+                                {currentVersion.version || gameVersion}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-600 dark:text-white/50 font-medium flex items-center gap-1">
+                                  <Icon icon="mdi:download" className="w-3.5 h-3.5" />
+                                  {formatDownloadCount(currentVersion.downloadCount || 0)}
+                                </span>
+                                {currentVersion.isSupportedV76 && (
+                                  <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full font-bold">
+                                    v76+
+                                  </span>
+                                )}
+                                {currentVersion.mixedReality === 'yes' && (
+                                  <span className="text-xs bg-[#0081FB] text-white px-2 py-0.5 rounded-full font-bold">
+                                    MR
+                                  </span>
+                                )}
+                                <Icon
+                                  icon="heroicons:chevron-down"
+                                  className={`w-5 h-5 text-gray-400 dark:text-white/50 transition-transform ${showVersionSelector ? 'rotate-180' : ''}`}
+                                />
+                              </div>
+                            </button>
+
+                            {/* Version dropdown */}
+                            <AnimatePresence>
+                              {showVersionSelector && versions.length > 0 && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -10 }}
+                                  className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-20 overflow-hidden max-h-48 overflow-y-auto custom-scrollbar"
+                                >
+                                  {[...versions]
+                                    .map((version, originalIndex) => ({
+                                      ...version,
+                                      originalIndex
+                                    }))
+                                    .sort((a, b) => compareVersions(a.version, b.version))
+                                    .map((version) => (
+                                      <button
+                                        key={version.originalIndex}
+                                        onClick={() => {
+                                          setSelectedVersion(version.originalIndex)
+                                          setShowVersionSelector(false)
+                                        }}
+                                        className={`w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors flex justify-between items-center ${
+                                          version.originalIndex === selectedVersion
+                                            ? 'bg-[#0081FB]/10'
+                                            : ''
+                                        }`}
+                                      >
+                                        <span
+                                          className={`font-medium ${version.originalIndex === selectedVersion ? 'text-[#0081FB]' : 'text-gray-900 dark:text-white'}`}
+                                        >
+                                          {version.version}
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-gray-600 dark:text-white/50 font-medium flex items-center gap-1">
+                                            <Icon icon="mdi:download" className="w-3.5 h-3.5" />
+                                            {formatDownloadCount(version.downloadCount || 0)}
+                                          </span>
+                                          {version.isSupportedV76 && (
+                                            <span className="text-xs bg-red-500 text-white px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                              v76+
+                                            </span>
+                                          )}
+                                          {version.originalIndex === selectedVersion && (
+                                            <Icon
+                                              icon="mdi:check"
+                                              className="w-4 h-4 text-[#0081FB]"
+                                            />
+                                          )}
+                                        </div>
+                                      </button>
+                                    ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        )}
+
+                        {/* Download / Install buttons */}
+                        <div className="flex flex-col gap-3 mt-4">
+                          {gameStatus !== 'coming_soon' ? (
+                            <>
+                              {/* Multi-part games */}
+                              {currentVersionPartCount > 1 ? (
+                                areAllPartsDownloaded() ? (
+                                  <button
+                                    onClick={handleDeleteAllParts}
+                                    disabled={isDownloading || isInstalling}
+                                    className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <Icon icon="mdi:delete-sweep" className="w-5 h-5" />
+                                    {t('delete_all_files') || 'Delete All Downloaded Files'}
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={handleDownload}
+                                    disabled={
+                                      currentVersionPartCount === 0 || isDownloading || isInstalling
+                                    }
+                                    className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex flex-col items-center justify-center gap-1"
+                                  >
+                                    {isDownloading ? (
+                                      <div className="flex items-center gap-2">
+                                        <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
+                                        {t('downloading') || 'Downloading...'}
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div className="flex items-center gap-2">
+                                          <Icon icon="mdi:download" className="w-5 h-5" />
+                                          {t('download') || 'Download'}
+                                        </div>
+                                        {areAnyPartsDownloaded() && (
+                                          <span className="text-xs text-white/90 font-normal">
+                                            {t('some_parts_downloaded') ||
+                                              'Some parts already downloaded'}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                  </button>
+                                )
+                              ) : currentVersionPartCount === 1 && isFileDownloaded(null) ? (
+                                // Single file ALREADY downloaded → [Hapus File] + [Instal Game] in flex-row
+                                <div className="flex flex-row gap-3">
+                                  <button
+                                    onClick={() => handleDeleteFile(null)}
+                                    disabled={
+                                      isDownloading ||
+                                      (showWidget && !downloadComplete) ||
+                                      isInstalling
+                                    }
+                                    className="flex-1 py-3.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <Icon icon="mdi:delete" className="w-5 h-5" />
+                                    {t('delete_file') || 'Delete File'}
+                                  </button>
+                                  <button
+                                    onClick={handleDownloadAndInstall}
+                                    disabled={
+                                      !connectedDevice ||
+                                      currentVersionPartCount === 0 ||
+                                      isDownloading ||
+                                      isInstalling
+                                    }
+                                    className="flex-1 py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                                  >
+                                    {isInstalling ? (
+                                      <div className="flex items-center gap-2">
+                                        <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
+                                        {t('installing') || 'Installing...'}
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <Icon icon="bi:headset-vr" className="w-5 h-5" />
+                                        {t('install_game') || 'Install Game'}
+                                        {connectedDevice && deviceModel && (
+                                          <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                                            {deviceModel}
+                                          </span>
+                                        )}
+                                        {!connectedDevice && (
+                                          <span className="text-[10px] opacity-60">
+                                            {t('no_device_connected') || 'No device'}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              ) : connectedDevice ? (
+                                // Single file NOT downloaded + device connected → [Unduh & Install]
+                                <button
+                                  onClick={handleDownloadAndInstall}
+                                  disabled={
+                                    currentVersionPartCount === 0 || isDownloading || isInstalling
+                                  }
+                                  className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                                >
+                                  {isInstalling ? (
+                                    <div className="flex items-center gap-2">
+                                      <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
+                                      {t('installing') || 'Installing...'}
+                                    </div>
+                                  ) : isDownloading ? (
+                                    <div className="flex items-center gap-2">
+                                      <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
+                                      {t('downloading') || 'Downloading...'}
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <Icon icon="bi:headset-vr" className="w-5 h-5" />
+                                      {t('download_and_install') || 'Download & Install to Quest'}
+                                      {deviceModel && (
+                                        <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                                          {deviceModel}
+                                        </span>
+                                      )}
+                                    </>
+                                  )}
+                                </button>
+                              ) : (
+                                // Single file NOT downloaded + NO device → [Download] only
+                                <button
+                                  onClick={handleDownload}
+                                  disabled={
+                                    currentVersionPartCount === 0 || isDownloading || isInstalling
+                                  }
+                                  className="w-full py-3.5 bg-[#0081FB] hover:bg-[#0070e0] disabled:bg-gray-200 dark:disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-white/50 rounded-xl font-medium text-base disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                                >
+                                  {isDownloading ? (
+                                    <>
+                                      <Icon icon="mdi:loading" className="w-5 h-5 animate-spin" />
+                                      {t('downloading') || 'Downloading...'}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Icon icon="mdi:download" className="w-5 h-5" />
+                                      {t('download') || 'Download'}
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <button
+                              disabled
+                              className="w-full py-3.5 bg-gray-100 dark:bg-white/10 text-gray-400 dark:text-white/50 rounded-xl font-medium text-base cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                              <Icon icon="mdi:clock-outline" className="w-5 h-5" />
+                              {t('coming_soon') || 'Coming Soon'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-gray-100 dark:bg-white/5 rounded-xl text-center text-gray-500 dark:text-white/50 text-sm">
+                        {!user
+                          ? t('login_required') || 'Please login to download'
+                          : t('not_eligible') || 'You are not eligible to access downloads'}
+                      </div>
+                    )}
+
+                    {/* Update & Report Buttons */}
+                    {user && canAccessDownload && gameStatus !== 'coming_soon' && (
+                      <div className="standalone-detail-request-actions flex gap-2 mt-0">
+                        <button
+                          onClick={() => setShowUpdateDialog(true)}
+                          className="flex-1 py-2.5 px-4 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 border border-yellow-500/20"
+                        >
+                          <Icon icon="mdi:update" className="w-4 h-4" />
+                          {t('request_type_update') || 'Request Update'}
+                        </button>
+                        <button
+                          onClick={() => setShowReportDialog(true)}
+                          className="flex-1 py-2.5 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 border border-red-500/20"
+                        >
+                          <Icon icon="mdi:alert-circle" className="w-4 h-4" />
+                          {t('request_type_report') || 'Report Issue'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Download Parts Modal */}
+              <AnimatePresence>
+                {showDownloadParts && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-60 flex items-center justify-center p-4"
+                  >
+                    <div
+                      className="fixed inset-0 bg-black/60"
+                      onClick={() => setShowDownloadParts(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                      className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                    >
+                      <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-white/10">
+                        <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                          {t('download_parts') || 'Download Parts'}
+                        </h3>
+                        <button
+                          onClick={() => setShowDownloadParts(false)}
+                          className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors"
+                        >
+                          <Icon
+                            icon="mdi:close"
+                            className="w-5 h-5 text-gray-500 dark:text-white/60"
+                          />
+                        </button>
+                      </div>
+                      <div className="p-4 space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
+                        <p className="text-sm text-red-600 dark:text-red-400 mb-3">
+                          {t('download_all_parts_warning') ||
+                            'You must download all parts for the game to work!'}
+                        </p>
+
+                        {/* Download Progress */}
+                        {isDownloading && (
+                          <div className="mb-4 p-3 rounded-xl border border-[#0081FB]/30 bg-[#0081FB]/5">
+                            <p className="text-sm text-gray-800 dark:text-white/80 mb-2 truncate">
+                              {downloadInfo.fileName}
+                            </p>
+
+                            {downloadInfo.status === 'downloading' &&
+                            downloadInfo.totalBytes > 0 ? (
+                              <>
+                                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-white/50 mb-1">
+                                  <span>
+                                    {formatBytes(downloadInfo.downloadedBytes)} /{' '}
+                                    {formatBytes(downloadInfo.totalBytes)}
+                                  </span>
+                                  <span>
+                                    {Math.round(
+                                      (downloadInfo.downloadedBytes / downloadInfo.totalBytes) * 100
+                                    )}
+                                    %
+                                  </span>
+                                </div>
+                                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+                                  <div
+                                    className="h-full bg-linear-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
+                                    style={{
+                                      width: `${Math.min(100, (downloadInfo.downloadedBytes / downloadInfo.totalBytes) * 100)}%`
+                                    }}
+                                  />
+                                </div>
+                                <div className="mt-2 flex items-center justify-between text-xs text-gray-400 dark:text-white/40">
+                                  <span className="flex items-center gap-1">
+                                    <Icon icon="mdi:speedometer" className="h-3 w-3" />
+                                    {formatSpeed(downloadInfo.speed)}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Icon icon="mdi:clock-outline" className="h-3 w-3" />
+                                    {t('qgo_eta') || 'ETA'}:{' '}
+                                    {formatEta(
+                                      downloadInfo.totalBytes - downloadInfo.downloadedBytes,
+                                      downloadInfo.speed
+                                    )}
+                                  </span>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex items-center justify-center py-2">
+                                <Icon
+                                  icon="mdi:loading"
+                                  className="h-6 w-6 animate-spin text-[#0081FB]"
+                                />
+                                <span className="ml-2 text-sm text-gray-500 dark:text-white/60">
+                                  {t('qgo_preparing') || 'Preparing...'}
+                                </span>
+                              </div>
+                            )}
+                            {/* Cancel Download Button */}
+                            <button
+                              onClick={async () => {
+                                await cancelDownload()
+                                toast.info(t('download_cancelled') || 'Download Cancelled')
+                              }}
+                              className="mt-3 w-full py-2 px-4 bg-red-100 hover:bg-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/30 text-red-700 dark:text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Icon icon="mdi:close-circle" className="w-4 h-4" />
+                              {t('cancel_download') || 'Cancel Download'}
+                            </button>
+                          </div>
+                        )}
+
+                        {(currentVersion.downloadLinks || [])
+                          .filter((l) => l && l.trim())
+                          .map((link, idx) => {
+                            const partDownloaded = isFileDownloaded(idx)
+                            const fileName = getFileName(idx)
+                            const fileInfo = downloadedFiles[fileName]
+
+                            return (
+                              <div
+                                key={idx}
+                                className={`w-full flex items-center justify-between p-3 border rounded-xl transition-colors ${
+                                  partDownloaded
+                                    ? 'border-green-500/30 bg-green-500/5'
+                                    : 'border-gray-200 dark:border-white/10 hover:bg-blue-50 dark:hover:bg-[#0081FB]/10 hover:border-blue-300 dark:hover:border-[#0081FB]/30'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm transition-colors ${
+                                      partDownloaded
+                                        ? 'bg-green-500/20 text-green-400'
+                                        : 'bg-[#0081FB]/20 text-[#0081FB]'
+                                    }`}
+                                  >
+                                    {partDownloaded ? (
+                                      <Icon icon="mdi:check" className="w-5 h-5" />
+                                    ) : (
+                                      idx + 1
+                                    )}
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium text-gray-900 dark:text-white">
+                                      Part {idx + 1}
+                                    </span>
+                                    {partDownloaded && fileInfo?.size && (
+                                      <span className="text-[10px] text-green-700 dark:text-green-400">
+                                        {formatBytes(fileInfo.size)} -{' '}
+                                        {t('downloaded') || 'Downloaded'}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {partDownloaded ? (
+                                    <button
+                                      onClick={() => handleDeleteFile(idx)}
+                                      disabled={isDownloading}
+                                      className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
+                                      title={t('delete_file') || 'Delete file'}
+                                    >
+                                      <Icon icon="mdi:delete" className="w-4 h-4" />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => openDownloadLink(idx)}
+                                      disabled={isDownloading}
+                                      className="p-2 rounded-lg bg-[#0081FB]/20 hover:bg-[#0081FB]/30 text-[#0081FB] transition-colors disabled:opacity-50"
+                                      title={t('download') || 'Download'}
+                                    >
+                                      <Icon icon="mdi:download" className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Delete Confirmation Modal */}
+              <AnimatePresence>
+                {confirmDelete && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-60 flex items-center justify-center bg-black/80"
+                    onClick={() => setConfirmDelete(null)}
+                  >
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#111] p-6 shadow-2xl"
+                    >
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-3 rounded-full bg-red-500/20">
+                          <Icon icon="mdi:delete-alert" className="w-6 h-6 text-red-400" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {t('delete_confirm_title') || 'Delete Downloaded File?'}
+                        </h3>
+                      </div>
+                      <p className="text-sm text-gray-500 dark:text-white/60">
+                        {confirmDelete.isMultiple
+                          ? t('delete_confirm_desc_multiple') ||
+                            'You are about to delete the following files:'
+                          : t('delete_confirm_desc') || 'You are about to delete:'}
+                      </p>
+                      <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                        {confirmDelete.isMultiple ? (
+                          <div className="space-y-1">
+                            {confirmDelete.files.map((file, idx) => (
+                              <p
+                                key={idx}
+                                className="font-mono text-sm text-gray-700 dark:text-white/80 truncate"
+                              >
+                                {file}
+                              </p>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="font-mono text-sm text-gray-700 dark:text-white/80 truncate">
+                            {confirmDelete.fileName}
+                          </p>
+                        )}
+                      </div>
+                      <p className="mt-3 text-xs text-red-600 dark:text-red-400">
+                        {t('delete_warning') || 'This action cannot be undone.'}
+                      </p>
+                      <div className="mt-6 flex justify-end gap-2">
+                        <button
+                          onClick={() => setConfirmDelete(null)}
+                          className="rounded-lg border border-gray-300 dark:border-white/10 px-4 py-2 text-sm font-medium text-gray-600 dark:text-white/70 transition-all hover:bg-gray-100 dark:hover:bg-white/5"
+                        >
+                          {t('cancel') || 'Cancel'}
+                        </button>
+                        <button
+                          onClick={
+                            confirmDelete.isMultiple ? handleConfirmDeleteAll : handleConfirmDelete
+                          }
+                          className="rounded-lg bg-red-600 hover:bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-red-500/20 transition-all"
+                        >
+                          {t('delete') || 'Delete'}
+                        </button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Install Confirmation Modal */}
+              <AnimatePresence>
+                {confirmInstall && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-60 flex items-center justify-center p-4"
+                  >
+                    <div
+                      className="fixed inset-0 bg-black/80"
+                      onClick={() => setConfirmInstall(null)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                      className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6"
+                    >
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {t('install_confirm_title') || 'Download & Install'}
+                      </h3>
+                      <p className="mt-2 text-sm text-gray-500 dark:text-white/60">
+                        {t('install_confirm_desc') ||
+                          'This will download and install the APK directly to your Meta Quest device:'}
+                      </p>
+                      <div className="mt-4 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
+                        <p className="font-medium text-gray-900 dark:text-white">{gameTitle}</p>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-white/50">
+                          {t('qgo_version') || 'Version'}: {currentVersion.version || gameVersion}
+                        </p>
+                        <div className="mt-3 flex items-center gap-3 rounded-xl border border-[#0081FB]/25 bg-[#0081FB]/10 p-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0081FB] text-white shadow-lg shadow-[#0081FB]/20">
+                            <Icon icon="bi:headset-vr" className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[#0081FB]">
+                              {t('connected_device') || 'Device Connected'}
+                            </p>
+                            <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                              {deviceModel || connectedDevice}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-6 flex justify-end gap-2">
+                        <button
+                          onClick={() => setConfirmInstall(null)}
+                          className="rounded-lg border border-gray-300 dark:border-white/10 px-4 py-2 text-sm font-medium text-gray-600 dark:text-white/70 transition-all hover:bg-gray-100 dark:hover:bg-white/5"
+                        >
+                          {t('cancel') || 'Cancel'}
+                        </button>
+                        <button
+                          onClick={handleConfirmInstall}
+                          className="rounded-lg bg-linear-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-[#0081FB]/20 transition-all hover:shadow-xl"
+                        >
+                          {t('install') || 'Install'}
+                        </button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Install Progress Modal */}
+              <AnimatePresence>
+                {showInstallModal && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-60 flex items-center justify-center p-4"
+                  >
+                    <div className="fixed inset-0 bg-black/80" />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                      className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6"
+                    >
+                      {/* Header with minimize button */}
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {installProgress.step === 'DOWNLOADING'
+                            ? t('qgo_downloading') || 'Downloading...'
+                            : installProgress.step === 'EXTRACTING'
+                              ? t('extracting') || 'Extracting...'
+                              : installProgress.step === 'INSTALLING'
+                                ? t('installing') || 'Installing...'
+                                : installProgress.step === 'PUSHING_OBB'
+                                  ? t('pushing_obb') || 'Copying OBB Data...'
+                                  : installProgress.step === 'COMPLETED'
+                                    ? t('install_success') || 'Installation Complete!'
+                                    : t('qgo_preparing') || 'Preparing...'}
+                        </h3>
+                        {/* Minimize button */}
+                        <button
+                          onClick={() => {
+                            setShowInstallModal(false)
+                            // Widget is already showing via context
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-white/50 hover:text-gray-900 dark:hover:text-white transition-colors"
+                          title={t('minimize') || 'Minimize to widget'}
+                        >
+                          <Icon icon="octicon:minimize-16" className="h-5 w-5" />
+                        </button>
+                      </div>
+
+                      <p className="text-sm text-gray-500 dark:text-white/60">{gameTitle}</p>
+
+                      {/* Show actual filename from Google Drive with extension badge */}
+                      {installProgress.gdFileName && (
+                        <div className="mt-1 flex items-center gap-2">
+                          <p className="text-xs text-gray-400 dark:text-white/40 truncate flex-1">
+                            {installProgress.gdFileName}
+                          </p>
+                          <span
+                            className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
+                              installProgress.gdFileName.toLowerCase().endsWith('.rar')
+                                ? 'bg-[#0081FB]/20 text-[#0081FB] border border-[#0081FB]/30'
+                                : installProgress.gdFileName.toLowerCase().endsWith('.7z')
+                                  ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                                  : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                            }`}
+                          >
+                            {installProgress.gdFileName.split('.').pop()?.toUpperCase() || 'ZIP'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Progress */}
+                      <div className="mt-4">
+                        <div className="mb-2 flex items-center justify-between text-xs text-gray-500 dark:text-white/50">
+                          <span>{installProgress.detail}</span>
+                          <span>{Math.round(installProgress.percent)}%</span>
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+                          <div
+                            className="h-full bg-linear-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
+                            style={{ width: `${installProgress.percent}%` }}
+                          />
+                        </div>
+
+                        {/* Speed and progress info for download phase */}
+                        {installProgress.step === 'DOWNLOADING' &&
+                          installProgress.totalBytes > 0 && (
+                            <div className="mt-2 flex items-center justify-between text-xs text-gray-600 dark:text-white/50">
+                              <span className="flex items-center gap-1">
+                                <Icon icon="mdi:speedometer" className="h-3 w-3" />
+                                {formatSpeed(installProgress.speed)}
+                              </span>
+                              <span>
+                                {formatBytes(installProgress.downloadedBytes)} /{' '}
+                                {formatBytes(installProgress.totalBytes)}
+                              </span>
+                            </div>
+                          )}
+
+                        {/* Cancel Install Button - only during download phase */}
+                        {installProgress.step === 'DOWNLOADING' && (
                           <button
                             onClick={async () => {
-                              await cancelDownload()
+                              await cancelInstall()
+                              setIsInstalling(false)
+                              setShowInstallModal(false)
                               toast.info(t('download_cancelled') || 'Download Cancelled')
                             }}
                             className="mt-3 w-full py-2 px-4 bg-red-100 hover:bg-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/30 text-red-700 dark:text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                           >
                             <Icon icon="mdi:close-circle" className="w-4 h-4" />
-                            {t('cancel_download') || 'Cancel Download'}
+                            {t('cancel_download_install') || 'Cancel Download & Install'}
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
 
-                      {(currentVersion.downloadLinks || [])
-                        .filter((l) => l && l.trim())
-                        .map((link, idx) => {
-                          const partDownloaded = isFileDownloaded(idx)
-                          const fileName = getFileName(idx)
-                          const fileInfo = downloadedFiles[fileName]
-
-                          return (
-                            <div
-                              key={idx}
-                              className={`w-full flex items-center justify-between p-3 border rounded-xl transition-colors ${
-                                partDownloaded
-                                  ? 'border-green-500/30 bg-green-500/5'
-                                  : 'border-gray-200 dark:border-white/10 hover:bg-blue-50 dark:hover:bg-[#0081FB]/10 hover:border-blue-300 dark:hover:border-[#0081FB]/30'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm transition-colors ${
-                                    partDownloaded
-                                      ? 'bg-green-500/20 text-green-400'
-                                      : 'bg-[#0081FB]/20 text-[#0081FB]'
-                                  }`}
-                                >
-                                  {partDownloaded ? (
-                                    <Icon icon="mdi:check" className="w-5 h-5" />
-                                  ) : (
-                                    idx + 1
-                                  )}
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-gray-900 dark:text-white">
-                                    Part {idx + 1}
-                                  </span>
-                                  {partDownloaded && fileInfo?.size && (
-                                    <span className="text-[10px] text-green-700 dark:text-green-400">
-                                      {formatBytes(fileInfo.size)} -{' '}
-                                      {t('downloaded') || 'Downloaded'}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {partDownloaded ? (
-                                  <button
-                                    onClick={() => handleDeleteFile(idx)}
-                                    disabled={isDownloading}
-                                    className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
-                                    title={t('delete_file') || 'Delete file'}
-                                  >
-                                    <Icon icon="mdi:delete" className="w-4 h-4" />
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => openDownloadLink(idx)}
-                                    disabled={isDownloading}
-                                    className="p-2 rounded-lg bg-[#0081FB]/20 hover:bg-[#0081FB]/30 text-[#0081FB] transition-colors disabled:opacity-50"
-                                    title={t('download') || 'Download'}
-                                  >
-                                    <Icon icon="mdi:download" className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          )
-                        })}
-                    </div>
+                      {/* Status info */}
+                      <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-white/70">
+                        {installProgress.step === 'COMPLETED' ? (
+                          <>
+                            <Icon icon="mdi:check-circle" className="h-5 w-5 text-[#0081FB]" />
+                            <span>{t('install_success') || 'Installation complete!'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Icon
+                              icon="mdi:loading"
+                              className="h-5 w-5 animate-spin text-[#0081FB]"
+                            />
+                            <span>
+                              {installProgress.step === 'DOWNLOADING'
+                                ? t('qgo_downloading_msg') || 'Downloading, please wait...'
+                                : t('installing_msg') || 'Installing to device...'}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </motion.div>
                   </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
 
-            {/* Delete Confirmation Modal */}
-            <AnimatePresence>
-              {confirmDelete && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-60 flex items-center justify-center bg-black/80"
-                  onClick={() => setConfirmDelete(null)}
-                >
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#111] p-6 shadow-2xl"
-                  >
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-3 rounded-full bg-red-500/20">
-                        <Icon icon="mdi:delete-alert" className="w-6 h-6 text-red-400" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {t('delete_confirm_title') || 'Delete Downloaded File?'}
-                      </h3>
-                    </div>
-                    <p className="text-sm text-gray-500 dark:text-white/60">
-                      {confirmDelete.isMultiple
-                        ? t('delete_confirm_desc_multiple') ||
-                          'You are about to delete the following files:'
-                        : t('delete_confirm_desc') || 'You are about to delete:'}
-                    </p>
-                    <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-                      {confirmDelete.isMultiple ? (
-                        <div className="space-y-1">
-                          {confirmDelete.files.map((file, idx) => (
-                            <p
-                              key={idx}
-                              className="font-mono text-sm text-gray-700 dark:text-white/80 truncate"
-                            >
-                              {file}
-                            </p>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="font-mono text-sm text-gray-700 dark:text-white/80 truncate">
-                          {confirmDelete.fileName}
-                        </p>
-                      )}
-                    </div>
-                    <p className="mt-3 text-xs text-red-600 dark:text-red-400">
-                      {t('delete_warning') || 'This action cannot be undone.'}
-                    </p>
-                    <div className="mt-6 flex justify-end gap-2">
-                      <button
-                        onClick={() => setConfirmDelete(null)}
-                        className="rounded-lg border border-gray-300 dark:border-white/10 px-4 py-2 text-sm font-medium text-gray-600 dark:text-white/70 transition-all hover:bg-gray-100 dark:hover:bg-white/5"
-                      >
-                        {t('cancel') || 'Cancel'}
-                      </button>
-                      <button
-                        onClick={
-                          confirmDelete.isMultiple ? handleConfirmDeleteAll : handleConfirmDelete
-                        }
-                        className="rounded-lg bg-red-600 hover:bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-red-500/20 transition-all"
-                      >
-                        {t('delete') || 'Delete'}
-                      </button>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+        {/* Update Game Dialog */}
+        <UpdateGameDialog
+          isOpen={showUpdateDialog}
+          onClose={() => setShowUpdateDialog(false)}
+          gameTitle={gameTitle}
+          currentVersion={getCurrentVersion()?.version || gameVersion}
+          onSubmit={() => setShowUpdateDialog(false)}
+        />
 
-            {/* Install Confirmation Modal */}
-            <AnimatePresence>
-              {confirmInstall && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-60 flex items-center justify-center p-4"
-                >
-                  <div
-                    className="fixed inset-0 bg-black/80"
-                    onClick={() => setConfirmInstall(null)}
-                  />
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6"
-                  >
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {t('install_confirm_title') || 'Download & Install'}
-                    </h3>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-white/60">
-                      {t('install_confirm_desc') ||
-                        'This will download and install the APK directly to your Meta Quest device:'}
-                    </p>
-                    <div className="mt-4 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
-                      <p className="font-medium text-gray-900 dark:text-white">{gameTitle}</p>
-                      <p className="mt-1 text-xs text-gray-500 dark:text-white/50">
-                        {t('qgo_version') || 'Version'}: {currentVersion.version || gameVersion}
-                      </p>
-                      <div className="mt-3 flex items-center gap-3 rounded-xl border border-[#0081FB]/25 bg-[#0081FB]/10 p-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0081FB] text-white shadow-lg shadow-[#0081FB]/20">
-                          <Icon icon="bi:headset-vr" className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-[#0081FB]">
-                            {t('connected_device') || 'Device Connected'}
-                          </p>
-                          <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
-                            {deviceModel || connectedDevice}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-6 flex justify-end gap-2">
-                      <button
-                        onClick={() => setConfirmInstall(null)}
-                        className="rounded-lg border border-gray-300 dark:border-white/10 px-4 py-2 text-sm font-medium text-gray-600 dark:text-white/70 transition-all hover:bg-gray-100 dark:hover:bg-white/5"
-                      >
-                        {t('cancel') || 'Cancel'}
-                      </button>
-                      <button
-                        onClick={handleConfirmInstall}
-                        className="rounded-lg bg-linear-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white shadow-lg shadow-[#0081FB]/20 transition-all hover:shadow-xl"
-                      >
-                        {t('install') || 'Install'}
-                      </button>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Install Progress Modal */}
-            <AnimatePresence>
-              {showInstallModal && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-60 flex items-center justify-center p-4"
-                >
-                  <div className="fixed inset-0 bg-black/80" />
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6"
-                  >
-                    {/* Header with minimize button */}
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {installProgress.step === 'DOWNLOADING'
-                          ? t('qgo_downloading') || 'Downloading...'
-                          : installProgress.step === 'EXTRACTING'
-                            ? t('extracting') || 'Extracting...'
-                            : installProgress.step === 'INSTALLING'
-                              ? t('installing') || 'Installing...'
-                              : installProgress.step === 'PUSHING_OBB'
-                                ? t('pushing_obb') || 'Copying OBB Data...'
-                                : installProgress.step === 'COMPLETED'
-                                  ? t('install_success') || 'Installation Complete!'
-                                  : t('qgo_preparing') || 'Preparing...'}
-                      </h3>
-                      {/* Minimize button */}
-                      <button
-                        onClick={() => {
-                          setShowInstallModal(false)
-                          // Widget is already showing via context
-                        }}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-white/50 hover:text-gray-900 dark:hover:text-white transition-colors"
-                        title={t('minimize') || 'Minimize to widget'}
-                      >
-                        <Icon icon="octicon:minimize-16" className="h-5 w-5" />
-                      </button>
-                    </div>
-
-                    <p className="text-sm text-gray-500 dark:text-white/60">{gameTitle}</p>
-
-                    {/* Show actual filename from Google Drive with extension badge */}
-                    {installProgress.gdFileName && (
-                      <div className="mt-1 flex items-center gap-2">
-                        <p className="text-xs text-gray-400 dark:text-white/40 truncate flex-1">
-                          {installProgress.gdFileName}
-                        </p>
-                        <span
-                          className={`shrink-0 px-1.5 py-0.5 text-[10px] font-bold rounded ${
-                            installProgress.gdFileName.toLowerCase().endsWith('.rar')
-                              ? 'bg-[#0081FB]/20 text-[#0081FB] border border-[#0081FB]/30'
-                              : installProgress.gdFileName.toLowerCase().endsWith('.7z')
-                                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                                : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                          }`}
-                        >
-                          {installProgress.gdFileName.split('.').pop()?.toUpperCase() || 'ZIP'}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Progress */}
-                    <div className="mt-4">
-                      <div className="mb-2 flex items-center justify-between text-xs text-gray-500 dark:text-white/50">
-                        <span>{installProgress.detail}</span>
-                        <span>{Math.round(installProgress.percent)}%</span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
-                        <div
-                          className="h-full bg-linear-to-r from-[#0081FB] to-[#00C2FF] transition-all duration-300"
-                          style={{ width: `${installProgress.percent}%` }}
-                        />
-                      </div>
-
-                      {/* Speed and progress info for download phase */}
-                      {installProgress.step === 'DOWNLOADING' && installProgress.totalBytes > 0 && (
-                        <div className="mt-2 flex items-center justify-between text-xs text-gray-600 dark:text-white/50">
-                          <span className="flex items-center gap-1">
-                            <Icon icon="mdi:speedometer" className="h-3 w-3" />
-                            {formatSpeed(installProgress.speed)}
-                          </span>
-                          <span>
-                            {formatBytes(installProgress.downloadedBytes)} /{' '}
-                            {formatBytes(installProgress.totalBytes)}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Cancel Install Button - only during download phase */}
-                      {installProgress.step === 'DOWNLOADING' && (
-                        <button
-                          onClick={async () => {
-                            await cancelInstall()
-                            setIsInstalling(false)
-                            setShowInstallModal(false)
-                            toast.info(t('download_cancelled') || 'Download Cancelled')
-                          }}
-                          className="mt-3 w-full py-2 px-4 bg-red-100 hover:bg-red-200 dark:bg-red-500/20 dark:hover:bg-red-500/30 text-red-700 dark:text-red-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Icon icon="mdi:close-circle" className="w-4 h-4" />
-                          {t('cancel_download_install') || 'Cancel Download & Install'}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Status info */}
-                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-white/70">
-                      {installProgress.step === 'COMPLETED' ? (
-                        <>
-                          <Icon icon="mdi:check-circle" className="h-5 w-5 text-[#0081FB]" />
-                          <span>{t('install_success') || 'Installation complete!'}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Icon
-                            icon="mdi:loading"
-                            className="h-5 w-5 animate-spin text-[#0081FB]"
-                          />
-                          <span>
-                            {installProgress.step === 'DOWNLOADING'
-                              ? t('qgo_downloading_msg') || 'Downloading, please wait...'
-                              : t('installing_msg') || 'Installing to device...'}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Update Game Dialog */}
-      <UpdateGameDialog
-        isOpen={showUpdateDialog}
-        onClose={() => setShowUpdateDialog(false)}
-        gameTitle={gameTitle}
-        currentVersion={getCurrentVersion()?.version || gameVersion}
-        onSubmit={() => setShowUpdateDialog(false)}
-      />
-
-      {/* Report Game Dialog */}
-      <ReportGameDialog
-        isOpen={showReportDialog}
-        onClose={() => setShowReportDialog(false)}
-        gameTitle={gameTitle}
-        gameVersion={getCurrentVersion()?.version || gameVersion}
-        onSubmit={() => setShowReportDialog(false)}
-      />
-      <CompatibilityReviewDialog
-        isOpen={showCompatibilityReviews}
-        onClose={() => setShowCompatibilityReviews(false)}
-        gameId={game?.id || gameTitle}
-        gameTitle={gameTitle}
-        testedVersion={getCurrentVersion()?.version || gameVersion}
-        summary={game?.compatibilityReviewSummary}
-        selectedDevice={selectedDevice}
-      />
-    </AnimatePresence>
+        {/* Report Game Dialog */}
+        <ReportGameDialog
+          isOpen={showReportDialog}
+          onClose={() => setShowReportDialog(false)}
+          gameTitle={gameTitle}
+          gameVersion={getCurrentVersion()?.version || gameVersion}
+          onSubmit={() => setShowReportDialog(false)}
+        />
+      </AnimatePresence>
+    </>
   )
 }
 
@@ -1996,5 +2170,6 @@ GameDetailModal.propTypes = {
   game: PropTypes.object,
   selectedDevice: PropTypes.string,
   connectedDevice: PropTypes.string,
-  presentation: PropTypes.oneOf(['modal', 'page'])
+  presentation: PropTypes.oneOf(['modal', 'page']),
+  headerActionsTargetId: PropTypes.string
 }
