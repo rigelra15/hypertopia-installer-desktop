@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -772,7 +772,26 @@ V76Badge.propTypes = {
   t: PropTypes.func.isRequired
 }
 
-function DeviceBadges({ compact = false, supportedEntries, selectedKey, t }) {
+export function DeviceBadges({ compact = false, supportedEntries, selectedKey, t }) {
+  const listRef = useRef(null)
+
+  useLayoutEffect(() => {
+    const list = listRef.current
+    const preferredChip = Array.from(list?.children || []).find(
+      (chip) => chip.dataset.preference === selectedKey
+    )
+    if (!list || !preferredChip) return
+
+    const listRect = list.getBoundingClientRect()
+    const chipRect = preferredChip.getBoundingClientRect()
+    const centeredLeft =
+      list.scrollLeft + chipRect.left - listRect.left - (list.clientWidth - chipRect.width) / 2
+    list.scrollTo({
+      left: centeredLeft,
+      behavior: 'smooth'
+    })
+  }, [selectedKey, supportedEntries])
+
   if (supportedEntries.length === 0)
     return (
       <span
@@ -781,24 +800,29 @@ function DeviceBadges({ compact = false, supportedEntries, selectedKey, t }) {
         {t('not_supported') || 'Unknown'}
       </span>
     )
-  return supportedEntries.map(([quest]) => {
-    const questInfo = getQuestInfo(quest)
-    const isSelected = quest === selectedKey
-    return (
-      <span
-        key={quest}
-        className={`${compact ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-1'} rounded font-semibold flex items-center gap-1 border ${
-          isSelected
-            ? 'bg-blue-500 text-white border-blue-500'
-            : 'bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-white/60 border-gray-200 dark:border-white/10'
-        }`}
-        title={questInfo.fullName}
-      >
-        <Icon icon="tabler:device-vision-pro" className="w-3 h-3" />
-        {questInfo.label}
-      </span>
-    )
-  })
+  return (
+    <div ref={listRef} className="flex w-full flex-nowrap gap-1.5 overflow-x-auto">
+      {supportedEntries.map(([quest]) => {
+        const questInfo = getQuestInfo(quest)
+        const isSelected = quest === selectedKey
+        return (
+          <span
+            key={quest}
+            data-preference={quest}
+            className={`${compact ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-1'} shrink-0 rounded font-semibold flex items-center gap-1 border ${
+              isSelected
+                ? 'bg-blue-500 text-white border-blue-500'
+                : 'bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-white/60 border-gray-200 dark:border-white/10'
+            }`}
+            title={questInfo.fullName}
+          >
+            <Icon icon="tabler:device-vision-pro" className="w-3 h-3" />
+            {questInfo.label}
+          </span>
+        )
+      })}
+    </div>
+  )
 }
 
 DeviceBadges.propTypes = {
@@ -1038,17 +1062,17 @@ function GameCard({ game, selectedDevice, viewMode, onClick }) {
         )}
 
         {/* Placeholder when no image available */}
-          {!loadingImage && !coverUrl && (
-            <div
-              data-testid="standalone-game-card-cover-fallback"
-              className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
-              style={getPlaceholderStyle(gameTitle)}
-            >
-              <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-white/10 shadow-inner backdrop-blur-sm">
-                <Icon icon="tabler:device-vision-pro" className="h-9 w-9 text-white/75" />
-              </div>
+        {!loadingImage && !coverUrl && (
+          <div
+            data-testid="standalone-game-card-cover-fallback"
+            className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
+            style={getPlaceholderStyle(gameTitle)}
+          >
+            <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-white/10 shadow-inner backdrop-blur-sm">
+              <Icon icon="tabler:device-vision-pro" className="h-9 w-9 text-white/75" />
             </div>
-          )}
+          </div>
+        )}
 
         {/* Actual image when URL present */}
         {coverUrl && (
