@@ -7,15 +7,7 @@ import { useToast } from '../hooks/useToast'
 import PropTypes from 'prop-types'
 import { Modal } from './ui/Modal'
 
-export function SettingsModal({
-  isOpen,
-  onClose,
-  currentPath,
-  appVersion,
-  updateAvailable,
-  updateInfo,
-  onUpdateNow
-}) {
+export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
   const { t, language, setLanguage } = useLanguage()
   const { theme, setTheme } = useTheme()
   const [extractPath, setExtractPath] = useState(currentPath || '')
@@ -250,39 +242,6 @@ export function SettingsModal({
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 dark:border-white/30 border-t-[#0081FB] dark:border-t-white"></div>
             </div>
           )}
-
-          {/* Auto-Update Section */}
-          <div className="border-t border-gray-200 dark:border-white/10 pt-4">
-            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-white/50">
-              {t('settings_auto_update') || 'Auto-update'}
-            </label>
-            {updateAvailable && updateInfo && (
-              <button
-                onClick={() => {
-                  onClose()
-                  onUpdateNow?.()
-                }}
-                className="w-full flex items-center justify-between rounded-lg border border-green-500/30 bg-green-500/10 p-3 transition-all hover:bg-green-500/20"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <Icon
-                    icon="line-md:arrow-up-circle"
-                    className="h-5 w-5 shrink-0 text-green-400"
-                  />
-                  <div className="min-w-0 text-left">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {t('update_new_version') || 'New Version Available!'}
-                    </p>
-                    <p className="text-xs text-green-400">v{updateInfo.version}</p>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2 text-green-400 text-sm font-medium">
-                  {t('update_now') || 'Update Now'}
-                  <Icon icon="line-md:chevron-right" className="h-4 w-4 shrink-0" />
-                </div>
-              </button>
-            )}
-          </div>
 
           {/* Language Section */}
           <div className="border-t border-gray-200 dark:border-white/10 pt-4">
@@ -528,10 +487,5 @@ SettingsModal.propTypes = {
   appVersion: PropTypes.shape({
     version: PropTypes.string,
     build: PropTypes.string
-  }),
-  updateAvailable: PropTypes.bool,
-  updateInfo: PropTypes.shape({
-    version: PropTypes.string
-  }),
-  onUpdateNow: PropTypes.func
+  })
 }
