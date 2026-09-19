@@ -72,7 +72,6 @@ export function InstallerSidebar({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isDownloadPanelOpen, setIsDownloadPanelOpen] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
-  const [updateInfo, setUpdateInfo] = useState(null)
   const [showBrowseModal, setShowBrowseModal] = useState(false)
   const [sourceType, setSourceType] = useState('archive') // 'archive' or 'folder'
   const [folderPath, setFolderPath] = useState(null)
@@ -104,6 +103,12 @@ export function InstallerSidebar({
   const [compactDeviceBattery, setCompactDeviceBattery] = useState(null)
   const fileInputRef = useRef(null)
   const isHalfLife2Vr = status?.installMethod === 'half-life-2-vr'
+  const installType = status.hasObb ? 'full' : 'apk'
+  const installModeLabel = status.hasObb
+    ? `${t('btn_full') || 'Install Full'} (APK + OBB)`
+    : t('btn_apk') || 'Install APK'
+  const isInstallDisabled =
+    !file || !status.hasApk || isInstalling || isHalfLife2Vr || !selectedDevice
 
   useEffect(() => {
     if (errorDetails) setHasMountedErrorModal(true)
@@ -666,55 +671,19 @@ export function InstallerSidebar({
                   )
                 })()}
 
-                {/* APK install button */}
-                <Tooltip content={t('btn_apk') || 'Install APK'} side="right">
+                {/* General install button; the detected contents choose APK or APK + OBB. */}
+                <Tooltip content={installModeLabel} side="right">
                   <button
-                    onClick={() => handleInstall('apk')}
-                    aria-label={t('btn_apk') || 'Install APK'}
-                    disabled={
-                      !status.hasApk ||
-                      isInstalling ||
-                      status.hasObb ||
-                      isHalfLife2Vr ||
-                      !selectedDevice
-                    }
+                    onClick={() => handleInstall(installType)}
+                    aria-label={installModeLabel}
+                    disabled={isInstallDisabled}
                     className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
-                      !status.hasApk ||
-                      isInstalling ||
-                      status.hasObb ||
-                      isHalfLife2Vr ||
-                      !selectedDevice
+                      isInstallDisabled
                         ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-300 dark:text-white/20'
                         : 'bg-[#0081FB]/10 text-[#0081FB] hover:bg-[#0081FB]/20'
                     }`}
                   >
                     <Icon icon="mdi:package-down" className="h-4 w-4" />
-                  </button>
-                </Tooltip>
-
-                {/* Full install button */}
-                <Tooltip content={`${t('btn_full') || 'Install Full'} (APK + OBB)`} side="right">
-                  <button
-                    onClick={() => handleInstall('full')}
-                    aria-label={`${t('btn_full') || 'Install Full'} (APK + OBB)`}
-                    disabled={
-                      !status.hasApk ||
-                      !status.hasObb ||
-                      isHalfLife2Vr ||
-                      isInstalling ||
-                      !selectedDevice
-                    }
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
-                      !status.hasApk ||
-                      !status.hasObb ||
-                      isHalfLife2Vr ||
-                      isInstalling ||
-                      !selectedDevice
-                        ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-300 dark:text-white/20'
-                        : 'bg-[#0081FB]/10 text-[#0081FB] dark:text-[#0081FB] hover:bg-[#0081FB]/20'
-                    }`}
-                  >
-                    <Icon icon="mdi:lightning-bolt" className="h-4 w-4" />
                   </button>
                 </Tooltip>
 
@@ -978,9 +947,8 @@ export function InstallerSidebar({
             {/* Update Notification */}
             <UpdateNotification
               className="mb-4"
-              onUpdateAvailable={(hasUpdate, info) => {
+              onUpdateAvailable={(hasUpdate) => {
                 setUpdateAvailable(hasUpdate)
-                if (info) setUpdateInfo(info)
               }}
             />
 
@@ -1249,32 +1217,27 @@ export function InstallerSidebar({
           {/* Action Buttons & Footer / Device Selector */}
           <div className="flex-none border-t border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-[#111] p-4 flex flex-col gap-4 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_30px_rgba(0,0,0,0.5)] relative z-10">
             {/* Action Buttons */}
-            <div className="flex flex-row gap-2">
+            <div className="flex flex-row">
               <button
-                onClick={() => handleInstall('apk')}
-                disabled={
-                  !file ||
-                  !status.hasApk ||
-                  isInstalling ||
-                  status.hasObb ||
-                  isHalfLife2Vr ||
-                  !selectedDevice
-                }
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all ${
-                  !file ||
-                  !status.hasApk ||
-                  isInstalling ||
-                  status.hasObb ||
-                  isHalfLife2Vr ||
-                  !selectedDevice
+                onClick={() => handleInstall(installType)}
+                aria-label={installModeLabel}
+                disabled={isInstallDisabled}
+                className={`flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-colors ${
+                  isInstallDisabled
                     ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20'
-                    : 'bg-linear-to-r from-[#0081FB] to-[#00C2FF] text-white shadow-lg shadow-[#0081FB]/25 hover:shadow-[#0081FB]/40 hover:scale-[1.02] active:scale-[0.98]'
+                    : 'bg-[#0081FB] text-white hover:bg-[#006FD6] active:bg-[#005FC4]'
                 }`}
               >
-                {isInstalling && !status.hasObb && !isHalfLife2Vr ? (
+                {isInstalling && !isHalfLife2Vr ? (
                   <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
                 ) : (
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -1283,48 +1246,14 @@ export function InstallerSidebar({
                     />
                   </svg>
                 )}
-                {t('btn_apk')}
-              </button>
-
-              <button
-                onClick={() => handleInstall('full')}
-                disabled={
-                  !file ||
-                  !status.hasApk ||
-                  !status.hasObb ||
-                  isHalfLife2Vr ||
-                  isInstalling ||
-                  !selectedDevice
-                }
-                className={`group relative flex flex-1 items-center justify-center gap-1.5 overflow-hidden rounded-xl py-2 text-xs font-semibold transition-all ${
-                  !file ||
-                  !status.hasApk ||
-                  !status.hasObb ||
-                  isHalfLife2Vr ||
-                  isInstalling ||
-                  !selectedDevice
-                    ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20'
-                    : 'bg-[#0081FB] hover:bg-[#006fd6] text-white active:scale-[0.98]'
-                }`}
-              >
-                {isInstalling && status.hasObb && !isHalfLife2Vr ? (
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
-                ) : (
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 10V3L4 14h7v7l9-11h-7z"
-                    />
-                  </svg>
-                )}
-                <div className="flex flex-col items-start leading-none">
-                  <span>{t('btn_full')}</span>
-                  <span className="text-[9px] opacity-80 font-normal mt-0.5">
-                    {t('install_full_badge')}
+                <span>{t('btn_install') || (language === 'id' ? 'Instal' : 'Install')}</span>
+                {status.hasApk && !isHalfLife2Vr && (
+                  <span className="rounded-full border border-white/25 bg-white/15 px-2 py-0.5 text-[9px] font-bold leading-none tracking-wide text-white/95">
+                    {status.hasObb
+                      ? t('badge_apk_obb') || 'APK + OBB'
+                      : t('badge_apk') || 'APK ONLY'}
                   </span>
-                </div>
+                )}
               </button>
             </div>
 
@@ -1437,11 +1366,6 @@ export function InstallerSidebar({
             onClose={handleCloseSettings}
             currentPath={extractPath}
             appVersion={appVersion}
-            updateAvailable={updateAvailable}
-            updateInfo={updateInfo}
-            onUpdateNow={() => {
-              window.api.downloadUpdate()
-            }}
           />
         )}
         {hasMountedLogModal && (
