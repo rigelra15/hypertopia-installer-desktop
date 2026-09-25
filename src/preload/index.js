@@ -52,6 +52,7 @@ const api = {
   selectExtractFolder: () => ipcRenderer.invoke('select-extract-folder'),
   ensureExtractFolder: (folderPath) => ipcRenderer.invoke('ensure-extract-folder', folderPath),
   getDiskSpace: (folderPath) => ipcRenderer.invoke('get-disk-space', folderPath),
+  getAppInstallSize: () => ipcRenderer.invoke('get-app-install-size'),
   moveExtractFolder: (oldPath) => ipcRenderer.invoke('move-extract-folder', oldPath),
   listApps: (deviceSerial) => ipcRenderer.invoke('list-apps', deviceSerial),
   uninstallApp: (deviceSerial, packageName) =>

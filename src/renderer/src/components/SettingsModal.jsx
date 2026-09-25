@@ -12,6 +12,8 @@ export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
   const { theme, setTheme } = useTheme()
   const [extractPath, setExtractPath] = useState(currentPath || '')
   const [diskSpace, setDiskSpace] = useState(null)
+  const [appInstallSize, setAppInstallSize] = useState(null)
+  const [isLoadingAppSize, setIsLoadingAppSize] = useState(false)
   const [isLoadingSpace, setIsLoadingSpace] = useState(false)
   const [isChanging, setIsChanging] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
@@ -59,6 +61,29 @@ export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
   }, [currentPath])
 
   useEffect(() => {
+    if (!isOpen || !window.api.getAppInstallSize) return
+
+    let cancelled = false
+    setIsLoadingAppSize(true)
+    window.api
+      .getAppInstallSize()
+      .then((size) => {
+        if (!cancelled) setAppInstallSize(size)
+      })
+      .catch((error) => {
+        console.error('Failed to get HyperTopia install size:', error)
+        if (!cancelled) setAppInstallSize(null)
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingAppSize(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen])
+
+  useEffect(() => {
     if (extractPath && extractPath !== currentPath) {
       setExtractPath(currentPath)
     }
@@ -93,6 +118,13 @@ export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
     (latestRelease?.version && appVersion?.version
       ? latestRelease.version !== appVersion.version
       : false)
+
+  const formatAppSize = (bytes) => {
+    if (!bytes) return '0 B'
+    const units = ['B', 'KB', 'MB', 'GB', 'TB']
+    const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+    return `${(bytes / 1024 ** unitIndex).toFixed(1)} ${units[unitIndex]}`
+  }
 
   const handleChangeFolder = async () => {
     setIsChanging(true)
@@ -206,7 +238,7 @@ export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
               <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-white/50">
                 {t('storage_label')}
               </label>
-              <div className="space-y-2 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
+              <div className="space-y-3 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
                 <div className="relative h-3 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
                   <div
                     className="h-full transition-all relative overflow-hidden"
@@ -232,6 +264,50 @@ export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
                   <span className={`font-bold ${getStorageTextColor(diskSpace.percent)}`}>
                     {diskSpace.percent}% {t('storage_used')}
                   </span>
+                </div>
+
+                <div className="border-t border-gray-200 pt-3 dark:border-white/10">
+                  <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+                    <span className="flex min-w-0 items-center gap-1.5 text-gray-600 dark:text-white/60">
+                      <Icon
+                        icon="mdi:application-cog-outline"
+                        className="size-3.5 shrink-0 text-[#0081FB]"
+                      />
+                      <span className="truncate">
+                        {t('app_install_size') || 'HyperTopia app size'}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-semibold tabular-nums text-[#0081FB]">
+                      {appInstallSize == null ? '—' : formatAppSize(appInstallSize)}
+                    </span>
+                  </div>
+                  <div
+                    className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10"
+                    role="progressbar"
+                    aria-label={t('app_install_size') || 'HyperTopia app size'}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={
+                      appInstallSize != null && diskSpace.totalBytes > 0
+                        ? Math.min((appInstallSize / diskSpace.totalBytes) * 100, 100)
+                        : 0
+                    }
+                  >
+                    <div
+                      className="h-full rounded-full bg-[#0081FB] transition-[width]"
+                      style={{
+                        width:
+                          appInstallSize != null && diskSpace.totalBytes > 0
+                            ? `${Math.min((appInstallSize / diskSpace.totalBytes) * 100, 100)}%`
+                            : '0%'
+                      }}
+                    />
+                  </div>
+                  {isLoadingAppSize && (
+                    <p className="mt-1 text-[10px] text-gray-500 dark:text-white/40">
+                      {t('app_install_size_loading') || 'Measuring app size…'}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

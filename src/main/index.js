@@ -489,7 +489,7 @@ ipcMain.handle('ensure-extract-folder', async (event, folderPath) => {
 ipcMain.handle('get-disk-space', async (event, folderPath) => {
   return new Promise((resolve) => {
     if (!folderPath) {
-      return resolve({ total: '0 GB', free: '0 GB', used: '0 GB', percent: 0 })
+      return resolve({ total: '0 GB', free: '0 GB', used: '0 GB', percent: 0, totalBytes: 0 })
     }
 
     // Cross-platform disk space check
@@ -556,15 +556,70 @@ ipcMain.handle('get-disk-space', async (event, folderPath) => {
           total: formatBytes(total),
           free: formatBytes(free),
           used: formatBytes(used),
-          percent: percent
+          percent: percent,
+          totalBytes: total
         })
       } catch (parseErr) {
         console.warn('Failed to parse disk space:', parseErr.message)
         console.warn('stdout:', stdout)
-        resolve({ total: '0 GB', free: '0 GB', used: '0 GB', percent: 0 })
+        resolve({ total: '0 GB', free: '0 GB', used: '0 GB', percent: 0, totalBytes: 0 })
       }
     })
   })
+})
+
+let appInstallSizePromise
+
+// IPC: Measure the installed application bundle without following symlinks.
+ipcMain.handle('get-app-install-size', async () => {
+  if (!appInstallSizePromise) {
+    appInstallSizePromise = (async () => {
+      const installRoot =
+        process.platform === 'darwin'
+          ? path.resolve(process.execPath, '../../..')
+          : path.dirname(process.execPath)
+      const directories = [installRoot]
+      let size = 0
+
+      while (directories.length > 0) {
+        const directory = directories.pop()
+        let entries
+        try {
+          entries = await fs.readdir(directory, { withFileTypes: true })
+        } catch {
+          continue
+        }
+
+        const childDirectories = []
+        const fileSizes = await Promise.all(
+          entries.map(async (entry) => {
+            const entryPath = path.join(directory, entry.name)
+            if (entry.isDirectory()) {
+              childDirectories.push(entryPath)
+              return 0
+            }
+            if (!entry.isFile()) return 0
+
+            try {
+              return (await fs.stat(entryPath)).size
+            } catch {
+              return 0
+            }
+          })
+        )
+
+        size += fileSizes.reduce((total, fileSize) => total + fileSize, 0)
+        directories.push(...childDirectories)
+      }
+
+      return size
+    })().catch((error) => {
+      appInstallSizePromise = null
+      throw error
+    })
+  }
+
+  return appInstallSizePromise
 })
 
 // IPC: Get Extract Path from localStorage (via webContents)
@@ -2384,11 +2439,14 @@ async function scan7z(archivePath) {
       for (const block of blocks) {
         const pathMatch = block.match(/^Path = (.+)$/m)
         const sizeMatch = block.match(/^Size = (\d+)$/m)
-        if (pathMatch) {
+        // The technical listing starts with archive metadata that also has a
+        // `Path =` line, but no per-entry `Size =` field. Never scan the
+        // archive itself as though it were a payload file.
+        if (pathMatch && sizeMatch) {
           const fileName = pathMatch[1].trim()
           const folderMatch = block.match(/^Folder = \+$/m)
           if (folderMatch) continue
-          const size = parseInt(sizeMatch ? sizeMatch[1] : '0', 10)
+          const size = parseInt(sizeMatch[1], 10)
           allEntries.push({ file: fileName, size })
 
           const lowerName = fileName.toLowerCase()

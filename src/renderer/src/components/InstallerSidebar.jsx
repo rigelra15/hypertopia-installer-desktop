@@ -66,6 +66,7 @@ export function InstallerSidebar({
   })
   const [logHistory, setLogHistory] = useState([]) // Array of log entries
   const [isDragOver, setIsDragOver] = useState(false)
+  const [isScanningFile, setIsScanningFile] = useState(false)
   const [isInstalling, setIsInstalling] = useState(false)
   const [installProgress, setInstallProgress] = useState(null)
   const [errorDetails, setErrorDetails] = useState(null)
@@ -107,8 +108,20 @@ export function InstallerSidebar({
   const installModeLabel = status.hasObb
     ? `${t('btn_full') || 'Install Full'} (APK + OBB)`
     : t('btn_apk') || 'Install APK'
-  const isInstallDisabled =
-    !file || !status.hasApk || isInstalling || isHalfLife2Vr || !selectedDevice
+  const installDisabledReason = !file
+    ? t('install_select_file') || 'Select a game file first.'
+    : isScanningFile
+      ? t('installer_scanning_file') || 'Checking the file for an APK…'
+      : !status.hasApk
+        ? t('installer_apk_not_found') || 'No APK was found in this file.'
+        : isInstalling
+          ? t('installer_installing') || 'Installation is already in progress.'
+          : isHalfLife2Vr
+            ? t('installer_use_sourcevr_button') || 'Use the SourceVR install button for this file.'
+            : !selectedDevice
+              ? t('installer_select_device') || 'Connect and select a Quest device to continue.'
+              : null
+  const isInstallDisabled = Boolean(installDisabledReason)
 
   useEffect(() => {
     if (errorDetails) setHasMountedErrorModal(true)
@@ -272,6 +285,7 @@ export function InstallerSidebar({
             setArchivePath(null)
 
             try {
+              setIsScanningFile(true)
               const result = await window.api.scanFolder(folderPath)
               setStatus(result)
               logScanResult(result, 'No APK found in the selected folder.')
@@ -282,6 +296,8 @@ export function InstallerSidebar({
               console.error(err)
               addLogEntry('Error: ' + (err.message || 'Unknown error'))
               setErrorDetails(err.message)
+            } finally {
+              setIsScanningFile(false)
             }
             return
           }
@@ -312,9 +328,9 @@ export function InstallerSidebar({
   }
 
   const processFile = async (paramFile) => {
+    if (!paramFile) return
+    setIsScanningFile(true)
     try {
-      if (!paramFile) return
-
       let filePath = window.api.getFilePath(paramFile)
       // Debug logging for production troubleshooting
 
@@ -362,6 +378,8 @@ export function InstallerSidebar({
       addLogEntry('Error: ' + (err.message || 'Unknown error'))
       setErrorDetails(err.message)
       setFile(null)
+    } finally {
+      setIsScanningFile(false)
     }
   }
 
@@ -399,6 +417,7 @@ export function InstallerSidebar({
       setSourceType('folder')
       setFolderPath(selectedPath)
 
+      setIsScanningFile(true)
       const result = await window.api.scanFolder(selectedPath)
       setStatus(result)
       logScanResult(result)
@@ -415,6 +434,8 @@ export function InstallerSidebar({
       console.error(err)
       addLogEntry('Error: ' + (err.message || 'Unknown error'))
       setErrorDetails(err.message)
+    } finally {
+      setIsScanningFile(false)
     }
   }
 
@@ -672,7 +693,7 @@ export function InstallerSidebar({
                 })()}
 
                 {/* General install button; the detected contents choose APK or APK + OBB. */}
-                <Tooltip content={installModeLabel} side="right">
+                <Tooltip content={installDisabledReason || installModeLabel} side="right">
                   <button
                     onClick={() => handleInstall(installType)}
                     aria-label={installModeLabel}
@@ -912,7 +933,8 @@ export function InstallerSidebar({
               </button>
               <button
                 onClick={handleOpenSettings}
-                className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-white/50 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white transition-all shrink-0"
+                aria-label={t('settings_title') || 'Settings'}
+                className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-white/50 hover:bg-[#0081FB]/20 hover:text-[#0081FB] transition-all shrink-0"
                 title={t('settings_title')}
               >
                 {/* Update available badge */}
@@ -1023,10 +1045,10 @@ export function InstallerSidebar({
                 </button>
               </div>
             ) : (
-              <div className="mb-6 rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#151921] p-5">
-                <div className="flex items-start gap-4">
+              <div className="mb-6 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#151921] p-4 shadow-sm">
+                <div className="flex min-w-0 items-start gap-3">
                   <div
-                    className={`shrink-0 rounded-xl p-3 ${
+                    className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${
                       file.isFolder
                         ? 'bg-green-500/10 text-green-500'
                         : isHalfLife2Vr
@@ -1034,10 +1056,17 @@ export function InstallerSidebar({
                           : 'bg-[#0081FB]/10 text-[#0081FB]'
                     }`}
                   >
-                    <Icon icon="dashicons:games" className="text-2xl" />
+                    <Icon icon="dashicons:games" className="text-xl" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="break-all text-base font-bold text-gray-900 dark:text-white mb-2.5">
+                    <p
+                      className="mb-2 truncate text-sm font-bold text-gray-900 dark:text-white"
+                      title={
+                        (isHalfLife2Vr ? t('half_life_2_vr_name') : null) ||
+                        status?.manifestData?.gameName ||
+                        (sourceType === 'folder' ? status.apkName || file.name : file.name)
+                      }
+                    >
                       {(isHalfLife2Vr ? t('half_life_2_vr_name') : null) ||
                         status?.manifestData?.gameName ||
                         (sourceType === 'folder' ? status.apkName || file.name : file.name)}
@@ -1045,18 +1074,26 @@ export function InstallerSidebar({
                     <div className="flex flex-wrap gap-2">
                       <span
                         className={`inline-flex items-center rounded bg-gray-100 dark:bg-[#111520] px-2 py-1 text-[11px] font-bold tracking-wider ring-1 ring-inset ${
-                          isHalfLife2Vr
-                            ? 'text-violet-700 dark:text-violet-400 ring-violet-500/30'
-                            : status.hasObb
-                              ? 'text-[#0081FB] dark:text-[#0081FB] ring-[#0081FB]/30'
-                              : 'text-emerald-700 dark:text-emerald-400 ring-emerald-500/30'
+                          isScanningFile
+                            ? 'text-[#0081FB] dark:text-[#0081FB] ring-[#0081FB]/30'
+                            : !status.hasApk
+                              ? 'text-amber-700 dark:text-amber-400 ring-amber-500/30'
+                              : isHalfLife2Vr
+                                ? 'text-violet-700 dark:text-violet-400 ring-violet-500/30'
+                                : status.hasObb
+                                  ? 'text-[#0081FB] dark:text-[#0081FB] ring-[#0081FB]/30'
+                                  : 'text-emerald-700 dark:text-emerald-400 ring-emerald-500/30'
                         }`}
                       >
-                        {isHalfLife2Vr
-                          ? t('half_life_2_vr_badge') || 'SOURCEVR'
-                          : status.hasObb
-                            ? t('badge_apk_obb') || 'APK + OBB'
-                            : t('badge_apk') || 'APK ONLY'}
+                        {isScanningFile
+                          ? t('installer_scanning_badge') || 'SCANNING'
+                          : !status.hasApk
+                            ? t('installer_no_apk_badge') || 'NO APK FOUND'
+                            : isHalfLife2Vr
+                              ? t('half_life_2_vr_badge') || 'SOURCEVR'
+                              : status.hasObb
+                                ? t('badge_apk_obb') || 'APK + OBB'
+                                : t('badge_apk') || 'APK ONLY'}
                       </span>
 
                       {sourceType !== 'folder' && (
@@ -1099,6 +1136,12 @@ export function InstallerSidebar({
                         })()}
                       </span>
                     </div>
+                    {!isScanningFile && !status.hasApk && (
+                      <p className="mt-3 text-xs text-amber-700 dark:text-amber-300" role="status">
+                        {t('installer_apk_not_found') ||
+                          'No APK was found in this file. Choose another archive or select its extracted folder.'}
+                      </p>
+                    )}
                     {isHalfLife2Vr && (
                       <p className="mt-2 flex items-center gap-1.5 text-[10px] text-violet-700 dark:text-violet-300">
                         <Icon icon="mdi:folder-arrow-up-outline" className="h-3.5 w-3.5 shrink-0" />
@@ -1108,17 +1151,17 @@ export function InstallerSidebar({
                     )}
                   </div>
                 </div>
-                <div className="mt-5 flex justify-end gap-3 border-t border-gray-200 dark:border-white/5 pt-4">
+                <div className="mt-4 flex flex-wrap justify-between gap-2 border-t border-gray-200 dark:border-white/5 pt-3">
                   <button
                     onClick={() => setShowBrowseModal(true)}
-                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white"
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white"
                   >
                     <Icon icon="mdi:swap-horizontal" className="text-sm" />
                     {t('change_method') || (language === 'id' ? 'Ganti Metode' : 'Change Method')}
                   </button>
                   <button
                     onClick={openDetailsModal}
-                    className="flex items-center gap-1.5 rounded-lg bg-gray-200 dark:bg-[#2A3241] px-4 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 transition-colors hover:bg-gray-300 dark:hover:bg-[#374151] border border-gray-300 dark:border-[#374151]"
+                    className="flex items-center gap-1.5 rounded-lg border border-[#0081FB]/20 bg-[#0081FB]/10 px-3 py-2 text-xs font-medium text-[#006FD6] transition-colors hover:bg-[#0081FB]/20 dark:text-[#55A9FF]"
                   >
                     <Icon icon="mdi:eye-outline" className="text-sm" />
                     {t('view_details') || 'View Details'}
@@ -1222,6 +1265,7 @@ export function InstallerSidebar({
                 onClick={() => handleInstall(installType)}
                 aria-label={installModeLabel}
                 disabled={isInstallDisabled}
+                title={isInstallDisabled ? installDisabledReason : undefined}
                 className={`flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold transition-colors ${
                   isInstallDisabled
                     ? 'cursor-not-allowed bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/20'
@@ -1255,6 +1299,14 @@ export function InstallerSidebar({
                   </span>
                 )}
               </button>
+              {file && isInstallDisabled && selectedDevice && (
+                <p
+                  className="mt-2 text-center text-[11px] text-gray-500 dark:text-white/50"
+                  role="status"
+                >
+                  {installDisabledReason}
+                </p>
+              )}
             </div>
 
             {isHalfLife2Vr && (

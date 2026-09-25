@@ -188,11 +188,6 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
           )}
         </button>
 
-        {/* Activity Indicator */}
-        {devices.length > 0 && (
-          <div className="absolute -right-1 -top-1 h-2 w-2 animate-pulse rounded-full bg-green-500"></div>
-        )}
-
         {/* Dropdown Menu */}
         {isOpen && devices.length > 0 && (
           <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-lg bg-white dark:bg-[#0a0a0a] py-1 shadow-xl">

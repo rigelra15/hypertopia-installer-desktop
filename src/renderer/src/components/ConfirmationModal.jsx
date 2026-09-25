@@ -57,6 +57,8 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
   }
 
   const getFooter = () => {
+    if (mode === 'view') return null
+
     if (mode === 'clear-all') {
       return (
         <div className="flex gap-3">
@@ -127,6 +129,108 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, fileData, mode = 'confi
   }
 
   const renderContent = () => {
+    if (mode === 'view') {
+      return (
+        <div className="space-y-4 p-5">
+          <section className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-white/10 dark:bg-[#151921]">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#0081FB]/10 text-[#0081FB]">
+                <Icon icon={getIcon()} className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="break-words text-sm font-semibold text-gray-900 dark:text-white">
+                  {name}
+                </p>
+                <p className="mt-1 text-xs font-medium tabular-nums text-[#0081FB]">
+                  {formatSize(size)} {t('total_size') || 'total'}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-md border border-[#0081FB]/20 bg-[#0081FB]/10 px-2 py-1 text-[10px] font-bold uppercase text-[#0081FB]">
+                {isHalfLife2Vr
+                  ? t('half_life_2_vr_badge') || 'SOURCEVR'
+                  : hasObb
+                    ? t('badge_apk_obb') || 'APK + OBB'
+                    : t('badge_apk') || 'APK ONLY'}
+              </span>
+              <span className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-bold uppercase text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
+                {type === 'folder' ? 'FOLDER' : name?.split('.').pop()?.toUpperCase()}
+              </span>
+            </div>
+          </section>
+
+          {fileData.manifestData && (
+            <section className="rounded-xl border border-gray-200 p-4 dark:border-white/10">
+              <p className="text-xs font-semibold text-gray-900 dark:text-white">
+                {fileData.manifestData.gameName || 'Game Info'}
+              </p>
+              {fileData.manifestData.packageName && (
+                <p className="mt-1 break-all font-mono text-xs text-gray-500 dark:text-white/50">
+                  {fileData.manifestData.packageName}
+                </p>
+              )}
+            </section>
+          )}
+
+          {(fileData.apkName || type === 'apk') && (
+            <section className="rounded-xl border border-gray-200 p-4 dark:border-white/10">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-white/70">
+                  <Icon icon="mdi:android" className="size-4 text-[#0081FB]" /> APK
+                </span>
+                <span className="text-xs tabular-nums text-gray-500 dark:text-white/50">
+                  {formatSize(fileData.apkSize || size)}
+                </span>
+              </div>
+              <p className="mt-2 break-all font-mono text-xs text-gray-600 dark:text-white/60">
+                {fileData.apkName || name}
+              </p>
+            </section>
+          )}
+
+          {hasObb && (
+            <section className="space-y-3 rounded-xl border border-gray-200 p-4 dark:border-white/10">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-white/70">
+                  <Icon icon="mdi:folder-zip-outline" className="size-4 text-[#0081FB]" />
+                  {t('obb_found') || 'OBB data'}
+                </span>
+                <span className="text-xs tabular-nums text-gray-500 dark:text-white/50">
+                  {formatSize(obbSize)}
+                </span>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-3 dark:bg-white/5">
+                <p className="text-[10px] font-semibold uppercase text-gray-500 dark:text-white/40">
+                  {t('target_folder') || 'Target OBB folder'}
+                </p>
+                <p className="mt-1 break-all font-mono text-xs text-gray-700 dark:text-white/70">
+                  /sdcard/Android/obb/{fileData.obbFolder || 'Folder Name'}
+                </p>
+              </div>
+              {fileData.obbFiles?.length > 0 && (
+                <div className="max-h-36 space-y-1 overflow-y-auto">
+                  {fileData.obbFiles.map((entry, index) => (
+                    <div
+                      key={`${entry.name}-${index}`}
+                      className="flex items-start justify-between gap-3 rounded-md bg-gray-50 px-2 py-1.5 text-xs dark:bg-white/5"
+                    >
+                      <span className="break-all text-gray-600 dark:text-white/60">
+                        {entry.name}
+                      </span>
+                      <span className="shrink-0 font-mono tabular-nums text-gray-500 dark:text-white/40">
+                        {formatSize(entry.size)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+      )
+    }
+
     if (mode === 'clear-all') {
       return (
         <div className="p-6 space-y-4">
