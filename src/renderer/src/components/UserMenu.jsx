@@ -9,15 +9,7 @@ import RedeemModal from './RedeemModal'
 
 export function UserMenu({ onLiveAssist }) {
   const { t } = useLanguage()
-  const {
-    user,
-    accessTypes,
-    loading,
-    eligibilityLoading,
-    checkEligibility,
-    cancelDeviceCodeLogin,
-    logout
-  } = useAuth()
+  const { user, accessTypes, loading, eligibilityLoading, checkEligibility, logout } = useAuth()
   const [showDropdown, setShowDropdown] = useState(false)
   const [loginModalRequested, setLoginModalRequested] = useState(false)
   const [imageError, setImageError] = useState(false)
@@ -33,7 +25,6 @@ export function UserMenu({ onLiveAssist }) {
       await logout()
       setShowDropdown(false)
       setLoginModalRequested(false)
-      cancelDeviceCodeLogin()
     } catch (error) {
       console.error('Logout failed:', error)
     }
@@ -62,7 +53,6 @@ export function UserMenu({ onLiveAssist }) {
   }
 
   const handleCancelLogin = () => {
-    cancelDeviceCodeLogin()
     setLoginModalRequested(false)
     setBrowserLoginLoading(false)
     setBrowserLoginError(null)

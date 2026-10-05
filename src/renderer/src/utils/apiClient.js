@@ -23,7 +23,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.hyperto
 
 /**
  * Get the current user's Firebase ID token from localStorage.
- * The token is stored during login (deep-link or device-code flow).
+ * The token is stored during login (deep-link flow).
  * Returns null if no token is available.
  */
 function getUserToken() {

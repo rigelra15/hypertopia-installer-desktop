@@ -473,8 +473,6 @@ function LoginHistorySection({ user, t }) {
         return 'Google'
       case 'google-onetap':
         return 'Google One Tap'
-      case 'device-code':
-        return t('login_method_device_code') || 'Device Code'
       case 'browser-deep-link':
         return 'Browser'
       default:
