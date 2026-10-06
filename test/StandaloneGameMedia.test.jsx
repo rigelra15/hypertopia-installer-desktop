@@ -4,7 +4,6 @@ import StandaloneGameMedia from '../src/renderer/src/components/StandaloneGameMe
 
 const videoGame = {
   gameTitle: 'Click Clack Mixed Reality',
-  likedCount: 3,
   metaStore: {
     rating: { value: 3.1, count: 7 },
     media: {
@@ -72,7 +71,6 @@ describe('StandaloneGameMedia', () => {
     render(<StandaloneGameMedia game={videoGame} />)
 
     expect(screen.getByTestId('standalone-detail-rating-chip')).toHaveTextContent('3.1')
-    expect(screen.getByTestId('standalone-favorite-count')).toHaveTextContent('3')
 
     const video = screen.getByTestId('standalone-video')
     video.play = vi.fn().mockResolvedValue(undefined)
@@ -89,16 +87,6 @@ describe('StandaloneGameMedia', () => {
     expect(within(controls).getByRole('slider', { name: /video volume/i })).toBeInTheDocument()
     expect(within(controls).getByTestId('standalone-detail-video-seek')).toBeInTheDocument()
     expect(screen.getByTestId('standalone-video')).not.toHaveAttribute('controls')
-  })
-
-  it('makes the favorite chip actionable', () => {
-    const onFavoriteToggle = vi.fn()
-    render(<StandaloneGameMedia game={videoGame} onFavoriteToggle={onFavoriteToggle} />)
-
-    const favorite = screen.getByRole('button', { name: /favorite/i })
-    fireEvent.click(favorite)
-
-    expect(onFavoriteToggle).toHaveBeenCalledOnce()
   })
 
   it('keeps controls visible before playback, on hover, and after video end', () => {

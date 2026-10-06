@@ -5,6 +5,7 @@ import PropTypes from 'prop-types'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../hooks/useToast'
+import { apiFetch } from '../utils/apiClient'
 
 function ScrollingTitle({ children, className }) {
   const containerRef = useRef(null)
@@ -77,7 +78,6 @@ Tooltip.propTypes = {
   text: PropTypes.string
 }
 
-const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
 
 const getThemeConfig = (requestType) => {
   switch (requestType) {
@@ -212,7 +212,19 @@ function RequestCard({ req, language, isAdmin, onEdit, onDelete, onStatusChange 
     })
   }
 
-  const canModify = user && (user.email === req.requestedBy || isAdmin)
+  const isOwner = Boolean(
+    user?.email &&
+      req.requestedBy &&
+      user.email.toLowerCase() === req.requestedBy.toLowerCase()
+  )
+  const isPassiveReport = req.requestType === 'report' && req.report === 'game_not_launching'
+  const canEdit =
+    Boolean(onEdit) &&
+    (isOwner || isAdmin) &&
+    !isPassiveReport &&
+    (req.requestType !== 'report' || req.report === 'file_no_longer')
+  const canDelete = isAdmin && !isPassiveReport
+  const canChangeStatus = isAdmin && !isPassiveReport && Boolean(onStatusChange)
 
   return (
     <div className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-100 dark:border-white/5 overflow-visible flex flex-col">
@@ -220,25 +232,25 @@ function RequestCard({ req, language, isAdmin, onEdit, onDelete, onStatusChange 
       <div className="absolute -top-2 -right-2 z-20" ref={menuRef}>
         <button
           onClick={(e) => {
-            if (isAdmin && onStatusChange) {
+            if (canChangeStatus) {
               e.stopPropagation()
               setMenuOpen(!menuOpen)
             }
           }}
           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusCfg.bg} border-[1.5px] border-white shadow-md transition-all ${
-            isAdmin ? 'cursor-pointer hover:opacity-90' : 'cursor-default'
+            canChangeStatus ? 'cursor-pointer hover:opacity-90' : 'cursor-default'
           }`}
         >
           <span className={`text-[10px] font-bold ${statusCfg.text}`}>
             {statusCfg.label[language]}
           </span>
-          {isAdmin && (
+          {canChangeStatus && (
             <Icon icon="fa6-solid:chevron-down" className="text-[8px] text-white/70 ml-0.5" />
           )}
         </button>
 
         <AnimatePresence>
-          {menuOpen && isAdmin && (
+          {menuOpen && canChangeStatus && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -253,7 +265,7 @@ function RequestCard({ req, language, isAdmin, onEdit, onDelete, onStatusChange 
                     <button
                       key={s}
                       onClick={() => {
-                        onStatusChange(req.id, s)
+                        onStatusChange(req.id, s, req.reason)
                         setMenuOpen(false)
                       }}
                       className={`flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium rounded-lg transition-all ${
@@ -360,12 +372,12 @@ function RequestCard({ req, language, isAdmin, onEdit, onDelete, onStatusChange 
         )}
       </div>
 
-      {canModify && (
+      {(canEdit || canDelete) && (
         <div
           className={`p-3 bg-gradient-to-r ${theme.lightGradient} dark:from-white/5 dark:to-white/5 border-t ${theme.borderColor} dark:border-white/5 shrink-0`}
         >
           <div className="flex items-center gap-2">
-            {onEdit && (
+            {canEdit && (
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -377,20 +389,22 @@ function RequestCard({ req, language, isAdmin, onEdit, onDelete, onStatusChange 
                 {language === 'en' ? 'Edit' : 'Edit'}
               </button>
             )}
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                if (
-                  window.confirm(language === 'en' ? 'Delete this request?' : 'Hapus request ini?')
-                ) {
-                  onDelete(req.id)
-                }
-              }}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 text-gray-700 dark:text-white text-xs font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-300 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-all active:scale-95"
-            >
-              <Icon icon="material-symbols:delete-outline-rounded" className="text-sm" />
-              {language === 'en' ? 'Delete' : 'Hapus'}
-            </button>
+            {canDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (
+                    window.confirm(language === 'en' ? 'Delete this request?' : 'Hapus request ini?')
+                  ) {
+                    onDelete(req.id)
+                  }
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 text-gray-700 dark:text-white text-xs font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-300 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-all active:scale-95"
+              >
+                <Icon icon="material-symbols:delete-outline-rounded" className="text-sm" />
+                {language === 'en' ? 'Delete' : 'Hapus'}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -414,19 +428,17 @@ export function RequestGameList({ onEdit }) {
   const fetchRequests = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch(`${FIREBASE_DB_URL}/requestedVRGames.json`)
-      const data = await res.json()
-      if (data) {
-        const requestsArray = Object.entries(data).map(([key, value]) => ({
-          id: key,
-          ...value
-        }))
-        setRequests(
-          requestsArray.sort((a, b) => new Date(b.timeRequested) - new Date(a.timeRequested))
-        )
-      } else {
-        setRequests([])
-      }
+      const res = await apiFetch('/api/v1/web/games/requests')
+      if (!res.ok) throw new Error('Failed to load requests')
+
+      const { requests: data } = await res.json()
+      const requestsArray = Object.entries(data || {}).map(([key, value]) => ({
+        ...value,
+        id: key
+      }))
+      setRequests(
+        requestsArray.sort((a, b) => new Date(b.timeRequested) - new Date(a.timeRequested))
+      )
     } catch (err) {
       console.error('Error fetching requests:', err)
       toast.error(language === 'en' ? 'Failed to load requests' : 'Gagal memuat request')
@@ -439,22 +451,23 @@ export function RequestGameList({ onEdit }) {
     fetchRequests()
   }, [fetchRequests])
 
-  const handleStatusChange = async (requestId, newStatus) => {
-    try {
-      const updateData = {
-        status: newStatus,
-        timeProcessed: newStatus !== 'Pending' ? new Date().toISOString() : null,
-        timeCompleted: ['Done', 'Canceled'].includes(newStatus) ? new Date().toISOString() : null
-      }
+  const handleStatusChange = async (requestId, newStatus, reason) => {
+    const update = { status: newStatus }
+    if (typeof reason === 'string') update.reason = reason
 
-      await fetch(`${FIREBASE_DB_URL}/requestedVRGames/${requestId}.json`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
-      })
+    try {
+      const response = await apiFetch(
+        `/api/v1/web/games/requests/${encodeURIComponent(requestId)}/status`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(update)
+        }
+      )
+      if (!response.ok) throw new Error('Failed to update status')
 
       toast.success(language === 'en' ? 'Status updated!' : 'Status diupdate!')
-      fetchRequests()
+      await fetchRequests()
     } catch (err) {
       console.error('Error updating status:', err)
       toast.error(language === 'en' ? 'Failed to update status' : 'Gagal mengupdate status')
@@ -463,11 +476,14 @@ export function RequestGameList({ onEdit }) {
 
   const handleDelete = async (requestId) => {
     try {
-      await fetch(`${FIREBASE_DB_URL}/requestedVRGames/${requestId}.json`, {
-        method: 'DELETE'
-      })
+      const response = await apiFetch(
+        `/api/v1/web/games/requests/${encodeURIComponent(requestId)}`,
+        { method: 'DELETE' }
+      )
+      if (!response.ok) throw new Error('Failed to delete request')
+
       toast.success(language === 'en' ? 'Request deleted!' : 'Request dihapus!')
-      fetchRequests()
+      await fetchRequests()
     } catch (err) {
       console.error('Error deleting request:', err)
       toast.error(language === 'en' ? 'Failed to delete request' : 'Gagal menghapus request')
@@ -480,10 +496,13 @@ export function RequestGameList({ onEdit }) {
     return matchesSearch && matchesStatus
   })
 
+  const userEmail = user?.email?.toLowerCase()
   const userRequests =
     showAllRequests || isAdmin
       ? filteredRequests
-      : filteredRequests.filter((req) => req.requestedBy === user?.email)
+      : filteredRequests.filter(
+          (req) => userEmail && req.requestedBy?.toLowerCase() === userEmail
+        )
 
   if (loading) {
     return (

@@ -17,22 +17,7 @@ const getRatingScore = (game) => {
   return Number.isFinite(value) && value > 0 ? value.toFixed(1) : null
 }
 
-const formatStatCount = (value) => {
-  const count = Math.max(0, Number(value) || 0)
-  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`
-  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`
-  return String(count)
-}
-
-export default function StandaloneGameMedia({
-  game,
-  description,
-  descriptionHtml,
-  isLiked = false,
-  favoriteCount: favoriteCountProp,
-  onFavoriteToggle,
-  isFavoritePending = false
-}) {
+export default function StandaloneGameMedia({ game, description, descriptionHtml }) {
   const media = useMemo(() => getStandaloneMedia(game), [game])
   const [activeIndex, setActiveIndex] = useState(0)
   const [videoStarted, setVideoStarted] = useState(false)
@@ -50,10 +35,6 @@ export default function StandaloneGameMedia({
   const videoRef = useRef(null)
   const youtubeRef = useRef(null)
   const ratingScore = getRatingScore(game)
-  const favoriteCount = Math.max(
-    0,
-    Number(favoriteCountProp ?? game?.likedCount) || 0
-  )
   const gameTitle = game.gameTitle || game.name || 'Game'
   const shouldShowVideoControls =
     !videoStarted || isVideoPointerInside || isVideoControlsFocused || isVideoEnded
@@ -394,21 +375,6 @@ export default function StandaloneGameMedia({
               </span>
             </span>
           )}
-          <button
-            type="button"
-            onClick={onFavoriteToggle}
-            disabled={isFavoritePending}
-            className={`standalone-detail-hero-stat standalone-detail-hero-stat--favorite ${isLiked ? 'standalone-detail-hero-stat--liked' : ''}`}
-            aria-label={isLiked ? 'Remove game from favorites' : 'Save game to favorites'}
-            title={isLiked ? 'Remove game from favorites' : 'Save game to favorites'}
-            aria-pressed={isLiked}
-            aria-busy={isFavoritePending}
-          >
-            <span className="standalone-detail-hero-stat__content">
-              <Icon icon={isLiked ? 'mdi:heart' : 'mdi:heart-outline'} aria-hidden="true" />
-              <span data-testid="standalone-favorite-count">{formatStatCount(favoriteCount)}</span>
-            </span>
-          </button>
         </div>
       </div>
 
@@ -466,9 +432,5 @@ export default function StandaloneGameMedia({
 StandaloneGameMedia.propTypes = {
   game: PropTypes.object.isRequired,
   description: PropTypes.string,
-  descriptionHtml: PropTypes.string,
-  isLiked: PropTypes.bool,
-  favoriteCount: PropTypes.number,
-  onFavoriteToggle: PropTypes.func,
-  isFavoritePending: PropTypes.bool
+  descriptionHtml: PropTypes.string
 }

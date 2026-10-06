@@ -4,10 +4,12 @@ import PropTypes from 'prop-types'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../hooks/useToast'
+import { apiFetch } from '../utils/apiClient'
 import { Modal } from './ui/Modal'
 
 const FIREBASE_DB_URL = 'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
 const REQUEST_API_URL = 'https://email.hypertopia.web.id/api/request-game'
+const GAME_REQUEST_API_URL = '/api/v1/web/games/requests'
 
 const reportOptions = [
   {
@@ -15,34 +17,39 @@ const reportOptions = [
     labelEn: 'File no longer available',
     labelId: 'File tidak tersedia lagi'
   },
-  { value: 'game_not_launching', labelEn: 'Game not launching', labelId: 'Game tidak bisa dibuka' },
-  {
-    value: 'game_stuck_loading',
-    labelEn: 'Game stuck on loading screen',
-    labelId: 'Game macet di layar loading'
-  },
-  { value: 'game_crashing', labelEn: 'Game crashing', labelId: 'Game crash' },
-  { value: 'game_performance_issues', labelEn: 'Performance issues', labelId: 'Masalah performa' },
-  { value: 'game_visual_glitches', labelEn: 'Visual glitches', labelId: 'Glitch visual' },
-  { value: 'others', labelEn: 'Others', labelId: 'Lainnya' }
+  { value: 'game_not_launching', labelEn: 'Game not launching', labelId: 'Game tidak bisa dibuka' }
 ]
 
-export function RequestGameModal({ isOpen, onClose, onSuccess }) {
+const createEmptyFormData = () => ({
+  gameTitle: '',
+  gameType: 'standalone',
+  requestType: 'new',
+  version: '',
+  previousVersion: '',
+  newVersion: '',
+  report: '',
+  description: ''
+})
+const getAvailableVersions = (game) => {
+  const versions = game?.versions || game?.availableVersions || []
+  if (!Array.isArray(versions)) return []
+
+  return [
+    ...new Set(
+      versions
+        .filter((version) => typeof version === 'string' || typeof version === 'number')
+        .map((version) => String(version).trim())
+        .filter(Boolean)
+    )
+  ]
+}
+
+export function RequestGameModal({ isOpen, onClose, onSuccess, gameData }) {
   const { t, language } = useLanguage()
   const { user } = useAuth()
   const toast = useToast()
 
-  const [formData, setFormData] = useState({
-    gameTitle: '',
-    gameType: 'standalone',
-    requestType: 'new',
-    version: '',
-    previousVersion: '',
-    newVersion: '',
-    report: '',
-    customReport: '',
-    description: ''
-  })
+  const [formData, setFormData] = useState(createEmptyFormData)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [existingGames, setExistingGames] = useState({})
@@ -76,6 +83,46 @@ export function RequestGameModal({ isOpen, onClose, onSuccess }) {
     }
   }
 
+  useEffect(() => {
+    if (!isOpen) return
+
+    if (!gameData) {
+      setFormData(createEmptyFormData())
+      setTitleSuggestions([])
+      setShowSuggestions(false)
+      setTitleExists(false)
+      setAvailableVersions([])
+      return
+    }
+
+    setFormData({
+      ...createEmptyFormData(),
+      gameTitle: gameData.gameTitle || '',
+      gameType: gameData.gameType || 'standalone',
+      requestType: gameData.requestType || 'new',
+      version: gameData.version || '',
+      previousVersion: gameData.previousVersion || '',
+      newVersion: gameData.newVersion || '',
+      report: gameData.report || '',
+      description: gameData.reason || ''
+    })
+    setTitleSuggestions([])
+    setShowSuggestions(false)
+    setTitleExists(gameData.requestType !== 'new')
+    setAvailableVersions([])
+  }, [isOpen, gameData])
+
+  useEffect(() => {
+    if (!isOpen || !gameData) return
+    const versions = getAvailableVersions(existingGames[gameData.gameTitle])
+    const selectedVersion = String(gameData.version || '').trim()
+    setAvailableVersions(
+      selectedVersion && !versions.includes(selectedVersion)
+        ? [...versions, selectedVersion]
+        : versions
+    )
+  }, [existingGames, gameData, isOpen])
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
     let newValue = value
@@ -86,11 +133,7 @@ export function RequestGameModal({ isOpen, onClose, onSuccess }) {
       }
     }
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: newValue,
-      ...(name === 'report' && value !== 'others' ? { customReport: '' } : {})
-    }))
+    setFormData((prev) => ({ ...prev, [name]: newValue }))
 
     if (name === 'gameTitle') {
       const typed = value.trim().toLowerCase()
@@ -109,7 +152,7 @@ export function RequestGameModal({ isOpen, onClose, onSuccess }) {
 
       if (existingGames[value.trim()]) {
         const gameData = existingGames[value.trim()]
-        const versions = gameData.versions || gameData.availableVersions || []
+        const versions = getAvailableVersions(gameData)
         setAvailableVersions(versions)
         if (versions.length > 0) {
           setFormData((prev) => ({
@@ -135,7 +178,9 @@ export function RequestGameModal({ isOpen, onClose, onSuccess }) {
       return
     }
 
-    if (formData.requestType === 'new' && titleExists) {
+    const isEditing = Boolean(gameData?.id)
+
+    if (formData.requestType === 'new' && titleExists && !isEditing) {
       toast.error(language === 'en' ? 'This game already exists!' : 'Game sudah ada!')
       return
     }
@@ -157,11 +202,6 @@ export function RequestGameModal({ isOpen, onClose, onSuccess }) {
       return
     }
 
-    if (formData.report === 'others' && !formData.customReport.trim()) {
-      toast.error(language === 'en' ? 'Please describe the issue!' : 'Jelaskan masalahnya!')
-      return
-    }
-
     setIsSubmitting(true)
 
     try {
@@ -169,39 +209,53 @@ export function RequestGameModal({ isOpen, onClose, onSuccess }) {
         gameTitle: formData.gameTitle.trim(),
         gameType: formData.gameType,
         requestType: formData.requestType,
-        version: formData.version || null,
-        previousVersion: formData.previousVersion || null,
-        newVersion: formData.newVersion || null,
-        report: formData.report === 'others' ? formData.customReport : formData.report,
-        description: formData.description || null,
-        requestedBy: user.email,
-        status: 'Pending',
-        timeRequested: new Date().toISOString()
+        version: formData.version.trim(),
+        previousVersion: formData.previousVersion.trim(),
+        newVersion: formData.newVersion.trim(),
+        report: formData.requestType === 'report' ? formData.report : '',
+        reason: formData.description.trim()
+      }
+      const response = await apiFetch(
+        isEditing
+          ? `${GAME_REQUEST_API_URL}/${encodeURIComponent(gameData.id)}`
+          : GAME_REQUEST_API_URL,
+        {
+          method: isEditing ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData)
+        }
+      )
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => null)
+        throw new Error(result?.error || 'Failed to submit request')
       }
 
-      await fetch(`${FIREBASE_DB_URL}/requestedVRGames/${formData.gameTitle}.json`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
-      })
-
-      try {
-        await fetch(REQUEST_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: user.email,
-            game: formData.gameTitle,
-            requestType: formData.requestType,
-            requestedBy: user.email
+      if (!isEditing) {
+        try {
+          await fetch(REQUEST_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: user.email,
+              game: formData.gameTitle.trim(),
+              requestType: formData.requestType,
+              requestedBy: user.email
+            })
           })
-        })
-      } catch (err) {
-        console.warn('Failed to send notification email:', err)
+        } catch (err) {
+          console.warn('Failed to send notification email:', err)
+        }
       }
 
       toast.success(
-        language === 'en' ? 'Request submitted successfully!' : 'Request berhasil dikirim!'
+        isEditing
+          ? language === 'en'
+            ? 'Request updated successfully!'
+            : 'Request berhasil diperbarui!'
+          : language === 'en'
+            ? 'Request submitted successfully!'
+            : 'Request berhasil dikirim!'
       )
       onSuccess?.()
       onClose()
@@ -215,18 +269,9 @@ export function RequestGameModal({ isOpen, onClose, onSuccess }) {
   }
 
   const resetForm = () => {
-    setFormData({
-      gameTitle: '',
-      gameType: 'standalone',
-      requestType: 'new',
-      version: '',
-      previousVersion: '',
-      newVersion: '',
-      report: '',
-      customReport: '',
-      description: ''
-    })
+    setFormData(createEmptyFormData())
     setTitleSuggestions([])
+    setShowSuggestions(false)
     setTitleExists(false)
     setAvailableVersions([])
   }
@@ -254,7 +299,13 @@ export function RequestGameModal({ isOpen, onClose, onSuccess }) {
         ) : (
           <>
             <Icon icon="material-symbols:send" className="text-lg" />
-            {language === 'en' ? 'Submit Request' : 'Kirim Request'}
+            {gameData?.id
+              ? language === 'en'
+                ? 'Save Changes'
+                : 'Simpan Perubahan'
+              : language === 'en'
+                ? 'Submit Request'
+                : 'Kirim Request'}
           </>
         )}
       </button>
@@ -265,7 +316,15 @@ export function RequestGameModal({ isOpen, onClose, onSuccess }) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={language === 'en' ? 'Request VR Game' : 'Request Game VR'}
+      title={
+        gameData?.id
+          ? language === 'en'
+            ? 'Edit Game Request'
+            : 'Edit Request Game'
+          : language === 'en'
+            ? 'Request VR Game'
+            : 'Request Game VR'
+      }
       subtitle={
         language === 'en'
           ? 'Submit a new game request or report an issue'
@@ -313,7 +372,7 @@ export function RequestGameModal({ isOpen, onClose, onSuccess }) {
                         setTitleExists(true)
                         setShowSuggestions(false)
                         const gameData = existingGames[suggestion]
-                        const versions = gameData?.versions || gameData?.availableVersions || []
+                        const versions = getAvailableVersions(gameData)
                         setAvailableVersions(versions)
                         if (versions.length > 0) {
                           setFormData((prev) => ({
@@ -487,27 +546,6 @@ export function RequestGameModal({ isOpen, onClose, onSuccess }) {
                   ))}
                 </select>
               </div>
-
-              {formData.report === 'others' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-white/70 mb-2">
-                    {language === 'en' ? 'Describe the Issue' : 'Jelaskan Masalahnya'} *
-                  </label>
-                  <textarea
-                    name="customReport"
-                    value={formData.customReport}
-                    onChange={handleInputChange}
-                    placeholder={
-                      language === 'en'
-                        ? 'Describe the issue in detail...'
-                        : 'Jelaskan masalahnya secara detail...'
-                    }
-                    rows={3}
-                    className="w-full p-3 border border-gray-300 dark:border-white/10 rounded-xl bg-white dark:bg-white/5 text-gray-900 dark:text-white resize-none"
-                    required
-                  />
-                </div>
-              )}
             </>
           )}
 
@@ -535,7 +573,7 @@ export function RequestGameModal({ isOpen, onClose, onSuccess }) {
 RequestGameModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  onSuccess: PropTypes.func
+  onSuccess: PropTypes.func,
+  gameData: PropTypes.object
 }
-
 export default RequestGameModal

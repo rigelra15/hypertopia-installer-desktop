@@ -150,6 +150,8 @@ Akses library game VR standalone langsung dari aplikasi, terintegrasi dengan Hyp
   - Device compatibility
   - Cover image
 - **Multi-Version Support** — Pilih versi game yang ingin didownload
+- **Update Requests** — Riwayat permintaan update dan validasi agar versi baru berbeda dari versi saat ini
+- **Request Management** — Ajukan game baru, update, atau laporan masalah; pemilik dapat mengedit request dan admin mengelola status serta penghapusan
 - **Multi-Part Download** — Support game dengan multiple download parts
 - **In-App Download** — Download langsung dalam aplikasi (Google Drive & Dropbox)
 - **Download Progress Widget** — Widget progress download di pojok kanan bawah

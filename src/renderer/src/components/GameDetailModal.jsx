@@ -18,9 +18,6 @@ import StandaloneGameMetaOverview, {
 } from './StandaloneGameMetaOverview'
 import { apiFetch } from '../utils/apiClient'
 
-const FIREBASE_DB_URL =
-  'https://hypertopia-id-bc-default-rtdb.asia-southeast1.firebasedatabase.app'
-
 // Helper function to compare versions (from highest to lowest)
 const compareVersions = (versionA, versionB) => {
   const parseVersion = (version) => {
@@ -236,70 +233,6 @@ export default function GameDetailModal({
   // Local download count state for UI updates
   const [localDownloadCount, setLocalDownloadCount] = useState(game?.downloadCount || 0)
   const [localVersions, setLocalVersions] = useState(versions)
-  const [isLiked, setIsLiked] = useState(false)
-  const [localLikedCount, setLocalLikedCount] = useState(Number(game?.likedCount) || 0)
-  const [isFavoritePending, setIsFavoritePending] = useState(false)
-
-  useEffect(() => {
-    if (!isOpen || !game || !gameTitle || !user?.uid) {
-      setIsLiked(false)
-      return undefined
-    }
-
-    let mounted = true
-    const favoriteUrl = `${FIREBASE_DB_URL}/usersData/likedGames/${encodeURIComponent(user.uid)}/${encodeURIComponent(gameTitle)}.json`
-
-    fetch(favoriteUrl)
-      .then((response) => {
-        if (!response.ok) throw new Error(`Favorite lookup failed (${response.status})`)
-        return response.json()
-      })
-      .then((value) => {
-        if (!mounted) return
-        const liked = value !== null && value !== undefined
-        setIsLiked(liked)
-        if (liked) setLocalLikedCount((count) => Math.max(count, 1))
-      })
-      .catch((error) => console.warn('Could not check favorite game:', error))
-
-    return () => {
-      mounted = false
-    }
-  }, [game, gameTitle, isOpen, user?.uid])
-
-  const handleFavoriteToggle = async () => {
-    if (!user?.uid) {
-      toast.error('Silakan login terlebih dahulu!')
-      return
-    }
-    if (isFavoritePending) return
-
-    const favoriteUrl = `${FIREBASE_DB_URL}/usersData/likedGames/${encodeURIComponent(user.uid)}/${encodeURIComponent(gameTitle)}.json`
-    setIsFavoritePending(true)
-    try {
-      const response = await fetch(favoriteUrl, {
-        method: isLiked ? 'DELETE' : 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: isLiked ? undefined : JSON.stringify(game)
-      })
-      if (!response.ok) throw new Error(`Favorite update failed (${response.status})`)
-
-      if (isLiked) {
-        setIsLiked(false)
-        setLocalLikedCount((count) => Math.max(0, count - 1))
-        toast.success('Dihapus dari game favorit.')
-      } else {
-        setIsLiked(true)
-        setLocalLikedCount((count) => count + 1)
-        toast.success('Ditambahkan ke game favorit.')
-      }
-    } catch (error) {
-      console.error('Could not update favorite game:', error)
-      toast.error('Gagal memperbarui favorit.')
-    } finally {
-      setIsFavoritePending(false)
-    }
-  }
 
   // Fetch cover image
   useEffect(() => {
@@ -368,9 +301,6 @@ export default function GameDetailModal({
     setResolvedDownloadLinks(null)
     // Sync local download count with game data
     setLocalDownloadCount(game?.downloadCount || 0)
-    setIsLiked(false)
-    setLocalLikedCount(Number(game?.likedCount) || 0)
-    setIsFavoritePending(false)
     setLocalVersions(versions)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game, initialSelectedVersion])
@@ -1106,10 +1036,7 @@ export default function GameDetailModal({
                         game={game}
                         description={game?.metaStore?.description}
                         descriptionHtml={game?.metaStore?.descriptionHtml}
-                        isLiked={isLiked}
-                        favoriteCount={Math.max(localLikedCount, isLiked ? 1 : 0)}
-                        onFavoriteToggle={handleFavoriteToggle}
-                        isFavoritePending={isFavoritePending}
+
                       />
                     ) : (
                       <>

@@ -89,8 +89,8 @@ export function GamesProvider({ children }) {
 
         // Convert object to array with keys
         const gamesArray = Object.entries(result.data || {}).map(([key, game]) => ({
-          id: key,
-          ...game
+          ...game,
+          id: key
         }))
 
         // Update cache
@@ -144,8 +144,8 @@ export function GamesProvider({ children }) {
     }
 
     return {
-      id: result.data.id || normalizedKey,
-      ...result.data
+      ...result.data,
+      id: result.data.id || normalizedKey
     }
   }, [])
 

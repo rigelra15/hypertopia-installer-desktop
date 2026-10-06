@@ -763,20 +763,6 @@ body.dark,
   line-height: 1;
 }
 
-button.standalone-detail-hero-stat--favorite {
-  cursor: pointer;
-}
-
-button.standalone-detail-hero-stat--favorite:disabled {
-  cursor: wait;
-  opacity: 0.72;
-}
-
-button.standalone-detail-hero-stat--favorite:not(:disabled):hover .standalone-detail-hero-stat__content,
-button.standalone-detail-hero-stat--favorite:not(:disabled):focus-visible .standalone-detail-hero-stat__content {
-  border-color: rgb(255 92 99 / 75%);
-  background: rgb(127 29 29 / 80%);
-}
 
 .standalone-detail-hero-stat__content {
   display: inline-flex;
@@ -801,9 +787,6 @@ button.standalone-detail-hero-stat--favorite:not(:disabled):focus-visible .stand
   color: #ffd43b;
 }
 
-.standalone-detail-hero-stat--favorite .standalone-detail-hero-stat__content svg {
-  color: #ff5c63;
-}
 
 .standalone-detail-gallery-shell {
   position: relative;

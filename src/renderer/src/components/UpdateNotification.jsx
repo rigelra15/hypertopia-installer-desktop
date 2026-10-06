@@ -3,6 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
 import { useLanguage } from '../contexts/LanguageContext'
 import PropTypes from 'prop-types'
+/* global __LOCAL_UPDATE_CARD_PREVIEW__: readonly */
+
+const LOCAL_UPDATE_CARD_PREVIEW_INFO = {
+  version: '1.0.325',
+  releaseUrl: null,
+  previewOnly: true
+}
 
 const UpdateModal = lazy(() => import('./UpdateModal'))
 const DownloadProgressWidget = lazy(() => import('./DownloadProgressWidget'))
@@ -13,6 +20,10 @@ const DownloadProgressWidget = lazy(() => import('./DownloadProgressWidget'))
  */
 export default function UpdateNotification({ className = '', onUpdateAvailable }) {
   const { t } = useLanguage()
+  const localUpdatePreview =
+    import.meta.env.DEV &&
+    typeof __LOCAL_UPDATE_CARD_PREVIEW__ !== 'undefined' &&
+    __LOCAL_UPDATE_CARD_PREVIEW__
   const [updateState, setUpdateState] = useState('idle') // idle, available, downloading, ready
   const [updateInfo, setUpdateInfo] = useState(null)
   const [downloadProgress, setDownloadProgress] = useState(0)
@@ -25,7 +36,10 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
   const [hasMountedWidget, setHasMountedWidget] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [currentVersion, setCurrentVersion] = useState('')
-  const [macUpdateInfo, setMacUpdateInfo] = useState(null) // Mac manual update info
+  const [macUpdateInfo, setMacUpdateInfo] = useState(
+    localUpdatePreview ? LOCAL_UPDATE_CARD_PREVIEW_INFO : null
+  ) // Mac manual update info
+  const [showPreviewDetails, setShowPreviewDetails] = useState(false)
   const autoUpdate = true // Forced to true
 
   // Fetch current app version on mount
@@ -34,6 +48,10 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
       setCurrentVersion(ver?.version || '')
     })
   }, [])
+  useEffect(() => {
+    if (!localUpdatePreview) return
+    onUpdateAvailable?.(true, LOCAL_UPDATE_CARD_PREVIEW_INFO)
+  }, [localUpdatePreview, onUpdateAvailable])
 
   useEffect(() => {
     // Apply auto-download setting on mount
@@ -122,35 +140,79 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="mx-3 mb-2 rounded-xl border border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-[#1a1200] overflow-hidden"
+            className={`w-full overflow-hidden rounded-2xl border border-orange-200/80 bg-gradient-to-br from-orange-50 via-white to-amber-50 shadow-sm dark:border-orange-500/25 dark:from-[#1a1200] dark:via-[#15120c] dark:to-[#1a1200] ${className}`}
           >
-            <div className="p-3 flex items-center gap-3">
-              <div className="rounded-lg p-1.5 bg-orange-100 dark:bg-orange-900/30 shrink-0">
-                <Icon icon="mdi:apple" className="h-4 w-4 text-orange-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-gray-900 dark:text-white">
-                  {t('update_available') || 'Update Available'} — v{macUpdateInfo.version}
-                </p>
-                <p className="text-[10px] text-gray-500 dark:text-white/50 mt-0.5">
-                  {t('update_mac_manual') || 'Download manual diperlukan di macOS'}
-                </p>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
+            <div className="p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300">
+                    <Icon icon="mdi:apple" className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold leading-4 text-gray-800 dark:text-white/80">
+                      {t('update_available') || 'Update Available'}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-bold leading-5 text-gray-900 dark:text-white">
+                        v{macUpdateInfo.version}
+                      </span>
+                      {macUpdateInfo.previewOnly && (
+                        <span className="rounded-md border border-orange-200 bg-orange-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-200">
+                          {t('update_preview_badge') || 'Preview'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 <button
-                  onClick={() => window.api.openExternal?.(macUpdateInfo.releaseUrl)}
-                  className="py-1.5 px-3 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-semibold transition-colors flex items-center gap-1"
-                >
-                  <Icon icon="mdi:download" className="h-3.5 w-3.5" />
-                  {t('update_download_now') || 'Download'}
-                </button>
-                <button
-                  onClick={() => setMacUpdateInfo(null)}
-                  className="rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white/60 transition-colors"
+                  type="button"
+                  aria-label={t('close') || 'Close'}
+                  title={t('close') || 'Close'}
+                  onClick={() => {
+                    setMacUpdateInfo(null)
+                    setShowPreviewDetails(false)
+                  }}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-orange-100 hover:text-gray-700 dark:text-white/45 dark:hover:bg-white/10 dark:hover:text-white"
                 >
                   <Icon icon="mdi:close" className="h-3.5 w-3.5" />
                 </button>
               </div>
+              <p className="mt-2 text-[10px] leading-4 text-gray-600 dark:text-white/60">
+                {macUpdateInfo.previewOnly
+                  ? t('update_preview_description') || 'Local preview only; not a real release.'
+                  : t('update_mac_manual') || 'Download manual diperlukan di macOS'}
+              </p>
+              <button
+                type="button"
+                aria-expanded={macUpdateInfo.previewOnly ? showPreviewDetails : undefined}
+                onClick={() => {
+                  if (macUpdateInfo.previewOnly) {
+                    setShowPreviewDetails((visible) => !visible)
+                    return
+                  }
+                  window.api.openExternal?.(macUpdateInfo.releaseUrl)
+                }}
+                className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[11px] font-semibold transition-colors ${
+                  macUpdateInfo.previewOnly
+                    ? 'border-orange-200 bg-orange-100/70 text-orange-700 hover:bg-orange-200/70 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-200 dark:hover:bg-orange-500/20'
+                    : 'border-orange-500 bg-orange-500 text-white shadow-sm hover:border-orange-600 hover:bg-orange-600'
+                }`}
+              >
+                <Icon icon="mdi:download" className="h-3.5 w-3.5" />
+                {macUpdateInfo.previewOnly
+                  ? t('update_preview_badge') || 'Preview'
+                  : t('update_download_now') || 'Download'}
+              </button>
+              {macUpdateInfo.previewOnly && showPreviewDetails && (
+                <p
+                  id="update-preview-action-detail"
+                  role="status"
+                  className="mt-2 rounded-lg bg-orange-100/70 px-2.5 py-2 text-[10px] leading-4 text-orange-800 dark:bg-orange-500/10 dark:text-orange-200"
+                >
+                  {t('update_preview_action_feedback') ||
+                    'Preview only: no update will be downloaded.'}
+                </p>
+              )}
             </div>
           </motion.div>
         )}

@@ -136,8 +136,10 @@ export default defineConfig({
       __APP_CHANGELOG__: JSON.stringify(changelog),
       __COMMIT_COUNT__: JSON.stringify(commitCount),
       __BUILD_DATE__: JSON.stringify(buildDate),
-      // BUILD_ID is kept for renderer display purposes only (no secret value, just the HMAC hash)
-      __BUILD_ID__: JSON.stringify(buildId)
+      // Explicitly opt in to local renderer previews; production UI remains gated by import.meta.env.DEV.
+      __LOCAL_UPDATE_CARD_PREVIEW__: JSON.stringify(
+        process.env.HYPERTOPIA_PREVIEW_UPDATE_CARD === '1'
+      )
       // NOTE: REACT_APP_HYPERTOPIA_API_SECRET is intentionally NOT injected into the renderer.
       // All authenticated API calls go through the 'api-fetch' IPC handler in main process.
     },
