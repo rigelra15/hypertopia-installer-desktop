@@ -13,6 +13,8 @@ vi.mock('../src/renderer/src/contexts/LanguageContext', () => ({
         device_help_usb: 'Use a data-capable USB cable.',
         device_help_unlock: 'Unlock the headset and allow USB debugging.',
         device_help_developer_mode: 'Enable Developer Mode.',
+        troubleshoot_title: 'Device not detected?',
+        troubleshoot_restart: 'Unplug and reconnect the USB cable, or restart the app.',
         device_retry_scan: 'Scan again',
         no_device: 'No Device',
         select_device: 'Select Device'
@@ -73,6 +75,10 @@ describe('DeviceSelector connection diagnostics', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('Quest not detected')
     expect(screen.getByText('Enable Developer Mode.')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Unplug and reconnect the USB cable, or restart the app.'
+    )
+    expect(screen.queryByText('Device not detected?')).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

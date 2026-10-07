@@ -178,7 +178,7 @@ function App() {
       id: 'qgo',
       icon: 'mdi:tune-variant',
       label: t('tab_qgo') || 'QGO',
-      count: qgoLinks.length || null
+      count: qgoLinks.length > 0 ? 1 : null
     },
     { id: 'manager', icon: 'mdi:folder-cog', label: t('tab_manager') || 'Device Manager' }
   ]

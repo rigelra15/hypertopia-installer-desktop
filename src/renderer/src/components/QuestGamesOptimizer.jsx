@@ -8,9 +8,45 @@ import { useGames } from '../contexts/GamesContext'
 import { useToast } from '../hooks/useToast'
 import PropTypes from 'prop-types'
 import { apiFetch, API_BASE_URL } from '../utils/apiClient'
+import QGOLogo from '../assets/images/qgo-logo.webp'
 
 // QGO package name pattern
 const QGO_PACKAGE_PATTERNS = ['com.anagan.qgo', 'questgamesoptimizer', 'qgo']
+const extractVersion = (description) => {
+  if (!description) return null
+  const match = description.match(/v(\d+\.\d+\.\d+)/i)
+  return match ? match[1] : null
+}
+
+const compareSemver = (a, b) => {
+  if (!a && !b) return 0
+  if (!a) return -1
+  if (!b) return 1
+
+  const pa = String(a)
+    .split('.')
+    .map((n) => parseInt(n, 10) || 0)
+  const pb = String(b)
+    .split('.')
+    .map((n) => parseInt(n, 10) || 0)
+  const len = Math.max(pa.length, pb.length)
+
+  for (let i = 0; i < len; i++) {
+    const va = pa[i] || 0
+    const vb = pb[i] || 0
+    if (va !== vb) return va - vb
+  }
+  return 0
+}
+
+const selectLatestQgoLinks = (links = []) => {
+  const latest = links.reduce((current, item) => {
+    const version = extractVersion(item.description)
+    const currentVersion = current ? extractVersion(current.description) : null
+    return !current || compareSemver(version, currentVersion) > 0 ? item : current
+  }, null)
+  return latest ? [latest] : []
+}
 
 export function QuestGamesOptimizer({
   selectedDevice,
@@ -36,9 +72,6 @@ export function QuestGamesOptimizer({
   const [qgoLinks, setQgoLinks] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [searchQuery, _setSearchQuery] = useState('')
-  const [sortBy, _setSortBy] = useState('version-desc')
-
   const [showDownloadModal, setShowDownloadModal] = useState(false)
   const [deviceModel, setDeviceModel] = useState(null)
 
@@ -81,41 +114,10 @@ export function QuestGamesOptimizer({
     byVersion: {} // { version: count }
   })
 
-  // QGO package name pattern
-
-  // Extract version from description string (e.g., "Quest Games Optimizer v13.0.4" -> "13.0.4")
-  const extractVersion = (description) => {
-    if (!description) return null
-    const match = description.match(/v(\d+\.\d+\.\d+)/i)
-    return match ? match[1] : null
-  }
-
-  // Compare semver versions
-  const compareSemver = (a, b) => {
-    if (!a && !b) return 0
-    if (!a) return -1
-    if (!b) return 1
-
-    const pa = String(a)
-      .split('.')
-      .map((n) => parseInt(n, 10) || 0)
-    const pb = String(b)
-      .split('.')
-      .map((n) => parseInt(n, 10) || 0)
-    const len = Math.max(pa.length, pb.length)
-
-    for (let i = 0; i < len; i++) {
-      const va = pa[i] || 0
-      const vb = pb[i] || 0
-      if (va !== vb) return va - vb
-    }
-    return 0
-  }
-
   // Use cached data from GamesContext, or fetch if needed
   useEffect(() => {
     if (cachedQgoLinks.length > 0) {
-      setQgoLinks(cachedQgoLinks)
+      setQgoLinks(selectLatestQgoLinks(cachedQgoLinks))
       setDownloadStats(cachedQgoStats)
       setIsLoading(false)
     } else if (!qgoLoading) {
@@ -124,7 +126,7 @@ export function QuestGamesOptimizer({
       fetchQgoLinks()
         .then((result) => {
           if (result) {
-            setQgoLinks(result.links || [])
+            setQgoLinks(selectLatestQgoLinks(result.links || []))
             setDownloadStats(result.stats || { total: 0, byVersion: {} })
           }
           setIsLoading(false)
@@ -151,7 +153,7 @@ export function QuestGamesOptimizer({
     try {
       const result = await fetchQgoLinks(true) // force refresh
       if (result) {
-        setQgoLinks(result.links || [])
+        setQgoLinks(selectLatestQgoLinks(result.links || []))
         setDownloadStats(result.stats || { total: 0, byVersion: {} })
       }
     } catch (err) {
@@ -309,43 +311,7 @@ export function QuestGamesOptimizer({
     return downloadedFiles[itemVersion] || null
   }
 
-  // Sort QGO links
-  const sortedLinks = [...qgoLinks].sort((a, b) => {
-    const versionA = extractVersion(a.description)
-    const versionB = extractVersion(b.description)
-
-    if (sortBy === 'version-desc') {
-      return -compareSemver(versionA, versionB)
-    }
-    if (sortBy === 'version-asc') {
-      return compareSemver(versionA, versionB)
-    }
-    // For date sorting, fallback to version since we don't have date field
-    if (sortBy === 'date-new') {
-      return -compareSemver(versionA, versionB)
-    }
-    if (sortBy === 'date-old') {
-      return compareSemver(versionA, versionB)
-    }
-    return 0
-  })
-
-  // Filter by search query
-  const filteredLinks = sortedLinks.filter((item) => {
-    if (!searchQuery.trim()) return true
-
-    const q = searchQuery.toLowerCase()
-    const description = (item.description || '').toLowerCase()
-
-    return description.includes(q)
-  })
-
-  // Find highest version
-  const maxVersion = qgoLinks.reduce((max, item) => {
-    const version = extractVersion(item.description)
-    if (!max) return version
-    return compareSemver(version, max) > 0 ? version : max
-  }, null)
+  const latestLink = qgoLinks[0] || null
 
   // Update QGO download count via API
   const updateQgoDownloadCount = async (version) => {
@@ -455,33 +421,20 @@ export function QuestGamesOptimizer({
     [t, startDownload, downloadInfo.totalBytes, handleRefresh, toast, fetchDownloadUrl, user]
   )
 
-  // Handle deep link download from website
+  // Handle deep link downloads by resolving to an available latest release.
   useEffect(() => {
-    if (pendingDeepLinkDownload && pendingDeepLinkDownload.game && qgoLinks.length > 0) {
-      const matchingItem = qgoLinks.find((item) => {
-        const itemVersion = extractVersion(item.description)
-        return itemVersion === pendingDeepLinkDownload.version
-      })
+    if (!pendingDeepLinkDownload?.game || qgoLinks.length === 0) return
 
-      if (matchingItem) {
-        handleDownload(matchingItem)
-        if (onDeepLinkProcessed) {
-          onDeepLinkProcessed()
-        }
-      } else {
-        const latestItem = qgoLinks.find((item) => {
-          const itemVersion = extractVersion(item.description)
-          return itemVersion === maxVersion
-        })
-        if (latestItem) {
-          handleDownload(latestItem)
-        }
-        if (onDeepLinkProcessed) {
-          onDeepLinkProcessed()
-        }
-      }
+    const requestedVersion = pendingDeepLinkDownload.version
+    const matchingItem = qgoLinks.find(
+      (item) => extractVersion(item.description) === requestedVersion
+    )
+    const latestItem = matchingItem || qgoLinks[0]
+    if (latestItem) {
+      handleDownload(latestItem)
     }
-  }, [pendingDeepLinkDownload, qgoLinks, maxVersion, onDeepLinkProcessed, handleDownload])
+    onDeepLinkProcessed?.()
+  }, [pendingDeepLinkDownload, qgoLinks, onDeepLinkProcessed, handleDownload])
 
   // Handle delete downloaded file — opens custom confirm modal
   const handleDeleteFile = (item) => {
@@ -886,11 +839,11 @@ export function QuestGamesOptimizer({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-gray-500 dark:text-white/50">
-                {isLoading
-                  ? t('qgo_loading') || 'Loading...'
-                  : `${filteredLinks.length} ${t('qgo_versions') || 'versions available'}`}
-              </p>
+              {isLoading && (
+                <p className="text-xs text-gray-500 dark:text-white/50">
+                  {t('qgo_loading') || 'Loading...'}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -917,7 +870,7 @@ export function QuestGamesOptimizer({
         </div>
       </div>
 
-      {/* QGO List */}
+      {/* Latest QGO release */}
       <div className="flex-1 overflow-y-auto p-4">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16">
@@ -943,7 +896,7 @@ export function QuestGamesOptimizer({
               {t('qgo_retry') || 'Retry'}
             </button>
           </div>
-        ) : filteredLinks.length === 0 ? (
+        ) : !latestLink ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-white/5">
               <Icon
@@ -952,104 +905,70 @@ export function QuestGamesOptimizer({
               />
             </div>
             <p className="mt-4 text-sm text-gray-600 dark:text-white/70">
-              {searchQuery
-                ? t('search_no_results') || 'No results found'
-                : t('qgo_empty') || 'No QGO versions available'}
+              {t('qgo_empty') || 'No QGO versions available'}
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredLinks.map((item, index) => {
+          <div className="w-full">
+            {(() => {
+              const item = latestLink
               const version = extractVersion(item.description)
-              const isNewest = version === maxVersion
 
               return (
                 <div
-                  key={item.url || index}
-                  className={`group relative overflow-hidden rounded-xl border transition-colors p-4 ${
-                    isNewest
-                      ? 'border-[#0081FB]/30 bg-[#0081FB]/[0.04] dark:bg-[#0081FB]/[0.07]'
-                      : 'border-gray-200 dark:border-white/10 bg-white dark:bg-[#0f0f0f] hover:border-gray-300 dark:hover:border-white/20'
-                  }`}
+                  key={item.url}
+                  className="group relative overflow-hidden rounded-3xl border border-[#0081FB]/25 bg-white p-6 shadow-lg shadow-[#0081FB]/5 dark:bg-[#111] sm:p-8"
                 >
-                  {/* Top accent strip for latest version */}
-                  {isNewest && (
-                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#0081FB] to-[#00C2FF]" />
-                  )}
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-[#0081FB]" />
+                  <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#0081FB]/20 to-[#00C2FF]/10">
-                          <Icon icon="mdi:android" className="h-6 w-6 text-[#0081FB]" />
+                        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-2 shadow-sm">
+                          <img src={QGOLogo} alt="" className="h-full w-full object-contain" />
                         </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                               {item.description || 'Quest Games Optimizer'}
                             </h3>
-                            {/* Latest badge */}
-                            {isNewest && (
-                              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#0081FB] to-[#00C2FF] px-2 py-0.5 text-[10px] font-bold text-white">
-                                {t('qgo_latest') || 'LATEST'}
-                              </span>
-                            )}
-                            {/* Installed badge */}
-                            {isVersionInstalled(version) && (
-                              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                                <Icon icon="mdi:check-circle" className="h-3 w-3" />
-                                {t('installed') || 'Installed'}
-                              </span>
-                            )}
-                            {/* Downloaded badge */}
-                            {!isVersionInstalled(version) && isVersionDownloaded(version) && (
-                              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                                <Icon icon="mdi:check-circle" className="h-3 w-3" />
-                                {t('downloaded') || 'Downloaded'}
-                              </span>
-                            )}
+                            <span className="inline-flex items-center rounded-full bg-[#0081FB] px-2.5 py-1 text-[10px] font-bold text-white">
+                              {t('qgo_latest') || 'LATEST'}
+                            </span>
                           </div>
                           {version && (
-                            <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-white/50">
-                              <div className="flex items-center gap-1">
-                                <Icon icon="mdi:tag" className="h-3 w-3" />
-                                <span>v{version}</span>
-                              </div>
-                              <span className="text-gray-400 dark:text-white/30">•</span>
-                              <div className="flex items-center gap-1">
-                                <Icon icon="mdi:download" className="h-3 w-3" />
-                                <span>
-                                  {(downloadStats.byVersion[version] || 0).toLocaleString()}{' '}
-                                  {t('downloads') || 'downloads'}
+                            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500 dark:text-white/55">
+                              <span className="flex items-center gap-1">
+                                <Icon icon="mdi:tag" className="h-4 w-4" />v{version}
+                              </span>
+                              {Number(item.fileSize) > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <Icon icon="mdi:harddisk" className="h-4 w-4" />
+                                  {formatBytes(Number(item.fileSize))}
                                 </span>
-                              </div>
+                              )}
+                              <span className="flex items-center gap-1">
+                                <Icon icon="mdi:download" className="h-4 w-4" />
+                                {(downloadStats.byVersion[version] || 0).toLocaleString()}{' '}
+                                {t('downloads') || 'downloads'}
+                              </span>
                             </div>
                           )}
                         </div>
                       </div>
                     </div>
-
-                    <div className="flex flex-col gap-2">
-                      {/* Button logic based on state */}
+                    <div className="flex flex-wrap gap-2 sm:flex-col">
                       {isVersionDownloaded(version) ? (
                         <>
-                          {/* Delete File button - shown when file is downloaded */}
                           <button
                             onClick={() => handleDeleteFile(item)}
                             disabled={isDownloading || installing}
-                            className="flex-shrink-0 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-red-500 px-4 py-2 text-sm font-medium text-white transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-red-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                           >
                             <Icon icon="mdi:file-remove" className="h-4 w-4" />
-                            <span className="hidden sm:inline">
-                              {t('delete_file') || 'Delete File'}
-                            </span>
+                            <span>{t('delete_file') || 'Delete File'}</span>
                           </button>
-
-                          {/* Install/Uninstall button */}
                           {isVersionInstalled(version) ? (
-                            // Uninstall App button for installed version - only enabled if device connected
                             <>
-                              {/* Reset Data button - fixes game profiles not showing after patch */}
                               <button
                                 onClick={() => setClearDataConfirm(true)}
                                 disabled={!selectedDevice || isDownloading || installing}
@@ -1058,16 +977,10 @@ export function QuestGamesOptimizer({
                                     ? t('connect_device_first') || 'Connect a device first'
                                     : ''
                                 }
-                                className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                                  selectedDevice
-                                    ? 'bg-gradient-to-r from-yellow-600 to-amber-500 hover:scale-105 disabled:opacity-50'
-                                    : 'bg-gray-600 opacity-50'
-                                }`}
+                                className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-yellow-600 to-amber-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                               >
                                 <Icon icon="mdi:broom" className="h-4 w-4" />
-                                <span className="hidden sm:inline">
-                                  {t('qgo_clear_data') || 'Reset Data'}
-                                </span>
+                                <span>{t('qgo_clear_data') || 'Reset Data'}</span>
                               </button>
                               <button
                                 onClick={() => setUninstallConfirm(true)}
@@ -1077,120 +990,63 @@ export function QuestGamesOptimizer({
                                     ? t('connect_device_first') || 'Connect a device first'
                                     : ''
                                 }
-                                className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                                  selectedDevice
-                                    ? 'bg-gradient-to-r from-orange-500 to-amber-400 hover:scale-105 disabled:opacity-50'
-                                    : 'bg-gray-600 opacity-50'
-                                }`}
+                                className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                               >
                                 <Icon icon="mdi:delete" className="h-4 w-4" />
-                                <span className="hidden sm:inline">
-                                  {t('uninstall_app') || 'Uninstall App'}
-                                </span>
+                                <span>{t('uninstall_app') || 'Uninstall App'}</span>
                               </button>
                             </>
                           ) : (
-                            // Install / Update button
-                            (() => {
-                              const isUpdate =
-                                installedQgoVersion &&
-                                compareSemver(version, installedQgoVersion) > 0
-                              return (
-                                <button
-                                  onClick={() => selectedDevice && handleInstallLocal(item)}
-                                  disabled={!selectedDevice || isDownloading || installing}
-                                  title={
-                                    !selectedDevice
-                                      ? t('connect_device_first') || 'Connect a device first'
-                                      : ''
-                                  }
-                                  className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                                    selectedDevice
-                                      ? isUpdate
-                                        ? 'bg-gradient-to-r from-blue-600 to-cyan-500 hover:scale-105 disabled:opacity-50'
-                                        : 'bg-gradient-to-r from-emerald-600 to-green-500 hover:scale-105 disabled:opacity-50'
-                                      : 'bg-gray-600 opacity-50'
-                                  }`}
-                                >
-                                  <Icon
-                                    icon={isUpdate ? 'mdi:update' : 'mdi:package-down'}
-                                    className="h-4 w-4"
-                                  />
-                                  <span className="hidden sm:inline">
-                                    {isUpdate
-                                      ? t('qgo_update') || 'Update'
-                                      : t('install') || 'Install'}
-                                  </span>
-                                </button>
-                              )
-                            })()
+                            <button
+                              onClick={() => selectedDevice && handleInstallLocal(item)}
+                              disabled={!selectedDevice || isDownloading || installing}
+                              title={
+                                !selectedDevice
+                                  ? t('connect_device_first') || 'Connect a device first'
+                                  : ''
+                              }
+                              className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-600 to-green-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                            >
+                              <Icon icon="mdi:package-down" className="h-4 w-4" />
+                              <span>{t('install') || 'Install'}</span>
+                            </button>
                           )}
                         </>
                       ) : (
+                        <button
+                          onClick={() => handleDownload(item)}
+                          disabled={isDownloading || installing}
+                          className="flex items-center justify-center gap-2 rounded-lg bg-[#0081FB] px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
+                        >
+                          <Icon icon="mdi:download" className="h-4 w-4" />
+                          <span>{t('qgo_download') || 'Download'}</span>
+                        </button>
+                      )}
+                      {!isVersionDownloaded(version) && isVersionInstalled(version) && (
                         <>
-                          {/* Download button - shown when file is not downloaded */}
                           <button
-                            onClick={() => handleDownload(item)}
-                            disabled={isDownloading || installing}
-                            className="flex-shrink-0 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#0081FB] to-[#00C2FF] px-4 py-2 text-sm font-medium text-white transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            onClick={() => setClearDataConfirm(true)}
+                            disabled={!selectedDevice || isDownloading || installing}
+                            className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-yellow-600 to-amber-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                           >
-                            <Icon icon="mdi:download" className="h-4 w-4" />
-                            <span className="hidden sm:inline">
-                              {t('qgo_download') || 'Download'}
-                            </span>
+                            <Icon icon="mdi:broom" className="h-4 w-4" />
+                            <span>{t('qgo_clear_data') || 'Reset Data'}</span>
                           </button>
-
-                          {/* Uninstall App button - show if this version is installed but file deleted */}
-                          {isVersionInstalled(version) && (
-                            <>
-                              {/* Reset Data button */}
-                              <button
-                                onClick={() => setClearDataConfirm(true)}
-                                disabled={!selectedDevice || isDownloading || installing}
-                                title={
-                                  !selectedDevice
-                                    ? t('connect_device_first') || 'Connect a device first'
-                                    : ''
-                                }
-                                className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                                  selectedDevice
-                                    ? 'bg-gradient-to-r from-yellow-600 to-amber-500 hover:scale-105 disabled:opacity-50'
-                                    : 'bg-gray-600 opacity-50'
-                                }`}
-                              >
-                                <Icon icon="mdi:broom" className="h-4 w-4" />
-                                <span className="hidden sm:inline">
-                                  {t('qgo_clear_data') || 'Reset Data'}
-                                </span>
-                              </button>
-                              <button
-                                onClick={() => setUninstallConfirm(true)}
-                                disabled={!selectedDevice || isDownloading || installing}
-                                title={
-                                  !selectedDevice
-                                    ? t('connect_device_first') || 'Connect a device first'
-                                    : ''
-                                }
-                                className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                                  selectedDevice
-                                    ? 'bg-gradient-to-r from-orange-500 to-amber-400 hover:scale-105 disabled:opacity-50'
-                                    : 'bg-gray-600 opacity-50'
-                                }`}
-                              >
-                                <Icon icon="mdi:delete" className="h-4 w-4" />
-                                <span className="hidden sm:inline">
-                                  {t('uninstall_app') || 'Uninstall App'}
-                                </span>
-                              </button>
-                            </>
-                          )}
+                          <button
+                            onClick={() => setUninstallConfirm(true)}
+                            disabled={!selectedDevice || isDownloading || installing}
+                            className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                          >
+                            <Icon icon="mdi:delete" className="h-4 w-4" />
+                            <span>{t('uninstall_app') || 'Uninstall App'}</span>
+                          </button>
                         </>
                       )}
                     </div>
                   </div>
                 </div>
               )
-            })}
+            })()}
           </div>
         )}
       </div>
