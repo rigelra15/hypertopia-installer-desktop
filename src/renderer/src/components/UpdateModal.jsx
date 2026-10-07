@@ -11,6 +11,8 @@ export default function UpdateModal({
   downloadSpeed,
   downloadedBytes,
   totalBytes,
+  onDownload,
+  onLater,
   onInstall,
   isReady
 }) {
@@ -65,16 +67,33 @@ export default function UpdateModal({
         {t('update_ready_restart') || 'Memulai Ulang Otomatis...'}
       </span>
     </button>
-  ) : (
+  ) : isDownloading ? (
     <button
       disabled={true}
       className="flex-1 py-4 px-4 rounded-xl bg-[#0081FB] text-white text-[16px] font-bold transition-all flex items-center justify-center gap-2.5 opacity-80 shadow-[0_0_20px_rgba(0,129,251,0.2)]"
     >
       <Icon icon="line-md:loading-loop" className="text-xl shrink-0" />
       <span className="leading-tight text-center">
-        {t('update_downloading_mandatory') || `Mengunduh v${updateInfo.version}...`}
+        {t('update_downloading') || `Downloading v${updateInfo.version}...`}
       </span>
     </button>
+  ) : (
+    <div className="flex flex-1 gap-3">
+      <button
+        type="button"
+        onClick={onLater}
+        className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-white/15 dark:text-white/80 dark:hover:bg-white/10"
+      >
+        {t('update_later') || 'Later'}
+      </button>
+      <button
+        type="button"
+        onClick={onDownload}
+        className="flex-1 rounded-xl bg-[#0081FB] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006fe0]"
+      >
+        {t('update_download_now') || 'Download Now'}
+      </button>
+    </div>
   )
 
   return (
@@ -88,8 +107,10 @@ export default function UpdateModal({
       }
       subtitle={
         isReady
-          ? t('update_restarting') || 'Aplikasi akan segera dimulai ulang...'
-          : t('update_mandatory') || 'Pembaruan Wajib: Harap tunggu hingga selesai.'
+          ? t('update_restarting') || 'The app is ready to restart.'
+          : isDownloading
+            ? t('update_downloading') || 'Downloading update...'
+            : t('update_download_prompt') || 'A new version is available. Download it now or later.'
       }
       icon={isReady ? 'mdi:check-circle-outline' : 'mdi:arrow-up-circle-outline'}
       iconColor={isReady ? '#10B981' : '#0081FB'}
@@ -171,6 +192,8 @@ UpdateModal.propTypes = {
   downloadSpeed: PropTypes.number,
   downloadedBytes: PropTypes.number,
   totalBytes: PropTypes.number,
+  onDownload: PropTypes.func,
+  onLater: PropTypes.func,
   onInstall: PropTypes.func,
   isReady: PropTypes.bool
 }

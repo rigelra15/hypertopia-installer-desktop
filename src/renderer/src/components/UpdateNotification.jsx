@@ -40,7 +40,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
     localUpdatePreview ? LOCAL_UPDATE_CARD_PREVIEW_INFO : null
   ) // Mac manual update info
   const [showPreviewDetails, setShowPreviewDetails] = useState(false)
-  const autoUpdate = true // Forced to true
+  const [autoUpdate, setAutoUpdate] = useState(() => localStorage.getItem('autoUpdate') === 'true')
 
   // Fetch current app version on mount
   useEffect(() => {
@@ -54,24 +54,31 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
   }, [localUpdatePreview, onUpdateAvailable])
 
   useEffect(() => {
-    // Apply auto-download setting on mount
-    window.api.setAutoDownload?.(autoUpdate)
-  }, [autoUpdate])
-
+    const handlePreferenceChange = (event) => {
+      const enabled = event.detail === true
+      setAutoUpdate(enabled)
+      localStorage.setItem('autoUpdate', String(enabled))
+    }
+    window.addEventListener('auto-download-preference-changed', handlePreferenceChange)
+    return () =>
+      window.removeEventListener('auto-download-preference-changed', handlePreferenceChange)
+  }, [])
   useEffect(() => {
     // Listen for update events from main process
     const unsubAvailable = window.api.onUpdateAvailable((info) => {
+      const shouldAutoDownload =
+        typeof info?.autoDownloadEnabled === 'boolean' ? info.autoDownloadEnabled : autoUpdate
       setUpdateInfo(info)
-      setUpdateState('available')
+      setUpdateState(shouldAutoDownload ? 'downloading' : 'available')
       setDismissed(false)
       onUpdateAvailable?.(true, info)
 
-      // Mandatory update: Show modal and start download immediately
       setHasMountedModal(true)
       setShowModal(true)
-      window.api.downloadUpdate()
-      setHasMountedWidget(true)
-      setShowWidget(true)
+      if (shouldAutoDownload) {
+        setHasMountedWidget(true)
+        setShowWidget(true)
+      }
     })
 
     // Mac: manual update notification (no auto-install, open browser instead)
@@ -125,7 +132,7 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
   }
 
   const handleLater = () => {
-    // No longer allowed to dismiss
+    setShowModal(false)
   }
 
   // Don't show inline notification if dismissed or idle
@@ -223,8 +230,8 @@ export default function UpdateNotification({ className = '', onUpdateAvailable }
         <Suspense fallback={null}>
           <UpdateModal
             isOpen={showModal}
-            onClose={handleLater}
             updateInfo={updateInfo}
+            onLater={handleLater}
             currentVersion={currentVersion}
             onDownload={handleDownload}
             isDownloading={updateState === 'downloading'}

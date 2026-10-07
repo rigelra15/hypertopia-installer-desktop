@@ -22,7 +22,7 @@
 
 ## ✨ What is HyperTopia Installer?
 
-**HyperTopia Installer** is a modern, cross-platform desktop application designed to make sideloading VR games and apps to your **Meta Quest** headset as easy as possible. Simply drag and drop your game files (ZIP/RAR containing APK + OBB), and let the installer handle the rest!
+**HyperTopia Installer** is a modern, cross-platform desktop application designed to make sideloading VR games and apps to your **Meta Quest** headset as easy as possible. Simply drag and drop your game files (ZIP/RAR/7z containing APK + OBB), and let the installer handle the rest!
 
 No complicated command-line tools, no confusing setup — just a beautiful, intuitive interface that works on Windows, macOS, and Linux.
 
@@ -32,9 +32,12 @@ No complicated command-line tools, no confusing setup — just a beautiful, intu
 
 ### 📦 Easy Game Installation
 
-- **Drag & Drop** — Simply drag your ZIP/RAR file containing the game
-- **Auto-Detection** — Automatically detects APK and OBB files inside archives
+- **Drag & Drop** — Install from ZIP/RAR/7z archives or already-extracted game folders
+- **Auto-Detection** — Automatically detects APK and OBB files inside archives and folders
 - **One-Click Install** — Install APK only or full bundle (APK + OBB) with a single click
+- **Multi-APK Installs** — Reads package, split, and version metadata from APK manifests; installs matching base/config split APKs together
+- **Package Selection** — Choose the app package in archives or extracted folders; full installs match OBB data to the selected package
+- **Archive Safety** — Rejects traversal paths, links, excessive entry counts, and oversized expanded content before extraction
 - **Progress Tracking** — Real-time progress bar for extraction and installation
 
 ### 🔌 Device Management
@@ -68,6 +71,7 @@ No complicated command-line tools, no confusing setup — just a beautiful, intu
 
 - **Custom Extract Path** — Choose where to extract temporary files
 - **Storage Info** — View available disk space
+- **Update Downloads** — Choose whether Windows/Linux updates download automatically; macOS updates remain manual until the app is signed and notarized
 - **Multi-Language** — Available in English and Indonesian (Bahasa Indonesia)
 
 ### 🎨 Modern UI/UX
@@ -104,7 +108,7 @@ Download the latest version for your operating system:
 2. **Install** the application on your computer
 3. **Connect** your Quest headset via USB
 4. **Enable** USB debugging when prompted on your headset
-5. **Drag & Drop** your game file (ZIP/RAR) into the installer
+5. **Drag & Drop** your game file (ZIP/RAR/7z) into the installer
 6. **Click Install** and wait for the magic! ✨
 
 ---

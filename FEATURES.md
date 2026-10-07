@@ -35,9 +35,12 @@
 
 ### Fitur Utama:
 
-- **Drag & Drop** — Cukup seret file ZIP/RAR yang berisi game ke dalam aplikasi
-- **Auto-Detection** — Otomatis mendeteksi file APK dan OBB di dalam arsip
-- **Format Support** — Mendukung format `ZIP`, `RAR` (termasuk RAR5), dan `7z`
+- **Drag & Drop** — Seret file ZIP/RAR/7z atau pilih folder game yang sudah diekstrak
+- **Auto-Detection** — Otomatis mendeteksi APK dan OBB di dalam arsip maupun folder
+- **Format Support** — Mendukung `ZIP`, `RAR` (termasuk RAR5), dan `7z`
+- **Multi-APK Handling** — Membaca metadata package, split, dan versi dari manifest APK; base dan split hanya digabung jika metadata cocok
+- **Pemilihan Paket** — Pilih paket APK untuk arsip atau folder; instalasi full mencocokkan OBB dengan package terpilih
+- **Archive Safety** — Menolak path traversal, link, terlalu banyak entry, dan ukuran hasil ekstraksi berlebihan sebelum menulis file
 - **One-Click Install** — Instalasi dengan satu klik:
   - Install APK saja
   - Install APK + OBB (Full Bundle)
@@ -53,7 +56,7 @@
 ### Cara Kerja:
 
 1. Hubungkan Quest ke PC via USB
-2. Seret file game (ZIP/RAR) ke area drop zone
+2. Seret file game (ZIP/RAR/7z) ke area drop zone
 3. Aplikasi akan scan isi arsip
 4. Pilih "Install APK" atau "Install Full"
 5. Tunggu proses selesai ✨
@@ -269,7 +272,7 @@ Fitur bantuan live dengan admin HyperTopia menggunakan WebRTC untuk audio dan sc
   - 🇺🇸 English
   - 🇮🇩 Bahasa Indonesia
 - **Changelog** — Lihat perubahan di setiap versi
-- **Auto-Update Toggle** — Aktifkan/nonaktifkan auto-update
+- **Update Download Toggle** — Pilih unduh otomatis atau minta konfirmasi sebelum unduhan untuk Windows/Linux; update macOS tetap manual sampai aplikasi ditandatangani dan dinotariskan
 
 ---
 
@@ -286,8 +289,8 @@ Fitur bantuan live dengan admin HyperTopia menggunakan WebRTC untuk audio dan sc
   - Progress download
   - Kecepatan download
   - ETA
-- **Download & Install** — Download update dan install otomatis
-- **Manual Check** — Cek update manual dari Settings
+- **Download Preference** — Unduh otomatis saat diaktifkan; jika dinonaktifkan, pengguna memilih "Download Now" atau "Later". macOS tetap menggunakan unduhan manual sampai aplikasi ditandatangani dan dinotariskan
+- **Manual Check** — Cek update manual dari Settings dan menu aplikasi, termasuk macOS
 
 ---
 

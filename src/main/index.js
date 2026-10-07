@@ -3,9 +3,22 @@ import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { exec, spawn, execFile } from 'child_process'
+import { Transform } from 'stream'
+import { pipeline } from 'stream/promises'
 import { autoUpdater } from 'electron-updater'
 import fs from 'fs-extra'
 import os from 'os'
+import { getArchiveFormat } from '../shared/archiveFormats.js'
+import { createUpdateCheckMenuHandler } from './updateMenu.js'
+import { buildApkInstallOptions, requireApkInstallOption } from '../shared/apkInstallOptions.js'
+import { parseAndroidManifestMetadata } from '../shared/apkMetadata.js'
+import {
+  MAX_ARCHIVE_ENTRY_COUNT,
+  MAX_ARCHIVE_EXPANDED_SIZE_BYTES,
+  MAX_ARCHIVE_LISTING_BYTES,
+  validateArchiveEntries
+} from '../shared/archiveSafety.js'
+import { installApkSetWithAdb as installApkSet } from './apkSetInstaller.js'
 
 // Set app name for native OS integrations
 app.name = 'HyperTopia Installer'
@@ -58,17 +71,28 @@ function _deobfuscatePassword() {
     for (let i = 0; i < dataBytes.length; i++) {
       result.push(dataBytes[i] ^ keyBytes[i])
     }
+
     return Buffer.from(result).toString('utf8')
   } catch {
     return ''
   }
 }
+const MAX_RELEASE_MANIFEST_BYTES = 1024 * 1024
 const ZIP_PASSWORD = _deobfuscatePassword()
 
-// Configure auto-updater
-// autoDownload is true by default and can no longer be disabled by the user.
-autoUpdater.autoDownload = true
+// Auto-download defaults off; app.whenReady restores a saved user preference.
+autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = true
+
+function readAutoDownloadPreference() {
+  try {
+    const configPath = join(app.getPath('userData'), 'hypertopia-config.json')
+    const config = fs.readJsonSync(configPath)
+    return typeof config.autoUpdate === 'boolean' ? config.autoUpdate : false
+  } catch {
+    return false
+  }
+}
 
 // Keep revision releases ordered after their base version while preventing
 // an older release from being installed over a newer one.
@@ -872,6 +896,8 @@ ipcMain.handle('clear-app-data', async (event, serial, packageName) => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  autoUpdater.autoDownload = readAutoDownloadPreference()
+
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.hypertopia.installer')
 
@@ -882,6 +908,14 @@ app.whenReady().then(() => {
 
   // Set Custom Menu Bar
   const isMac = process.platform === 'darwin'
+  const checkForUpdatesFromMenu = createUpdateCheckMenuHandler({
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    checkForUpdatesMac,
+    checkForUpdatesAndNotify: () => autoUpdater.checkForUpdatesAndNotify(),
+    showDevelopmentNotice: () =>
+      dialog.showMessageBox({ message: 'Update check is only available in production.' })
+  })
   const menuTemplate = [
     ...(isMac
       ? [
@@ -892,13 +926,7 @@ app.whenReady().then(() => {
               { type: 'separator' },
               {
                 label: 'Check for Updates',
-                click: () => {
-                  if (app.isPackaged) autoUpdater.checkForUpdatesAndNotify()
-                  else
-                    dialog.showMessageBox({
-                      message: 'Update check is only available in production.'
-                    })
-                }
+                click: checkForUpdatesFromMenu
               },
               { type: 'separator' },
               { role: 'services' },
@@ -1124,10 +1152,7 @@ app.whenReady().then(() => {
         { type: 'separator' },
         {
           label: 'Check for Updates',
-          click: () => {
-            if (app.isPackaged) autoUpdater.checkForUpdatesAndNotify()
-            else dialog.showMessageBox({ message: 'Update check is only available in production.' })
-          }
+          click: checkForUpdatesFromMenu
         }
       ]
     }
@@ -1149,7 +1174,7 @@ app.whenReady().then(() => {
 
   // Auto-updater events (only in production)
   // macOS manual update check function — defined here so check-for-updates IPC can call it
-  const checkForUpdatesMac = async () => {
+  async function checkForUpdatesMac() {
     try {
       const { net } = await import('electron')
       const request = net.request({
@@ -1213,7 +1238,10 @@ app.whenReady().then(() => {
 
       autoUpdater.on('update-available', (info) => {
         if (mainWindow) {
-          mainWindow.webContents.send('update-available', info)
+          mainWindow.webContents.send('update-available', {
+            ...info,
+            autoDownloadEnabled: autoUpdater.autoDownload
+          })
         }
       })
 
@@ -1295,10 +1323,21 @@ app.whenReady().then(() => {
     return false
   })
 
-  // IPC: Set auto-download setting (Hardcoded to true as per request)
-  ipcMain.handle('set-auto-download', () => {
-    autoUpdater.autoDownload = true
-    return true
+  // IPC: Read and persist the user's update auto-download preference.
+  ipcMain.handle('get-auto-download', () => autoUpdater.autoDownload)
+  ipcMain.handle('set-auto-download', async (_, enabled) => {
+    const autoDownload = enabled === true
+    const configPath = join(app.getPath('userData'), 'hypertopia-config.json')
+    let config = {}
+    try {
+      config = (await fs.readJson(configPath)) || {}
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error
+    }
+
+    await fs.writeJson(configPath, { ...config, autoUpdate: autoDownload }, { spaces: 2 })
+    autoUpdater.autoDownload = autoDownload
+    return autoDownload
   })
 
   // IPC: Install update and restart
@@ -1748,6 +1787,10 @@ function readReleaseManifestInfo(dir) {
     const manifestPath = findReleaseManifestPath(dir)
     if (!manifestPath) return { path: null, data: null }
 
+    const manifestStats = fs.statSync(manifestPath)
+    if (!manifestStats.isFile() || manifestStats.size > MAX_RELEASE_MANIFEST_BYTES) {
+      throw new Error('release.manifest exceeds the metadata size limit.')
+    }
     const content = fs.readFileSync(manifestPath, 'utf8')
     return { path: manifestPath, data: parseManifestData(content) }
   } catch (error) {
@@ -2158,7 +2201,7 @@ function hasPayloadFiles(dir) {
   return getPayloadFilesInDirectory(dir).length > 0
 }
 
-function findObbFolderInDirectory(dir, packageName) {
+function findObbFolderInDirectory(dir, packageName, allowFallback = true) {
   const normalizedPackageName = normalizePackageName(packageName)
   const rootName = normalizePackageName(path.basename(dir))
   const packageNameIsValid = isAndroidPackageName(normalizedPackageName)
@@ -2182,10 +2225,11 @@ function findObbFolderInDirectory(dir, packageName) {
       return fullPath
     }
 
-    const found = findObbFolderInDirectory(fullPath, packageName)
+    const found = findObbFolderInDirectory(fullPath, packageName, allowFallback)
     if (found) return found
   }
 
+  if (!allowFallback) return null
   // If the filename/manifest package is unavailable or slightly inconsistent,
   // use a structural fallback, but only when one child folder contains the
   // secondary payload. Do not treat arbitrary files beside the APK as OBB data.
@@ -2201,7 +2245,7 @@ function findObbFolderInDirectory(dir, packageName) {
   return null
 }
 
-function findObbFolderFromArchiveEntries(entries, packageName) {
+function findObbFolderFromArchiveEntries(entries, packageName, allowFallback = true) {
   const normalizedPackageName = normalizePackageName(packageName)
   const packageNameIsValid = isAndroidPackageName(normalizedPackageName)
   const packageFolders = new Set()
@@ -2220,6 +2264,7 @@ function findObbFolderFromArchiveEntries(entries, packageName) {
 
   if (packageFolders.size > 0) return [...packageFolders][0]
 
+  if (!allowFallback) return null
   // Fallback for archives whose APK filename does not match the OBB folder.
   const obbFolders = new Set()
   for (const rawEntry of entries) {
@@ -2235,6 +2280,82 @@ function findObbFolderFromArchiveEntries(entries, packageName) {
   return obbFolders.size === 1 ? [...obbFolders][0] : null
 }
 
+function getManifestDataForApkOption(options, option, manifestData) {
+  if (options.length === 1) return manifestData
+
+  const normalizedManifestPackage = normalizePackageName(manifestData?.packageName).toLowerCase()
+  const packageMatches = options.filter(
+    (candidate) =>
+      normalizePackageName(candidate.packageName).toLowerCase() === normalizedManifestPackage
+  )
+  if (packageMatches.length === 1 && packageMatches[0].id === option.id) return manifestData
+
+  const splitOptions = options.filter((candidate) => candidate.isSplit)
+  if (splitOptions.length === 1 && splitOptions[0].id === option.id) return manifestData
+
+  return null
+}
+
+function applyArchiveApkOptions(result, archiveEntries) {
+  const options = buildApkInstallOptions(archiveEntries)
+
+  result.apkOptions = options.map((option) => {
+    const manifestData = getManifestDataForApkOption(options, option, result.manifestData)
+    const packageName = option.packageName || getPackageNameForApk(option.apkName, manifestData)
+    const obbFolder = findObbFolderFromArchiveEntries(
+      archiveEntries,
+      packageName,
+      options.length === 1
+    )
+    const obbFiles = []
+    let obbSize = 0
+
+    if (obbFolder) {
+      for (const entry of archiveEntries) {
+        const relativePath = entry.isDirectory
+          ? null
+          : getArchiveEntryRelativePath(entry.file, obbFolder)
+        if (relativePath && isObbPayloadFile(relativePath)) {
+          const size = Number(entry.size) || 0
+          obbFiles.push({ name: relativePath.split('/').pop(), relativePath, size })
+          obbSize += size
+        }
+      }
+    }
+
+    return {
+      id: option.id,
+      name: option.name,
+      apkName: option.apkName,
+      apkCount: option.apkCount,
+      size: option.size,
+      isSplit: option.isSplit,
+      isSplitPart: option.isSplitPart,
+      installable: option.installable,
+      packageName: option.packageName || packageName || null,
+      versionCode: option.versionCode,
+      versionName: option.versionName,
+      splitName: option.splitName,
+      apkSize: option.size,
+      hasObb: Boolean(obbFolder),
+      obbFolder,
+      obbSize,
+      obbFiles
+    }
+  })
+
+  const firstOption = result.apkOptions[0]
+  result.hasApk = Boolean(firstOption)
+  result.apkName = firstOption?.apkName || null
+  result.apkSize = firstOption?.apkSize || 0
+  result.hasObb = firstOption?.hasObb || false
+  result.obbFolder = firstOption?.obbFolder || null
+  result.obbSize = firstOption?.obbSize || 0
+  result.obbFiles = firstOption?.obbFiles || []
+
+  return result.apkOptions
+}
+
 function getArchiveEntryRelativePath(entryPath, folderName) {
   const parts = String(entryPath || '')
     .replace(/\\/g, '/')
@@ -2245,472 +2366,491 @@ function getArchiveEntryRelativePath(entryPath, folderName) {
   return parts.slice(folderIndex + 1).join('/')
 }
 
-// Helper: Scan RAR for APK and OBB using UnRAR command-line (no memory limit)
-async function scanRar(rarPath) {
-  return new Promise((resolve, reject) => {
-    const unrarPath = getUnrarPath()
-    const zipPassword = ZIP_PASSWORD
-
-    let result = {
-      hasApk: false,
-      hasObb: false,
-      apkName: null,
-      apkSize: 0,
-      obbFolder: null,
-      obbSize: 0,
-      obbFiles: [],
-      manifestPath: null,
-      manifestData: null,
-      installMethod: null,
-      specialInstall: null,
-      specialInstallData: null
+function validateArchiveEntriesForExtraction(entries, targetDir) {
+  let maxExpandedSizeBytes = MAX_ARCHIVE_EXPANDED_SIZE_BYTES
+  try {
+    fs.ensureDirSync(targetDir)
+    const { bavail, bsize } = fs.statfsSync(targetDir)
+    const availableBytes = Number(bavail) * Number(bsize)
+    if (Number.isFinite(availableBytes) && availableBytes >= 0) {
+      maxExpandedSizeBytes = Math.min(maxExpandedSizeBytes, Math.floor(availableBytes * 0.8))
     }
+  } catch {
+    // The fixed expanded-size cap remains in force if free space cannot be read.
+  }
 
-    // Use the technical listing so the confirmation modal can show the real
-    // OBB size instead of reporting 0 B for RAR archives.
-    const listArgs = ['lt']
-    if (zipPassword) listArgs.push(`-p${zipPassword}`)
-    listArgs.push(rarPath)
+  return validateArchiveEntries(entries, { maxExpandedSizeBytes })
+}
 
-    const child = spawn(unrarPath, listArgs, {
-      stdio: ['pipe', 'pipe', 'pipe']
+function validateArchiveEntriesForMetadataInspection(entries) {
+  const validation = validateArchiveEntries(entries)
+  const largestApkSize = validation.entries.reduce(
+    (largest, entry) =>
+      !entry.isDirectory && entry.file.toLowerCase().endsWith('.apk')
+        ? Math.max(largest, entry.size)
+        : largest,
+    0
+  )
+  let maxStagingBytes = 4 * 1024 ** 3
+  try {
+    const { bavail, bsize } = fs.statfsSync(os.tmpdir())
+    const availableBytes = Number(bavail) * Number(bsize)
+    if (Number.isFinite(availableBytes) && availableBytes >= 0) {
+      maxStagingBytes = Math.min(maxStagingBytes, Math.floor(availableBytes * 0.8))
+    }
+  } catch {
+    // The fixed 4 GiB staging cap remains in force if free space cannot be read.
+  }
+
+  if (largestApkSize > maxStagingBytes) {
+    throw new Error(
+      `The largest APK is too large to inspect safely (${largestApkSize} bytes; limit: ${maxStagingBytes}).`
+    )
+  }
+  return validation
+}
+
+function parseRarArchiveListing(output) {
+  const entries = []
+  for (const block of output.split(/\r?\n\s*\r?\n/)) {
+    const nameMatch = block.match(/^\s*Name:\s*(.+)$/m)
+    if (!nameMatch) continue
+    const typeMatch = block.match(/^\s*Type:\s*(.+)$/m)
+    if (!typeMatch) throw new Error(`RAR entry has no type: ${nameMatch[1]}`)
+    const sizeMatch = block.match(/^\s*Size:\s*(\d+)$/m)
+    const type = typeMatch[1].trim().toLowerCase()
+    const isDirectory = type === 'directory' || type === 'folder'
+    if (!sizeMatch && !isDirectory) {
+      throw new Error(`RAR entry has no size: ${nameMatch[1]}`)
+    }
+    const attributesMatch = block.match(/^\s*Attributes:\s*(.+)$/m)
+    entries.push({
+      file: nameMatch[1].replace(/^\s+/, ''),
+      size: Number(sizeMatch?.[1] || 0),
+      type: isDirectory ? 'directory' : type,
+      attributes: attributesMatch?.[1].trim() || ''
+    })
+    if (entries.length > MAX_ARCHIVE_ENTRY_COUNT) {
+      throw new Error(`Archive contains too many entries (limit: ${MAX_ARCHIVE_ENTRY_COUNT}).`)
+    }
+  }
+  return entries
+}
+
+function listRarArchiveEntries(archivePath) {
+  return new Promise((resolve, reject) => {
+    const args = ['lt']
+    if (ZIP_PASSWORD) args.push(`-p${ZIP_PASSWORD}`)
+    args.push(archivePath)
+
+    const child = spawn(getUnrarPath(), args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    let output = ''
+    let outputBytes = 0
+    let stderr = ''
+    let listingTooLarge = false
+
+    child.stdout.on('data', (data) => {
+      outputBytes += data.length
+      if (outputBytes > MAX_ARCHIVE_LISTING_BYTES) {
+        listingTooLarge = true
+        child.kill()
+        return
+      }
+      output += data.toString()
+    })
+    child.stderr.on('data', (data) => {
+      if (stderr.length < 65536) stderr += data.toString()
+    })
+    child.once('error', (error) => reject(new Error(`RAR_ERROR: ${error.message}`)))
+    child.once('close', (code) => {
+      if (listingTooLarge) {
+        reject(new Error('Archive listing exceeds the safety limit.'))
+      } else if (code !== 0) {
+        let message
+        if (stderr.includes('Cannot open') || stderr.includes('is not RAR archive')) {
+          message = 'RAR_INVALID: File bukan RAR yang valid atau corrupt.'
+        } else if (stderr.includes('Wrong password') || stderr.includes('encrypted')) {
+          message = 'RAR_ENCRYPTED: File RAR terenkripsi/memiliki password.'
+        } else {
+          message = `RAR_ERROR: Gagal membaca file RAR: ${stderr}`
+        }
+        reject(new Error(message))
+      } else {
+        try {
+          resolve(parseRarArchiveListing(output))
+        } catch (error) {
+          reject(error)
+        }
+      }
+    })
+  })
+}
+
+async function extractArchiveEntryToFile(
+  archiveFormat,
+  archivePath,
+  entryPath,
+  outputPath,
+  expectedSize
+) {
+  const args = archiveFormat === 'rar' ? ['p', '-inul'] : ['e', '-so', '-y']
+  if (ZIP_PASSWORD && archiveFormat !== 'rar') args.splice(1, 0, `-p${ZIP_PASSWORD}`)
+  if (ZIP_PASSWORD && archiveFormat === 'rar') args.push(`-p${ZIP_PASSWORD}`)
+  args.push(archivePath, entryPath)
+
+  let child
+  let outputTask
+  let stderr = ''
+  let writtenBytes = 0
+
+  try {
+    child = spawn(archiveFormat === 'rar' ? getUnrarPath() : get7zPath(), args, {
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+    const limiter = new Transform({
+      transform(chunk, encoding, callback) {
+        writtenBytes += chunk.length
+        if (writtenBytes > expectedSize) {
+          child.kill()
+          callback(new Error('Archive entry expanded beyond its listed size.'))
+          return
+        }
+        callback(null, chunk)
+      }
+    })
+    outputTask = pipeline(child.stdout, limiter, fs.createWriteStream(outputPath, { flags: 'wx' }))
+    const exitTask = new Promise((resolveExit, rejectExit) => {
+      child.once('error', rejectExit)
+      child.once('close', resolveExit)
+    })
+    child.stderr.on('data', (data) => {
+      if (stderr.length < 65536) stderr += data.toString()
     })
 
-    let stdout = ''
+    const [code] = await Promise.all([exitTask, outputTask])
+    if (code !== 0) {
+      throw new Error(stderr.trim() || `Archive entry extraction failed (code ${code}).`)
+    }
+    if (writtenBytes !== expectedSize) {
+      throw new Error('Archive entry size did not match its listing.')
+    }
+    return outputPath
+  } catch (error) {
+    child?.kill()
+    await outputTask?.catch(() => {})
+    await fs.remove(outputPath).catch(() => {})
+    throw error
+  }
+}
+
+async function readArchiveReleaseManifest(archiveFormat, archivePath, entry) {
+  if (!entry || entry.size > MAX_RELEASE_MANIFEST_BYTES) return null
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hypertopia_manifest_scan_'))
+  const manifestFile = path.join(tempDir, 'release.manifest')
+  try {
+    await extractArchiveEntryToFile(
+      archiveFormat,
+      archivePath,
+      entry.archivePath || entry.file,
+      manifestFile,
+      entry.size
+    )
+    return parseManifestData(fs.readFileSync(manifestFile, 'utf8'))
+  } finally {
+    await fs.remove(tempDir)
+  }
+}
+
+async function addArchiveApkMetadata(archiveFormat, archivePath, archiveEntries) {
+  const apkEntries = archiveEntries.filter(
+    (entry) => !entry.isDirectory && entry.file.toLowerCase().endsWith('.apk')
+  )
+  if (apkEntries.length === 0) return
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hypertopia_apk_scan_'))
+  try {
+    for (let index = 0; index < apkEntries.length; index++) {
+      const entry = apkEntries[index]
+      const stagedApk = path.join(tempDir, `apk-${index}.apk`)
+      try {
+        await extractArchiveEntryToFile(
+          archiveFormat,
+          archivePath,
+          entry.archivePath || entry.file,
+          stagedApk,
+          entry.size
+        )
+        entry.metadata = (await readApkManifestFromFile(stagedApk)).metadata
+      } catch (error) {
+        entry.metadata = null
+        console.warn(`[APK Metadata] Could not inspect ${entry.file}: ${error.message}`)
+      } finally {
+        await fs.remove(stagedApk)
+      }
+    }
+  } finally {
+    await fs.remove(tempDir)
+  }
+}
+
+// Helper: Scan RAR for APK and OBB using UnRAR command-line.
+async function scanRar(rarPath) {
+  const result = {
+    hasApk: false,
+    hasObb: false,
+    apkName: null,
+    apkSize: 0,
+    apkOptions: [],
+    obbFolder: null,
+    obbSize: 0,
+    obbFiles: [],
+    manifestPath: null,
+    manifestData: null,
+    installMethod: null,
+    specialInstall: null,
+    specialInstallData: null
+  }
+  const listing = await listRarArchiveEntries(rarPath)
+  const archiveEntries = validateArchiveEntriesForMetadataInspection(listing).entries
+  const fileEntries = archiveEntries.filter((entry) => !entry.isDirectory)
+  const manifestEntry = fileEntries.find((entry) => {
+    const lowerName = entry.file.toLowerCase()
+    return lowerName.endsWith('release.manifest') || lowerName.endsWith('release.manifest.txt')
+  })
+
+  if (manifestEntry) {
+    result.manifestPath = manifestEntry.file
+    try {
+      result.manifestData = await readArchiveReleaseManifest('rar', rarPath, manifestEntry)
+    } catch (error) {
+      console.error('[scanRar] Failed to read manifest:', error.message)
+    }
+  }
+
+  const halfLife2VrStructure = detectHalfLife2VrArchiveEntries(fileEntries)
+  if (halfLife2VrStructure) {
+    applyHalfLife2VrScanResult(result, halfLife2VrStructure)
+    return result
+  }
+
+  await addArchiveApkMetadata('rar', rarPath, fileEntries)
+  applyArchiveApkOptions(result, fileEntries)
+  return result
+}
+
+function parse7zArchiveListing(output) {
+  const blocks = output.split(/\r?\n\s*\r?\n/)
+  const entries = []
+
+  for (const block of blocks) {
+    const pathMatch = block.match(/^Path = (.*)$/m)
+    if (!pathMatch) continue
+
+    const sizeMatch = block.match(/^Size =\s*(\d*)$/m)
+    const folderMatch = block.match(/^Folder = ([+-])$/m)
+    const attributesMatch = block.match(/^Attributes = (.+)$/m)
+    const symbolicLink = /^Symbolic Link = /m.test(block)
+    const hardLink = /^Hard Link = /m.test(block)
+    const hasEntryMetadata = sizeMatch || folderMatch || attributesMatch || symbolicLink || hardLink
+    if (!hasEntryMetadata) continue
+    const isDirectory = folderMatch?.[1] === '+' || attributesMatch?.[1].includes('D')
+    if (!sizeMatch && !isDirectory) {
+      throw new Error(`7z entry has no size: ${pathMatch[1]}`)
+    }
+
+    const type = symbolicLink
+      ? 'symbolic link'
+      : hardLink
+        ? 'hard link'
+        : isDirectory
+          ? 'directory'
+          : 'file'
+    entries.push({
+      file: pathMatch[1],
+      size: Number(sizeMatch?.[1] || 0),
+      type,
+      attributes: attributesMatch?.[1] || '',
+      isDirectory
+    })
+    if (entries.length > MAX_ARCHIVE_ENTRY_COUNT) {
+      throw new Error(`Archive contains too many entries (limit: ${MAX_ARCHIVE_ENTRY_COUNT}).`)
+    }
+  }
+
+  return entries
+}
+
+async function list7zArchiveEntries(archivePath) {
+  const args = ['l', '-slt', archivePath]
+  if (ZIP_PASSWORD) args.splice(1, 0, `-p${ZIP_PASSWORD}`)
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(get7zPath(), args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    let output = ''
+    let stderr = ''
+    let outputBytes = 0
+    let listingTooLarge = false
+
+    child.stdout.on('data', (data) => {
+      outputBytes += data.length
+      if (outputBytes > MAX_ARCHIVE_LISTING_BYTES) {
+        listingTooLarge = true
+        child.kill()
+        return
+      }
+      output += data.toString()
+    })
+    child.stderr.on('data', (data) => {
+      if (stderr.length < 65536) stderr += data.toString()
+    })
+    child.once('error', reject)
+    child.once('close', (code) => {
+      if (listingTooLarge) {
+        reject(new Error('Archive listing exceeds the safety limit.'))
+      } else if (code !== 0) {
+        reject(new Error(stderr || `7z exited with code ${code}`))
+      } else {
+        resolve(parse7zArchiveListing(output))
+      }
+    })
+  })
+}
+
+// Helper: Scan Archive for APK and OBB using 7-zip.
+async function scan7z(archivePath) {
+  const result = {
+    hasApk: false,
+    hasObb: false,
+    apkName: null,
+    apkSize: 0,
+    obbFolder: null,
+    apkOptions: [],
+    obbSize: 0,
+    obbFiles: [],
+    manifestPath: null,
+    manifestData: null,
+    installMethod: null,
+    specialInstall: null,
+    specialInstallData: null
+  }
+  const listing = await list7zArchiveEntries(archivePath)
+  const allEntries = validateArchiveEntriesForMetadataInspection(listing).entries
+  const fileEntries = allEntries.filter((entry) => !entry.isDirectory)
+  const manifestEntry = fileEntries.find((entry) => {
+    const lowerName = entry.file.toLowerCase()
+    return lowerName.endsWith('release.manifest') || lowerName.endsWith('release.manifest.txt')
+  })
+
+  if (manifestEntry) {
+    result.manifestPath = manifestEntry.file
+    try {
+      result.manifestData = await readArchiveReleaseManifest('7z', archivePath, manifestEntry)
+    } catch (error) {
+      console.error('[scan7z] Failed to read manifest:', error.message)
+    }
+  }
+
+  const halfLife2VrStructure = detectHalfLife2VrArchiveEntries(fileEntries)
+  if (halfLife2VrStructure) {
+    applyHalfLife2VrScanResult(result, halfLife2VrStructure)
+    return result
+  }
+
+  await addArchiveApkMetadata('7z', archivePath, fileEntries)
+  applyArchiveApkOptions(result, fileEntries)
+  return result
+}
+
+// Helper: Extract RAR with progress after validating every listed entry.
+async function extractRar(rarPath, targetDir, onProgress) {
+  fs.ensureDirSync(targetDir)
+  const entries = validateArchiveEntriesForExtraction(
+    await listRarArchiveEntries(rarPath),
+    targetDir
+  ).entries
+  const progressEntries = entries.filter(
+    (entry) => !entry.isDirectory && /\.(?:apk|obb)$/i.test(entry.file)
+  )
+
+  return new Promise((resolve, reject) => {
+    const args = ['x', '-y', '-o+']
+    if (ZIP_PASSWORD) args.push(`-p${ZIP_PASSWORD}`)
+    args.push(rarPath, targetDir + path.sep)
+
+    const child = spawn(getUnrarPath(), args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    let extractedFiles = 0
     let stderr = ''
 
     child.stdout.on('data', (data) => {
-      stdout += data.toString()
+      for (const line of data.toString().split(/\r?\n/)) {
+        const match = line.match(/(?:Extracting|\.\.\.)\s+(.+)/)
+        if (!match || !/\.(?:apk|obb)$/i.test(match[1].trim())) continue
+        extractedFiles++
+        onProgress?.(extractedFiles, progressEntries.length, match[1].trim())
+      }
     })
-
     child.stderr.on('data', (data) => {
-      stderr += data.toString()
+      if (stderr.length < 65536) stderr += data.toString()
     })
-
-    child.on('close', async (code) => {
-      if (code !== 0 && code !== 1) {
-        console.error('UnRAR error:', stderr)
-        if (stderr.includes('Cannot open') || stderr.includes('is not RAR archive')) {
-          return reject(new Error('RAR_INVALID: File bukan RAR yang valid atau corrupt.'))
-        }
-        if (stderr.includes('Wrong password') || stderr.includes('encrypted')) {
-          return reject(new Error('RAR_ENCRYPTED: File RAR terenkripsi/memiliki password.'))
-        }
-        return reject(new Error('RAR_ERROR: Gagal membaca file RAR: ' + stderr))
-      }
-
-      // Parse technical file entries from UnRAR's block output.
-      const archiveEntries = stdout
-        .split(/\r?\n\s*\r?\n/)
-        .map((block) => {
-          const nameMatch = block.match(/^\s*Name:\s*(.+)$/m)
-          const typeMatch = block.match(/^\s*Type:\s*(.+)$/m)
-          const sizeMatch = block.match(/^\s*Size:\s*(\d+)$/m)
-          if (!nameMatch || typeMatch?.[1].trim().toLowerCase() !== 'file') return null
-          return { file: nameMatch[1].trim(), size: Number(sizeMatch?.[1] || 0) }
-        })
-        .filter(Boolean)
-
-      const lines = archiveEntries.map((entry) => entry.file)
-
-      // First pass: find APK name and manifest
-      for (const fileName of lines) {
-        const lowerName = fileName.toLowerCase()
-
-        // Cek APK
-        if (lowerName.endsWith('.apk') && !result.hasApk) {
-          result.hasApk = true
-          result.apkName = fileName.split('/').pop().split('\\').pop()
-        }
-
-        // Cek release.manifest
-        if (lowerName.endsWith('release.manifest') || lowerName.endsWith('release.manifest.txt')) {
-          result.manifestPath = fileName
-        }
-      }
-
-      // If manifest found, try to read it
-      if (result.manifestPath) {
-        try {
-          // Use 'p' command to print file to stdout
-          const manifestArgs = ['p', '-inul']
-          if (zipPassword) manifestArgs.push(`-p${zipPassword}`)
-          manifestArgs.push(rarPath, result.manifestPath)
-
-          const manifestChild = spawn(unrarPath, manifestArgs, {
-            stdio: ['pipe', 'pipe', 'pipe']
-          })
-          let manifestOutput = ''
-          manifestChild.stdout.on('data', (d) => {
-            manifestOutput += d.toString()
-          })
-          await new Promise((res) => manifestChild.on('close', res))
-          result.manifestData = parseManifestData(manifestOutput)
-        } catch (e) {
-          console.error('[scanRar] Failed to read manifest:', e)
-        }
-      }
-
-      const halfLife2VrStructure = detectHalfLife2VrArchiveEntries(archiveEntries)
-      if (halfLife2VrStructure) {
-        applyHalfLife2VrScanResult(result, halfLife2VrStructure)
-        return resolve(result)
-      }
-
-      if (result.apkName) {
-        const packageName = getPackageNameForApk(result.apkName, result.manifestData)
-        result.obbFolder = findObbFolderFromArchiveEntries(lines, packageName)
-        result.hasObb = Boolean(result.obbFolder)
-
-        if (result.hasObb) {
-          for (const entry of archiveEntries) {
-            const relativePath = getArchiveEntryRelativePath(entry.file, result.obbFolder)
-            if (relativePath && isObbPayloadFile(relativePath)) {
-              result.obbFiles.push({
-                name: relativePath.split('/').pop(),
-                relativePath,
-                size: entry.size
-              })
-              result.obbSize += entry.size
-            }
-          }
-        }
-      }
-
-      resolve(result)
+    child.once('error', (error) => {
+      reject(new Error(`RAR_ERROR: Gagal menjalankan UnRAR: ${error.message}`))
     })
-
-    child.on('error', (err) => {
-      console.error('UnRAR spawn error:', err)
-      reject(new Error('RAR_ERROR: Gagal menjalankan UnRAR: ' + err.message))
-    })
-  })
-}
-
-// Helper: Scan Archive for APK and OBB using 7-zip (for ZIP files)
-async function scan7z(archivePath) {
-  return new Promise((resolve, reject) => {
-    const sevenPath = get7zPath()
-
-    // Get ZIP password from build-time env
-    const zipPassword = ZIP_PASSWORD
-
-    let result = {
-      hasApk: false,
-      hasObb: false,
-      apkName: null,
-      apkSize: 0,
-      obbFolder: null,
-      obbSize: 0,
-      obbFiles: [],
-      manifestPath: null,
-      manifestData: null,
-      installMethod: null,
-      specialInstall: null,
-      specialInstallData: null
-    }
-
-    // Use raw spawn with -slt (technical listing) to get file sizes
-    const args = ['l', '-slt', archivePath]
-    if (zipPassword) {
-      args.splice(1, 0, `-p${zipPassword}`)
-    }
-
-    const child = spawn(sevenPath, args, { stdio: ['pipe', 'pipe', 'pipe'] })
-    let output = ''
-    let stderr = ''
-
-    child.stdout.on('data', (d) => {
-      output += d.toString()
-    })
-    child.stderr.on('data', (d) => {
-      stderr += d.toString()
-    })
-
-    child.on('close', async (code) => {
-      if (code !== 0 && code !== 1) {
-        return reject(new Error(stderr || `7z exited with code ${code}`))
-      }
-
-      // Parse technical listing: blocks separated by empty lines, each has "Path = ..." and "Size = ..."
-      const blocks = output.split('\n\n').filter((b) => b.includes('Path = '))
-      const allEntries = []
-
-      for (const block of blocks) {
-        const pathMatch = block.match(/^Path = (.+)$/m)
-        const sizeMatch = block.match(/^Size = (\d+)$/m)
-        // The technical listing starts with archive metadata that also has a
-        // `Path =` line, but no per-entry `Size =` field. Never scan the
-        // archive itself as though it were a payload file.
-        if (pathMatch && sizeMatch) {
-          const fileName = pathMatch[1].trim()
-          const folderMatch = block.match(/^Folder = \+$/m)
-          if (folderMatch) continue
-          const size = parseInt(sizeMatch[1], 10)
-          allEntries.push({ file: fileName, size })
-
-          const lowerName = fileName.toLowerCase()
-
-          // Cek APK
-          if (lowerName.endsWith('.apk') && !result.hasApk) {
-            result.hasApk = true
-            result.apkName = fileName.split('/').pop().split('\\').pop()
-          }
-
-          // Cek release.manifest
-          if (
-            lowerName.endsWith('release.manifest') ||
-            lowerName.endsWith('release.manifest.txt')
-          ) {
-            result.manifestPath = fileName
-          }
-        }
-      }
-
-      // If manifest found, try to read it
-      if (result.manifestPath) {
-        try {
-          const extractArgs = ['e', '-so', archivePath, result.manifestPath]
-          if (zipPassword) {
-            extractArgs.splice(1, 0, `-p${zipPassword}`)
-          }
-          const childProcess = spawn(sevenPath, extractArgs, {
-            stdio: ['pipe', 'pipe', 'pipe']
-          })
-          let manifestOutput = ''
-          childProcess.stdout.on('data', (d) => {
-            manifestOutput += d.toString()
-          })
-          await new Promise((res) => childProcess.on('close', res))
-          result.manifestData = parseManifestData(manifestOutput)
-        } catch (e) {
-          console.error('[scan7z] Failed to read manifest:', e)
-        }
-      }
-
-      const halfLife2VrStructure = detectHalfLife2VrArchiveEntries(allEntries)
-      if (halfLife2VrStructure) {
-        applyHalfLife2VrScanResult(result, halfLife2VrStructure)
-        return resolve(result)
-      }
-
-      if (result.apkName) {
-        const packageName = getPackageNameForApk(result.apkName, result.manifestData)
-        result.obbFolder = findObbFolderFromArchiveEntries(allEntries, packageName)
-        result.hasObb = Boolean(result.obbFolder)
-
-        // Collect OBB files and total size
-        if (result.hasObb) {
-          for (const entry of allEntries) {
-            const relativePath = getArchiveEntryRelativePath(entry.file, result.obbFolder)
-            if (relativePath && entry.size > 0 && isObbPayloadFile(relativePath)) {
-              result.obbFiles.push({
-                name: relativePath.split('/').pop(),
-                relativePath,
-                size: entry.size
-              })
-              result.obbSize += entry.size
-            }
-          }
-        }
-      }
-      resolve(result)
-    })
-
-    child.on('error', (err) => {
-      reject(err)
-    })
-  })
-}
-
-// Helper: Extract RAR with Progress using UnRAR command-line (no memory limit)
-async function extractRar(rarPath, targetDir, onProgress) {
-  fs.ensureDirSync(targetDir)
-
-  // Get ZIP/RAR password from build-time env
-  const zipPassword = ZIP_PASSWORD
-
-  return new Promise((resolve, reject) => {
-    const unrarPath = getUnrarPath()
-
-    // First, get file count for progress
-    let totalFiles = 0
-    let extractedFiles = 0
-
-    // Count relevant files first
-    const countArgs = ['lb']
-    if (zipPassword) countArgs.push(`-p${zipPassword}`)
-    countArgs.push(rarPath)
-
-    const countChild = spawn(unrarPath, countArgs, {
-      stdio: ['pipe', 'pipe', 'pipe']
-    })
-
-    let countOutput = ''
-
-    countChild.stdout.on('data', (data) => {
-      countOutput += data.toString()
-    })
-
-    countChild.on('close', () => {
-      const lines = countOutput.split('\n').filter((l) => {
-        const lower = l.trim().toLowerCase()
-        return lower.endsWith('.apk') || lower.endsWith('.obb')
-      })
-      totalFiles = lines.length
-
-      // Now extract with progress
-      // Use 'x' to extract with full paths
-      const extractArgs = ['x', '-y', '-o+']
-      if (zipPassword) extractArgs.push(`-p${zipPassword}`)
-      extractArgs.push(rarPath, targetDir + path.sep)
-
-      const extractChild = spawn(unrarPath, extractArgs, {
-        stdio: ['pipe', 'pipe', 'pipe']
-      })
-
-      let stderr = ''
-
-      extractChild.stdout.on('data', (data) => {
-        const output = data.toString()
-        // Parse extraction progress
-        const lines = output.split('\n')
-        for (const line of lines) {
-          // UnRAR outputs "Extracting  filename" for each file
-          if (line.includes('Extracting') || line.includes('...')) {
-            const match = line.match(/(?:Extracting|\.\.\.)\s+(.+)/)
-            if (match) {
-              const fileName = match[1].trim()
-              const lowerName = fileName.toLowerCase()
-              if (lowerName.endsWith('.apk') || lowerName.endsWith('.obb')) {
-                extractedFiles++
-                if (onProgress) {
-                  onProgress(extractedFiles, totalFiles, fileName)
-                }
-              }
-            }
-          }
-        }
-      })
-
-      extractChild.stderr.on('data', (data) => {
-        stderr += data.toString()
-      })
-
-      extractChild.on('close', (code) => {
-        if (code !== 0 && code !== 1) {
-          console.error('UnRAR extract error:', stderr)
-          if (stderr.includes('Wrong password') || stderr.includes('encrypted')) {
-            return reject(new Error('RAR_ENCRYPTED: File RAR terenkripsi/memiliki password.'))
-          }
-          return reject(new Error('RAR_ERROR: Gagal mengekstrak file RAR: ' + stderr))
-        }
+    child.once('close', (code) => {
+      if (code === 0) {
         resolve(true)
-      })
-
-      extractChild.on('error', (err) => {
-        console.error('UnRAR extract spawn error:', err)
-        reject(new Error('RAR_ERROR: Gagal menjalankan UnRAR: ' + err.message))
-      })
-    })
-
-    countChild.on('error', (err) => {
-      console.error('UnRAR count spawn error:', err)
-      reject(new Error('RAR_ERROR: Gagal menjalankan UnRAR: ' + err.message))
+      } else if (stderr.includes('Wrong password') || stderr.includes('encrypted')) {
+        reject(new Error('RAR_ENCRYPTED: File RAR terenkripsi/memiliki password.'))
+      } else {
+        reject(new Error(`RAR_ERROR: Gagal mengekstrak file RAR: ${stderr}`))
+      }
     })
   })
 }
 
-// Helper: Extract Archive with Progress using 7-zip (for ZIP files)
+// Helper: Extract ZIP/7z after validating every listed entry.
 async function extract7z(archivePath, targetDir, onProgress, { extractAll = false } = {}) {
   fs.ensureDirSync(targetDir)
+  const entries = validateArchiveEntriesForExtraction(
+    await list7zArchiveEntries(archivePath),
+    targetDir
+  ).entries
+  const filesToExtract = entries.filter(
+    (entry) => !entry.isDirectory && (extractAll || /\.(?:apk|obb)$/i.test(entry.file))
+  )
+  if (filesToExtract.length === 0) return true
 
-  // Get ZIP password from build-time env (obfuscated in compiled binary)
-  const zipPassword = ZIP_PASSWORD
+  let extractedFiles = 0
+  const extractOptions = {
+    $bin: get7zPath(),
+    $progress: true,
+    recursive: true
+  }
+  if (ZIP_PASSWORD) extractOptions.password = ZIP_PASSWORD
 
   return new Promise((resolve, reject) => {
-    const sevenPath = get7zPath()
-
-    // First, get list of files to calculate total count
-    let totalFiles = 0
-    let extractedFiles = 0
-    const filesToExtract = []
-
-    const listOptions = {
-      $bin: sevenPath,
-      $progress: false
-    }
-    if (zipPassword) {
-      listOptions.password = zipPassword
-    }
-
-    const listStream = Seven.list(archivePath, listOptions)
-
-    listStream.on('data', (data) => {
-      const fileName = data.file
-      if (!fileName) return
-
-      const lowerName = fileName.toLowerCase()
-      if (extractAll || lowerName.endsWith('.apk') || lowerName.endsWith('.obb')) {
-        totalFiles++
-        filesToExtract.push(fileName)
+    const extractStream = Seven.extractFull(archivePath, targetDir, extractOptions)
+    extractStream.on('progress', (progress) => {
+      if (onProgress && progress.percent) {
+        onProgress(progress.percent, 100, `Extracting... ${progress.percent}%`)
       }
     })
-
-    listStream.on('end', () => {
-      if (filesToExtract.length === 0) {
-        return resolve(true)
-      }
-
-      // Extract all files (wildcard filtering has issues with node-7z)
-      const extractOptions = {
-        $bin: sevenPath,
-        $progress: true,
-        recursive: true
-      }
-      if (zipPassword) {
-        extractOptions.password = zipPassword
-      }
-
-      const extractStream = Seven.extractFull(archivePath, targetDir, extractOptions)
-
-      extractStream.on('progress', (progress) => {
-        if (onProgress && progress.percent) {
-          onProgress(progress.percent, 100, `Extracting... ${progress.percent}%`)
-        }
-      })
-
-      extractStream.on('data', (data) => {
-        if (data.file) {
-          extractedFiles++
-          if (onProgress) {
-            onProgress(extractedFiles, totalFiles, data.file)
-          }
-        }
-      })
-
-      extractStream.on('end', () => {
-        resolve(true)
-      })
-
-      extractStream.on('error', (err) => {
-        console.error('7z extract error:', err)
-        reject(err)
-      })
+    extractStream.on('data', (data) => {
+      if (!data.file) return
+      extractedFiles++
+      onProgress?.(extractedFiles, filesToExtract.length, data.file)
     })
-
-    listStream.on('error', (err) => {
-      console.error('7z list error:', err)
-      reject(err)
+    extractStream.once('end', () => resolve(true))
+    extractStream.once('error', (error) => {
+      console.error('7z extract error:', error)
+      reject(error)
     })
   })
 }
 
 // Helper: Run ADB Command with Spawn (improved progress tracking + cancellation support)
-function runAdbCommand(args, onOutput) {
+function runAdbCommand(args, onOutput, { allowWhenCancelled = false } = {}) {
   return new Promise((resolve, reject) => {
-    // Check if already cancelled before starting
-    if (installationState.isCancelled) {
+    if (installationState.isCancelled && !allowWhenCancelled) {
       return reject(new Error('Installation cancelled'))
     }
 
@@ -2770,7 +2910,7 @@ function runAdbCommand(args, onOutput) {
       installationState.activeChildProcess = null
 
       // Check if killed due to cancellation
-      if (installationState.isCancelled || signal === 'SIGTERM') {
+      if ((installationState.isCancelled && !allowWhenCancelled) || signal === 'SIGTERM') {
         return reject(new Error('Installation cancelled'))
       }
 
@@ -2833,42 +2973,71 @@ function testApkArchive(apkPath) {
   })
 }
 
-function inspectApkArchive(apkPath) {
+const MAX_APK_MANIFEST_BYTES = 4 * 1024 * 1024
+
+function readApkManifestFromFile(apkPath) {
   return new Promise((resolve, reject) => {
-    yauzl.open(apkPath, { lazyEntries: true, validateEntrySizes: true }, (openError, zipFile) => {
-      if (openError) {
-        reject(openError)
-        return
-      }
-
-      let hasAndroidManifest = false
-      let settled = false
-
-      const finish = (error) => {
-        if (settled) return
-        settled = true
-        if (error) reject(error)
-        else resolve(hasAndroidManifest)
-      }
-
-      zipFile.on('error', finish)
-      zipFile.on('entry', (entry) => {
-        const entryName = String(entry.fileName || '').replace(/\\/g, '/')
-        if (entryName === 'AndroidManifest.xml') {
-          hasAndroidManifest = true
+    yauzl.open(
+      apkPath,
+      { lazyEntries: true, validateEntrySizes: true, autoClose: false },
+      (openError, zipFile) => {
+        if (openError) {
+          reject(openError)
+          return
         }
+
+        let settled = false
+        const finish = (error, result) => {
+          if (settled) return
+          settled = true
+          zipFile.close()
+          if (error) reject(error)
+          else resolve(result)
+        }
+
+        zipFile.on('error', (error) => finish(error))
+        zipFile.on('entry', (entry) => {
+          const entryName = String(entry.fileName || '').replace(/\\/g, '/')
+          if (entryName !== 'AndroidManifest.xml') {
+            zipFile.readEntry()
+            return
+          }
+          if (entry.uncompressedSize > MAX_APK_MANIFEST_BYTES) {
+            finish(new Error('AndroidManifest.xml exceeds the metadata size limit.'))
+            return
+          }
+
+          zipFile.openReadStream(entry, (streamError, stream) => {
+            if (streamError) {
+              finish(streamError)
+              return
+            }
+
+            const chunks = []
+            let byteCount = 0
+            stream.on('data', (chunk) => {
+              byteCount += chunk.length
+              if (byteCount > MAX_APK_MANIFEST_BYTES) {
+                stream.destroy(new Error('AndroidManifest.xml exceeds the metadata size limit.'))
+                return
+              }
+              chunks.push(chunk)
+            })
+            stream.on('error', (error) => finish(error))
+            stream.on('end', () => {
+              try {
+                const metadata = parseAndroidManifestMetadata(Buffer.concat(chunks, byteCount))
+                finish(null, { manifestFound: true, metadata })
+              } catch (error) {
+                finish(error)
+              }
+            })
+          })
+        })
+        zipFile.on('end', () => finish(null, { manifestFound: false, metadata: null }))
         zipFile.readEntry()
-      })
-      zipFile.on('end', () => {
-        if (!hasAndroidManifest) {
-          finish(new Error('AndroidManifest.xml tidak ditemukan di dalam APK.'))
-        } else {
-          finish(null)
-        }
-      })
-
-      zipFile.readEntry()
-    })
+      }
+    )
   })
 }
 
@@ -2923,8 +3092,8 @@ async function validateLocalApkFile(apkPath) {
   }
 
   try {
-    const hasAndroidManifest = await inspectApkArchive(apkPath)
-    if (!hasAndroidManifest) {
+    const manifestResult = await readApkManifestFromFile(apkPath)
+    if (!manifestResult.manifestFound) {
       throw new Error('AndroidManifest.xml tidak ditemukan di dalam APK.')
     }
   } catch (error) {
@@ -2984,39 +3153,29 @@ async function installApkDirect(deviceFlag, apkPath, onOutput) {
   }
 }
 
-async function installApkViaRemoteFile(deviceFlag, apkPath, onOutput) {
-  const remoteApk = `/data/local/tmp/hypertopia_${Date.now()}.apk`
-
+async function installApkWithAdb(deviceFlag, apkPath, onOutput) {
+  await validateLocalApkFile(apkPath)
   try {
-    await runAdbCommand([...deviceFlag, 'push', apkPath, remoteApk], onOutput)
-    return await runAdbCommand([...deviceFlag, 'shell', 'pm', 'install', '-r', remoteApk])
-  } finally {
-    // Do not leave large APK files behind on the headset after a failed install.
-    await runAdbCommand([...deviceFlag, 'shell', 'rm', '-f', remoteApk]).catch(() => {})
+    return await installApkDirect(deviceFlag, apkPath, onOutput)
+  } catch (error) {
+    throw getReadableInstallError(error)
   }
 }
 
-async function installApkWithAdb(deviceFlag, apkPath, onOutput) {
-  await validateLocalApkFile(apkPath)
-
-  try {
-    // Push + pm install is more reliable on Meta Quest firmware than the
-    // streaming install path used by adb install.
-    return await installApkViaRemoteFile(deviceFlag, apkPath, onOutput)
-  } catch (error) {
-    if (installationState.isCancelled) {
-      throw error
-    }
-
-    // Keep the standard adb install path as a fallback for devices where
-    // pm install cannot access /data/local/tmp.
-    console.warn('[APK Install] Push + pm install failed, trying adb install:', error.message)
-    try {
-      return await installApkDirect(deviceFlag, apkPath, onOutput)
-    } catch (fallbackError) {
-      throw getReadableInstallError(fallbackError)
-    }
+async function installApkSetWithAdb(deviceFlag, apkPaths) {
+  if (apkPaths.length === 0) throw new Error('No APK found to install.')
+  if (apkPaths.length === 1) {
+    return installApkWithAdb(deviceFlag, apkPaths[0])
   }
+
+  return installApkSet({
+    deviceFlag,
+    apkPaths,
+    validateApk: validateLocalApkFile,
+    runAdbCommand,
+    isCancelled: () => installationState.isCancelled,
+    getReadableInstallError
+  })
 }
 
 async function pushObbFile(deviceFlag, localFilePath, remoteDestPath, sendProgress, label) {
@@ -3080,6 +3239,56 @@ function getAllFilesRelative(dir, basePath = '') {
   }
 
   return results
+}
+
+async function getFolderApkOptions(folderPath, manifestData) {
+  const files = getAllFilesRelative(folderPath)
+  const filesByRelativePath = new Map(
+    files.map((file) => [file.relativePath.split(path.sep).join('/'), file])
+  )
+  const apkEntries = []
+
+  for (const file of files) {
+    if (!file.name.toLowerCase().endsWith('.apk')) continue
+    let metadata = null
+    try {
+      metadata = (await readApkManifestFromFile(file.localPath)).metadata
+    } catch (error) {
+      console.warn(`[APK Metadata] Could not inspect ${file.relativePath}: ${error.message}`)
+    }
+    apkEntries.push({
+      file: file.relativePath.split(path.sep).join('/'),
+      size: fs.statSync(file.localPath).size,
+      metadata
+    })
+  }
+
+  const options = buildApkInstallOptions(apkEntries)
+  return options.map((option) => {
+    const optionManifestData = getManifestDataForApkOption(options, option, manifestData)
+    const packageName =
+      option.packageName || getPackageNameForApk(option.apkName, optionManifestData)
+    const obbPath = findObbFolderInDirectory(folderPath, packageName, options.length === 1)
+    const obbFiles = obbPath
+      ? getPayloadFilesInDirectory(obbPath).map((file) => ({
+          name: file.name,
+          relativePath: file.relativePath,
+          size: fs.statSync(file.localPath).size
+        }))
+      : []
+
+    return {
+      ...option,
+      packageName: option.packageName || packageName || null,
+      apkSize: option.size,
+      localApkPaths: option.apkPaths.map((apkPath) => filesByRelativePath.get(apkPath)?.localPath),
+      hasObb: Boolean(obbPath),
+      obbFolderPath: obbPath,
+      obbFolder: obbPath ? getObbPackageName(obbPath, packageName) : null,
+      obbSize: obbFiles.reduce((sum, file) => sum + file.size, 0),
+      obbFiles
+    }
+  })
 }
 
 function getObbPackageName(obbPath, packageName) {
@@ -3238,7 +3447,8 @@ async function installHalfLife2VrStructure(deviceFlag, structure, sendProgress) 
 }
 
 // IPC: Install Game
-ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) => {
+ipcMain.handle('install-game', async (event, payload) => {
+  const { filePath, type, deviceSerial, selectedApkOptionId } = payload
   // Reset cancellation state at start
   resetInstallationState()
 
@@ -3271,12 +3481,14 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
     fs.ensureDirSync(tempDir)
 
     let apkPath = null
+    let apkPaths = []
     let obbPath = null
     let packageName = null
 
     // 1. EXTRACTION
-    if (filePath.toLowerCase().endsWith('.zip') || filePath.toLowerCase().endsWith('.rar')) {
-      const isRar = filePath.toLowerCase().endsWith('.rar')
+    const archiveFormat = getArchiveFormat(filePath)
+    if (archiveFormat) {
+      const isRar = archiveFormat === 'rar'
       sendProgress('EXTRACTING', 0, 'Scanning archive...')
 
       try {
@@ -3287,7 +3499,7 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
             sendProgress('EXTRACTING', percent, `Extracting: ${fileName}`)
           })
         } else {
-          // Use extract7z for ZIP files
+          // Use extract7z for ZIP and 7z files
           await extract7z(filePath, tempDir, (current, total, fileName) => {
             const percent = total > 0 ? Math.floor((current / total) * 100) : 0
             sendProgress('EXTRACTING', percent, `Extracting: ${fileName}`)
@@ -3318,38 +3530,55 @@ ipcMain.handle('install-game', async (event, { filePath, type, deviceSerial }) =
         throw extractErr
       }
 
-      const findFileByExt = (dir, ext) => {
-        const ent = fs.readdirSync(dir, { withFileTypes: true })
-        for (const dirent of ent) {
-          const res = path.resolve(dir, dirent.name)
-          if (dirent.isDirectory()) {
-            const found = findFileByExt(res, ext)
-            if (found) return found
-          } else if (res.toLowerCase().endsWith(ext)) {
-            return res
-          }
+      const extractedFiles = getAllFilesRelative(tempDir)
+      const apkEntries = []
+      for (const entry of extractedFiles) {
+        if (!entry.name.toLowerCase().endsWith('.apk')) continue
+        let metadata = null
+        try {
+          metadata = (await readApkManifestFromFile(entry.localPath)).metadata
+        } catch (error) {
+          console.warn(`[APK Metadata] Could not inspect ${entry.relativePath}: ${error.message}`)
         }
-        return null
+        apkEntries.push({
+          file: entry.relativePath,
+          size: fs.statSync(entry.localPath).size,
+          metadata
+        })
       }
-
-      apkPath = findFileByExt(tempDir, '.apk')
-
-      if (apkPath) {
-        const apkFileName = path.basename(apkPath)
-        const manifestInfo = readReleaseManifestInfo(tempDir)
-        packageName = getPackageNameForApk(apkFileName, manifestInfo.data)
-        obbPath = findObbFolderInDirectory(tempDir, packageName)
-      }
+      const apkOptions = buildApkInstallOptions(apkEntries)
+      const selectedApkOption = requireApkInstallOption(apkOptions, selectedApkOptionId)
+      const extractedApksByArchivePath = new Map(
+        extractedFiles.map((entry) => [entry.relativePath.replace(/\\/g, '/'), entry.localPath])
+      )
+      apkPaths = selectedApkOption.apkPaths.map((archivePath) => {
+        const extractedPath = extractedApksByArchivePath.get(archivePath)
+        if (!extractedPath) {
+          throw new Error('Selected APK option is no longer available. Scan the archive again.')
+        }
+        return extractedPath
+      })
+      apkPath = apkPaths[0]
+      const manifestInfo = readReleaseManifestInfo(tempDir)
+      const manifestData = getManifestDataForApkOption(
+        apkOptions,
+        selectedApkOption,
+        manifestInfo.data
+      )
+      packageName =
+        selectedApkOption.packageName ||
+        getPackageNameForApk(selectedApkOption.apkName, manifestData)
+      obbPath = findObbFolderInDirectory(tempDir, packageName, apkOptions.length === 1)
     } else {
       apkPath = filePath
+      apkPaths = [apkPath]
     }
 
-    if (!apkPath) throw new Error('No APK found to install.')
+    if (!apkPaths.length) throw new Error('No APK found to install.')
 
     // 2. INSTALL APK
     sendProgress('INSTALLING_APK', 0, 'progress_installing_package')
-    await installApkWithAdb(deviceFlag, apkPath)
-    sendProgress('INSTALLING_APK', 100, 'progress_installing_package')
+    await installApkSetWithAdb(deviceFlag, apkPaths)
 
     // 3. PUSH OBB
     if (type === 'full' && obbPath) {
@@ -3418,7 +3647,7 @@ ipcMain.handle('stage-dropped-file-cancel', async (_, id, filePath) => {
   return true
 })
 
-// FUNGSI SCAN ZIP/RAR
+// FUNGSI SCAN ZIP/RAR/7z
 ipcMain.handle('scan-zip', async (event, filePath) => {
   const resolvedPath = resolveExistingPath(filePath)
   if (!resolvedPath) {
@@ -3429,15 +3658,13 @@ ipcMain.handle('scan-zip', async (event, filePath) => {
   }
   filePath = resolvedPath
 
-  const lowerPath = filePath.toLowerCase()
+  const archiveFormat = getArchiveFormat(filePath)
 
-  // Check if file is a supported archive format
-  if (!lowerPath.endsWith('.zip') && !lowerPath.endsWith('.rar') && !lowerPath.endsWith('.7z')) {
+  if (!archiveFormat) {
     throw new Error('UNSUPPORTED_FORMAT: Hanya format ZIP, RAR, dan 7z yang didukung.')
   }
 
-  // Use scanRar for RAR files (node-unrar-js supports RAR5)
-  if (lowerPath.endsWith('.rar')) {
+  if (archiveFormat === 'rar') {
     try {
       return await scanRar(filePath)
     } catch (err) {
@@ -3503,7 +3730,7 @@ ipcMain.handle('select-game-folder', async () => {
   return result.filePaths[0]
 })
 
-// IPC: Select Archive File (ZIP/RAR) via native dialog
+// IPC: Select Archive File (ZIP/RAR/7z) via native dialog
 ipcMain.handle('select-archive-file', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
@@ -3523,15 +3750,16 @@ ipcMain.handle('select-archive-file', async () => {
 
 // IPC: Scan Folder for APK/OBB (similar to scan-zip but for folders)
 ipcMain.handle('scan-folder', async (event, folderPath) => {
-  let result = {
+  const result = {
     hasApk: false,
     hasObb: false,
     apkName: null,
     apkSize: 0,
+    apkOptions: [],
     obbFolder: null,
     obbSize: 0,
     obbFiles: [],
-    folderPath: folderPath,
+    folderPath,
     manifestData: null,
     installMethod: null,
     specialInstall: null,
@@ -3545,52 +3773,56 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
       return result
     }
 
-    // Recursive function to find APK
-    const findApk = (dir) => {
-      const entries = fs.readdirSync(dir, { withFileTypes: true })
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name)
-        if (entry.isDirectory()) {
-          const found = findApk(fullPath)
-          if (found) return found
-        } else if (entry.name.toLowerCase().endsWith('.apk')) {
-          const stats = fs.statSync(fullPath)
-          return { path: fullPath, name: entry.name, size: stats.size }
-        }
-      }
-      return null
-    }
+    result.manifestData = readReleaseManifestInfo(folderPath).data
+    const options = await getFolderApkOptions(folderPath, result.manifestData)
+    result.apkOptions = options.map(
+      ({
+        id,
+        name,
+        apkName,
+        apkCount,
+        size,
+        packageName,
+        versionCode,
+        versionName,
+        splitName,
+        isSplit,
+        isSplitPart,
+        installable,
+        apkSize,
+        hasObb,
+        obbFolder,
+        obbSize,
+        obbFiles
+      }) => ({
+        id,
+        name,
+        apkName,
+        apkCount,
+        size,
+        packageName,
+        versionCode,
+        versionName,
+        splitName,
+        isSplit,
+        isSplitPart,
+        installable,
+        apkSize,
+        hasObb,
+        obbFolder,
+        obbSize,
+        obbFiles
+      })
+    )
 
-    const apkResult = findApk(folderPath)
-    if (apkResult) {
-      result.hasApk = true
-      result.apkName = apkResult.name
-      result.apkSize = apkResult.size
-    }
-
-    const manifestInfo = readReleaseManifestInfo(folderPath)
-    result.manifestData = manifestInfo.data
-
-    // Use release metadata or a normalized APK name to find the OBB folder.
-    if (apkResult) {
-      const packageName = getPackageNameForApk(apkResult.name, result.manifestData)
-      const obbPath = findObbFolderInDirectory(folderPath, packageName)
-      if (obbPath) {
-        const obbPackageName = getObbPackageName(obbPath, packageName)
-        const obbFilesList = getPayloadFilesInDirectory(obbPath).map((fileObj) => ({
-          name: fileObj.name,
-          relativePath: fileObj.relativePath,
-          size: fs.statSync(fileObj.localPath).size
-        }))
-        const totalObbSize = obbFilesList.reduce((sum, fileObj) => sum + fileObj.size, 0)
-
-        result.hasObb = true
-        result.obbFolder = obbPackageName
-        result.obbSize = totalObbSize
-        result.obbFiles = obbFilesList
-      }
-    }
-
+    const firstOption = result.apkOptions[0]
+    result.hasApk = Boolean(firstOption)
+    result.apkName = firstOption?.apkName || null
+    result.apkSize = firstOption?.apkSize || 0
+    result.hasObb = firstOption?.hasObb || false
+    result.obbFolder = firstOption?.obbFolder || null
+    result.obbSize = firstOption?.obbSize || 0
+    result.obbFiles = firstOption?.obbFiles || []
     return result
   } catch (err) {
     console.error('[Scan Folder] Error:', err)
@@ -3599,70 +3831,61 @@ ipcMain.handle('scan-folder', async (event, folderPath) => {
 })
 
 // IPC: Install Game from Folder (skip extraction)
-ipcMain.handle('install-game-folder', async (event, { folderPath, type, deviceSerial }) => {
-  // Reset cancellation state at start
-  resetInstallationState()
+ipcMain.handle(
+  'install-game-folder',
+  async (event, { folderPath, type, deviceSerial, selectedApkOptionId }) => {
+    resetInstallationState()
 
-  const deviceFlag = deviceSerial ? ['-s', deviceSerial] : []
+    const deviceFlag = deviceSerial ? ['-s', deviceSerial] : []
+    const sendProgress = (step, percent, detail) => {
+      if (installationState.isCancelled) return
+      event.sender.send('install-progress', { step, percent, detail })
+    }
 
-  const sendProgress = (step, percent, detail) => {
-    // Don't send progress if cancelled
-    if (installationState.isCancelled) return
-    event.sender.send('install-progress', { step, percent, detail })
-  }
-
-  try {
-    sendProgress('INITIALIZING', 0, 'progress_preparing')
-
-    // Find APK in folder
-    const findApk = (dir) => {
-      const entries = fs.readdirSync(dir, { withFileTypes: true })
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name)
-        if (entry.isDirectory()) {
-          const found = findApk(fullPath)
-          if (found) return found
-        } else if (entry.name.toLowerCase().endsWith('.apk')) {
-          return fullPath
-        }
+    try {
+      sendProgress('INITIALIZING', 0, 'progress_preparing')
+      const manifestData = readReleaseManifestInfo(folderPath).data
+      const options = await getFolderApkOptions(folderPath, manifestData)
+      const selectedOption = requireApkInstallOption(options, selectedApkOptionId)
+      if (
+        selectedOption.localApkPaths.length !== selectedOption.apkPaths.length ||
+        selectedOption.localApkPaths.some((apkPath) => !apkPath || !fs.existsSync(apkPath))
+      ) {
+        throw new Error('Selected APK option is no longer available. Scan the folder again.')
       }
-      return null
+
+      const packageName =
+        selectedOption.packageName ||
+        getPackageNameForApk(
+          selectedOption.apkName,
+          getManifestDataForApkOption(options, selectedOption, manifestData)
+        )
+      const obbPath = findObbFolderInDirectory(folderPath, packageName, options.length === 1)
+
+      sendProgress('INSTALLING_APK', 0, 'progress_installing_package')
+      await installApkSetWithAdb(deviceFlag, selectedOption.localApkPaths)
+      sendProgress('INSTALLING_APK', 100, 'progress_installing_package')
+
+      if (type === 'full' && obbPath) {
+        sendProgress('PUSHING_OBB', 0, 'progress_preparing_obb')
+        await pushObbDirectory(deviceFlag, obbPath, packageName, sendProgress)
+      }
+
+      sendProgress('COMPLETED', 100, 'progress_finished')
+    } catch (err) {
+      console.error(err)
+      let msg = err.message
+      if (msg.includes('parseApkLite') || msg.includes('ApkAssets.loadFromFd')) {
+        msg =
+          'The APK could not be installed because the file on the headset appears corrupted or incomplete. ' +
+          'This usually means the transfer to the headset was interrupted (USB cable, Wi-Fi drop, or headset sleep). ' +
+          'Please reconnect the headset over USB and try again.'
+      }
+      sendProgress('ERROR', 0, msg)
+      throw new Error(msg)
     }
-
-    const apkPath = findApk(folderPath)
-    if (!apkPath) throw new Error('No APK found in folder.')
-
-    const apkFileName = path.basename(apkPath)
-    const manifestInfo = readReleaseManifestInfo(folderPath)
-    const packageName = getPackageNameForApk(apkFileName, manifestInfo.data)
-    const obbPath = findObbFolderInDirectory(folderPath, packageName)
-
-    // Install APK
-    sendProgress('INSTALLING_APK', 0, 'progress_installing_package')
-    await installApkWithAdb(deviceFlag, apkPath)
-    sendProgress('INSTALLING_APK', 100, 'progress_installing_package')
-
-    // Push OBB if full install
-    if (type === 'full' && obbPath) {
-      sendProgress('PUSHING_OBB', 0, 'progress_preparing_obb')
-      await pushObbDirectory(deviceFlag, obbPath, packageName, sendProgress)
-    }
-
-    sendProgress('COMPLETED', 100, 'progress_finished')
-  } catch (err) {
-    console.error(err)
-    // ponytail: device-side parse stack is misleading for host-side 255 failures
-    let msg = err.message
-    if (msg.includes('parseApkLite') || msg.includes('ApkAssets.loadFromFd')) {
-      msg =
-        'The APK could not be installed because the file on the headset appears corrupted or incomplete. ' +
-        'This usually means the transfer to the headset was interrupted (USB cable, Wi-Fi drop, or headset sleep). ' +
-        'Please reconnect the headset over USB and try again.'
-    }
-    sendProgress('ERROR', 0, msg)
-    throw new Error(msg)
   }
-})
+)
 
 // IPC: Install Half-Life 2 VR / SourceVR release using install.txt's layout.
 ipcMain.handle(
@@ -3820,15 +4043,16 @@ ipcMain.handle('list-obb', async (event, deviceSerial) => {
 
 // IPC: List Connected Devices
 ipcMain.handle('list-devices', async () => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const adb = getAdbPath()
     const safeAdb = `"${adb}"`
     const command = `${safeAdb} devices -l`
 
     exec(command, async (error, stdout, stderr) => {
       if (error) {
-        console.error('ADB List Devices Error:', stderr)
-        return resolve([])
+        const detail = String(stderr || error.message || 'ADB device scan failed').trim()
+        console.error('ADB List Devices Error:', detail)
+        return reject(new Error(`ADB_DEVICE_SCAN_FAILED: ${detail}`))
       }
 
       const lines = stdout.split('\n')

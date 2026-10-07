@@ -17,12 +17,35 @@ export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
   const [isLoadingSpace, setIsLoadingSpace] = useState(false)
   const [isChanging, setIsChanging] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
+  const [autoUpdate, setAutoUpdate] = useState(() => localStorage.getItem('autoUpdate') === 'true')
+  const [isSavingAutoUpdate, setIsSavingAutoUpdate] = useState(false)
   const toast = useToast()
   const [latestRelease, setLatestRelease] = useState(null)
   const [isCheckingLatest, setIsCheckingLatest] = useState(false)
 
   useEffect(() => {
-    window.api.setAutoDownload?.(true)
+    let active = true
+    let preferenceChanged = false
+    const handlePreferenceChange = (event) => {
+      preferenceChanged = true
+      const enabled = event.detail === true
+      setAutoUpdate(enabled)
+      localStorage.setItem('autoUpdate', String(enabled))
+    }
+    window.addEventListener('auto-download-preference-changed', handlePreferenceChange)
+
+    Promise.resolve(window.api.getAutoDownload?.())
+      .then((enabled) => {
+        if (!active || preferenceChanged || typeof enabled !== 'boolean') return
+        setAutoUpdate(enabled)
+        localStorage.setItem('autoUpdate', String(enabled))
+      })
+      .catch((error) => console.error('Failed to load update preference:', error))
+
+    return () => {
+      active = false
+      window.removeEventListener('auto-download-preference-changed', handlePreferenceChange)
+    }
   }, [])
 
   useEffect(() => {
@@ -100,6 +123,31 @@ export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
       setDiskSpace(null)
     } finally {
       setIsLoadingSpace(false)
+    }
+  }
+  const handleAutoDownloadChange = async (enabled) => {
+    const previous = autoUpdate
+    setAutoUpdate(enabled)
+    localStorage.setItem('autoUpdate', String(enabled))
+    window.dispatchEvent(new CustomEvent('auto-download-preference-changed', { detail: enabled }))
+    setIsSavingAutoUpdate(true)
+    try {
+      const saved = await window.api.setAutoDownload?.(enabled)
+      if (typeof saved === 'boolean' && saved !== enabled) {
+        setAutoUpdate(saved)
+        localStorage.setItem('autoUpdate', String(saved))
+        window.dispatchEvent(new CustomEvent('auto-download-preference-changed', { detail: saved }))
+      }
+    } catch (error) {
+      console.error('Failed to save update preference:', error)
+      setAutoUpdate(previous)
+      localStorage.setItem('autoUpdate', String(previous))
+      window.dispatchEvent(
+        new CustomEvent('auto-download-preference-changed', { detail: previous })
+      )
+      toast.error(t('update_preference_save_failed'))
+    } finally {
+      setIsSavingAutoUpdate(false)
     }
   }
 
@@ -545,6 +593,23 @@ export function SettingsModal({ isOpen, onClose, currentPath, appVersion }) {
                 <Icon icon="line-md:rotate-right" className="h-4 w-4" />
                 {t('settings_check_update') || 'Check for Updates'}
               </button>
+              <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-left dark:border-white/10 dark:bg-white/5">
+                <input
+                  type="checkbox"
+                  checked={autoUpdate}
+                  disabled={isSavingAutoUpdate}
+                  onChange={(event) => handleAutoDownloadChange(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-[#0081FB]"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                    {t('update_auto_download_title')}
+                  </span>
+                  <span className="mt-1 block text-xs text-gray-600 dark:text-white/60">
+                    {t('update_auto_download_description')}
+                  </span>
+                </span>
+              </label>
             </div>
           </div>
         </div>

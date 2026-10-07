@@ -7,6 +7,7 @@ import { AuthHelpModal } from './AuthHelpModal'
 export function DeviceSelector({ onSelect, selectedSerial }) {
   const { t } = useLanguage()
   const [devices, setDevices] = useState([])
+  const [scanError, setScanError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showAuthHelp, setShowAuthHelp] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
@@ -63,6 +64,7 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
 
   const fetchDevices = useCallback(async () => {
     setIsLoading(true)
+    setScanError('')
     try {
       const result = await window.api.listDevices()
       setDevices(result)
@@ -87,6 +89,9 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
       }
     } catch (err) {
       console.error('Failed to list devices', err)
+      setDevices([])
+      onSelectRef.current?.(null)
+      setScanError(err?.message || String(err))
     } finally {
       setIsLoading(false)
       setHasScannedOnce(true)
@@ -235,6 +240,43 @@ export function DeviceSelector({ onSelect, selectedSerial }) {
           </div>
         )}
       </div>
+      {hasScannedOnce && devices.length === 0 && (
+        <div
+          role={scanError ? 'alert' : 'status'}
+          className={`mt-3 rounded-lg border p-3 text-xs ${
+            scanError
+              ? 'border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-300'
+              : 'border-gray-200 bg-gray-50 text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-white/70'
+          }`}
+        >
+          <p className="font-semibold">
+            {scanError ? t('device_scan_failed') : t('device_not_detected_title')}
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-4">
+            <li>{t('device_help_usb')}</li>
+            <li>{t('device_help_unlock')}</li>
+            <li>{t('device_help_developer_mode')}</li>
+          </ul>
+          {scanError && (
+            <details className="mt-2">
+              <summary className="cursor-pointer font-medium underline">
+                {t('device_scan_details')}
+              </summary>
+              <pre className="mt-1 max-h-20 overflow-auto whitespace-pre-wrap break-words rounded bg-black/5 p-2 dark:bg-black/20">
+                {scanError.replace(/^ADB_DEVICE_SCAN_FAILED:\s*/, '')}
+              </pre>
+            </details>
+          )}
+          <button
+            type="button"
+            onClick={fetchDevices}
+            disabled={isLoading}
+            className="mt-3 rounded-md border border-current/20 px-3 py-1.5 font-semibold transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-white/10"
+          >
+            {isLoading ? t('scanning') : t('device_retry_scan')}
+          </button>
+        </div>
+      )}
 
       {/* Storage Info Card */}
       {selectedSerial &&

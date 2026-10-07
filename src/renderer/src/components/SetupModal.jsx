@@ -12,8 +12,8 @@ export function SetupModal({ isOpen, onComplete }) {
   const [isSelecting, setIsSelecting] = useState(false)
   const [diskSpace, setDiskSpace] = useState(null)
   const [isLoadingSpace, setIsLoadingSpace] = useState(false)
-  const autoUpdate = true
-
+  const [autoUpdate, setAutoUpdate] = useState(() => localStorage.getItem('autoUpdate') === 'true')
+  const [preferenceError, setPreferenceError] = useState('')
   const handleSelectFolder = async () => {
     setIsSelecting(true)
     try {
@@ -53,30 +53,39 @@ export function SetupModal({ isOpen, onComplete }) {
   }
 
   const handleComplete = async () => {
-    if (extractPath) {
-      try {
-        const result = await window.api.ensureExtractFolder(extractPath)
-        if (!result.success) {
-          console.error('Failed to create extract folder:', result.error)
-          return
-        }
-      } catch (err) {
-        console.error('Error creating extract folder:', err)
+    if (!extractPath) return
+
+    try {
+      const result = await window.api.ensureExtractFolder(extractPath)
+      if (!result.success) {
+        console.error('Failed to create extract folder:', result.error)
         return
       }
-
-      localStorage.setItem('extractPath', extractPath)
-      localStorage.setItem('autoUpdate', autoUpdate.toString())
-      window.api.setAutoDownload?.(autoUpdate)
-      window.api.storeRead?.('hypertopia-config.json').then((existing) => {
-        window.api.storeWrite?.('hypertopia-config.json', {
-          ...(existing || {}),
-          extractPath,
-          autoUpdate
-        })
-      })
-      onComplete(extractPath)
+    } catch (err) {
+      console.error('Error creating extract folder:', err)
+      return
     }
+
+    try {
+      await window.api.setAutoDownload?.(autoUpdate)
+    } catch (err) {
+      console.error('Error saving update preference:', err)
+      setPreferenceError(t('update_preference_save_failed'))
+      return
+    }
+
+    localStorage.setItem('extractPath', extractPath)
+    localStorage.setItem('autoUpdate', autoUpdate.toString())
+    window.dispatchEvent(
+      new CustomEvent('auto-download-preference-changed', { detail: autoUpdate })
+    )
+    window.api.storeRead?.('hypertopia-config.json').then((existing) => {
+      window.api.storeWrite?.('hypertopia-config.json', {
+        ...(existing || {}),
+        extractPath
+      })
+    })
+    onComplete(extractPath)
   }
 
   const footer = (
@@ -243,6 +252,33 @@ export function SetupModal({ isOpen, onComplete }) {
               </button>
             ))}
           </div>
+        </div>
+        {/* Update preference */}
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-white/10 dark:bg-white/5">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={autoUpdate}
+              onChange={(event) => {
+                setAutoUpdate(event.target.checked)
+                setPreferenceError('')
+              }}
+              className="mt-0.5 h-4 w-4 accent-[#0081FB]"
+            />
+            <span>
+              <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                {t('update_auto_download_title')}
+              </span>
+              <span className="mt-1 block text-xs text-gray-600 dark:text-white/60">
+                {t('update_auto_download_description')}
+              </span>
+            </span>
+          </label>
+          {preferenceError && (
+            <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-300">
+              {preferenceError}
+            </p>
+          )}
         </div>
       </div>
     </Modal>

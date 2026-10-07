@@ -42,8 +42,13 @@ const api = {
     console.error('[getFilePath] Could not resolve file path')
     return null
   },
-  installGame: (filePath, type, deviceSerial) =>
-    ipcRenderer.invoke('install-game', { filePath, type, deviceSerial }),
+  installGame: (filePath, type, deviceSerial, selectedApkOptionId) =>
+    ipcRenderer.invoke('install-game', {
+      filePath,
+      type,
+      deviceSerial,
+      selectedApkOptionId
+    }),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getDeviceInfo: () => ipcRenderer.invoke('get-device-info'),
   getLatestRelease: () => ipcRenderer.invoke('get-latest-release'),
@@ -63,8 +68,13 @@ const api = {
   selectGameFolder: () => ipcRenderer.invoke('select-game-folder'),
   selectArchiveFile: () => ipcRenderer.invoke('select-archive-file'),
   scanFolder: (folderPath) => ipcRenderer.invoke('scan-folder', folderPath),
-  installGameFolder: (folderPath, type, deviceSerial) =>
-    ipcRenderer.invoke('install-game-folder', { folderPath, type, deviceSerial }),
+  installGameFolder: (folderPath, type, deviceSerial, selectedApkOptionId) =>
+    ipcRenderer.invoke('install-game-folder', {
+      folderPath,
+      type,
+      deviceSerial,
+      selectedApkOptionId
+    }),
   installHalfLife2Vr: (sourcePath, sourceType, deviceSerial) =>
     ipcRenderer.invoke('install-half-life-2-vr', { sourcePath, sourceType, deviceSerial }),
   onInstallProgress: (callback) => {
@@ -79,6 +89,7 @@ const api = {
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
   setAutoDownload: (enabled) => ipcRenderer.invoke('set-auto-download', enabled),
+  getAutoDownload: () => ipcRenderer.invoke('get-auto-download'),
   onUpdateAvailable: (callback) => {
     const subscription = (_event, info) => callback(info)
     ipcRenderer.on('update-available', subscription)
